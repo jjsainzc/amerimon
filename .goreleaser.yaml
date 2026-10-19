@@ -37,6 +37,10 @@ nfpms:
     license: Proprietary
     section: web
     priority: optional
+    # astdb.sh usa curl y audio_eagi.sh usa nc.
+    dependencies:
+      - curl
+      - netcat-openbsd | netcat-traditional | ncat
     contents:
       - src: packaging/amerimon.service
         dst: /lib/systemd/system/amerimon.service
