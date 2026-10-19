@@ -33,6 +33,16 @@ sudo amerimon-reset-password
 
 El comando borra únicamente la cuenta de administrador para que puedas definirla de nuevo desde **Admin**. No borra nodos Allmon, favoritos, registros ni el resto de la base de datos. Después, vuelve a abrir la web y define el usuario y la contraseña.
 
+## Diagnosticar Listen Live
+
+Para consultar canales o procesos EAGI residuales sin interrumpir escuchas:
+
+```bash
+sudo limpiar_canales_listen_live.sh --check
+```
+
+La opción `--clean` solicita hangup y termina procesos EAGI huérfanos, pero interrumpe todas las escuchas activas y pide confirmación escribiendo `LIMPIAR`.
+
 ## Servicio y actualización
 
 ```bash

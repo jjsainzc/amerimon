@@ -198,6 +198,22 @@ Para conexiones temporales, Amerimon consulta `XStat` hasta confirmar el enlace 
 
 Listen Live recibe audio solo del **nodo principal configurado para Asterisk**. No selecciona nodos remotos de Allmon. Su puerto EAGI `8086` permanece enlazado a loopback.
 
+### Diagnosticar y limpiar canales huérfanos
+
+El paquete instala `/usr/local/bin/limpiar_canales_listen_live.sh`. El modo predeterminado `--check` solo muestra canales `Local/...@listen-live-spy` y procesos `audio_eagi.sh`, `cat` y `nc` asociados al listener:
+
+```bash
+sudo limpiar_canales_listen_live.sh --check
+```
+
+Para solicitar hangup de los canales y terminar esos procesos EAGI:
+
+```bash
+sudo limpiar_canales_listen_live.sh --clean
+```
+
+La limpieza interrumpe todas las escuchas Listen Live activas y requiere escribir `LIMPIAR`. El script no mata el proceso Asterisk ni su grupo de procesos. Los procesos zombie no se pueden matar directamente; Asterisk debe recogerlos.
+
 ## 7. Base de datos, migración y respaldo
 
 En producción, la DB es `/var/lib/amerimon/amerimon.db`; en desarrollo con `make run`, es `/tmp/amerimon-dev.db`. Cambiar `AMERIMON_DB` selecciona otro archivo.

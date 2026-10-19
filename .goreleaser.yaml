@@ -68,6 +68,10 @@ nfpms:
         dst: /usr/local/bin/audio_eagi.sh
         file_info:
           mode: 0755
+      - src: scripts/limpiar_canales_listen_live.sh
+        dst: /usr/local/bin/limpiar_canales_listen_live.sh
+        file_info:
+          mode: 0755
       - src: packaging/apache-amerimon.conf.example
         dst: /usr/share/amerimon/apache-amerimon.conf.example
       - src: packaging/nginx-amerimon.conf.example
