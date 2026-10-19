@@ -1,0 +1,85 @@
+<div class="sys-overlay" (click)="cerrar.emit()">
+  <section class="sys-dialog" role="dialog" aria-modal="true" aria-labelledby="sys-titulo" (click)="$event.stopPropagation()" (keydown)="cerrarConEscape($event)" tabindex="-1">
+    <header class="sys-dialog-cabecera">
+      <div>
+        <h2 id="sys-titulo">Sistema del servidor</h2>
+        <p>Estado, recursos y hardware</p>
+      </div>
+      <div class="sys-dialog-acciones">
+        <button type="button" class="sys-actualizar" (click)="cargar()" [disabled]="cargando()">
+          {{ cargando() ? 'Actualizando…' : 'Actualizar' }}
+        </button>
+        <button type="button" class="sys-cerrar" aria-label="Cerrar" (click)="cerrar.emit()">×</button>
+      </div>
+    </header>
+
+    @if (error()) { <p class="sys-error" role="alert">{{ error() }}</p> }
+    @if (cargando() && !informacion()) { <p class="sys-cargando" role="status">Consultando información del servidor…</p> }
+
+    @if (informacion(); as info) {
+      <div class="sys-tarjetas">
+        <article class="sys-tarjeta sys-tarjeta-destacada">
+          <h3>Asterisk</h3>
+          <strong>{{ info.asterisk_version || 'No disponible' }}</strong>
+          <span>Versión del servidor de radio</span>
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Temperatura</h3>
+          @for (lectura of info.temperature; track lectura.zona) {
+            <div class="sys-lectura"><strong>{{ lectura.celsius | number:'1.1-1' }} °C</strong><span>{{ lectura.tipo || lectura.zona }}</span></div>
+          } @empty { <strong>No disponible</strong> }
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Voltaje</h3>
+          <strong>{{ info.voltage || 'No disponible' }}</strong>
+          <span>{{ info.os.os_arch || 'Arquitectura no detectada' }}</span>
+        </article>
+        <article class="sys-tarjeta">
+          <h3>CPU</h3>
+          <strong>{{ info.cpu.used || '—' }}</strong>
+          <span>{{ info.cpu.model || 'Modelo no disponible' }}</span>
+          <span>{{ info.cpu.cores }} núcleos · {{ info.cpu.logicals }} lógicos · {{ info.cpu.speed }}</span>
+          <span>Carga 1/5/15 min: {{ info.cpu.load1 | number:'1.2-2' }} / {{ info.cpu.load5 | number:'1.2-2' }} / {{ info.cpu.load15 | number:'1.2-2' }}</span>
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Memoria</h3>
+          <strong>{{ info.mem.used_percent || '—' }}</strong>
+          <div class="sys-barra"><span [style.width.%]="porcentaje(info.mem.used_percent)"></span></div>
+          <span>{{ info.mem.used }} de {{ info.mem.total }}</span>
+          <span>{{ info.mem.available }} disponibles</span>
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Sistema operativo</h3>
+          <strong>{{ info.os.hostname || 'Host desconocido' }}</strong>
+          <span>{{ info.os.distribution }} {{ info.os.version }}</span>
+          <span>{{ info.os.platform }} · {{ info.os.os_arch }}</span>
+          <span>Kernel {{ info.os.kernel }}</span>
+          <span>Activo {{ info.os.uptime }}</span>
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Almacenamiento</h3>
+          @for (disco of info.storage; track disco.mountpoint) {
+            <div class="sys-sublectura"><strong>{{ disco.mountpoint }} · {{ disco.used_percent }}</strong><span>{{ disco.free }} libres de {{ disco.total }}</span><span>{{ disco.fs_type }} · Swap {{ disco.swap }}</span></div>
+          } @empty { <span>Sin datos de almacenamiento.</span> }
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Red</h3>
+          @for (interfaz of info.network; track interfaz.device) {
+            <div class="sys-sublectura"><strong>{{ interfaz.device }} · {{ interfaz.status }}</strong><span>{{ interfaz.ip_address.join(', ') || 'Sin IP' }}</span><span>MAC {{ interfaz.mac_address || '—' }}</span></div>
+          } @empty { <span>Sin interfaces de red.</span> }
+        </article>
+        <article class="sys-tarjeta">
+          <h3>Tráfico de red</h3>
+          <div class="sys-lectura"><span>Recibido</span><strong>{{ info.traffic.bytes_recv | number }} B</strong></div>
+          <div class="sys-lectura"><span>Enviado</span><strong>{{ info.traffic.bytes_sent | number }} B</strong></div>
+        </article>
+        <article class="sys-tarjeta sys-tarjeta-procesos">
+          <h3>Procesos con mayor uso de CPU</h3>
+          @for (proceso of info.top_proc; track proceso.PID) {
+            <div class="sys-lectura"><span>{{ proceso.Nombre }} ({{ proceso.PID }})</span><strong>{{ proceso.CPUPercent | number:'1.0-2' }}%</strong></div>
+          } @empty { <span>Sin procesos activos destacados.</span> }
+        </article>
+      </div>
+    }
+  </section>
+</div>

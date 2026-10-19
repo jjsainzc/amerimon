@@ -1,0 +1,41 @@
+.sys-overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: rgb(5 12 16 / .72); }
+.sys-dialog { display: grid; gap: 1rem; width: min(100%, 980px); max-height: min(92vh, 820px); overflow: auto; padding: 1rem; border: 1px solid #405461; border-radius: 8px; background: #14232c; color: #dce5eb; box-shadow: 0 20px 60px rgb(0 0 0 / .42); }
+.sys-dialog-cabecera { position: sticky; top: -1rem; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: -1rem -1rem 0; padding: 1rem; border-bottom: 1px solid #344751; background: #14232c; }
+.sys-dialog-cabecera h2 { margin: 0; color: #f0f4f6; font-size: 1.1rem; }
+.sys-dialog-cabecera p { margin: .2rem 0 0; color: #a9bac5; font-size: .8rem; }
+.sys-dialog-acciones { display: flex; align-items: center; gap: .5rem; }
+.sys-actualizar, .sys-cerrar { min-height: 2.2rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #e5edf2; font: inherit; cursor: pointer; }
+.sys-actualizar { padding: .4rem .65rem; font-size: .8rem; }
+.sys-actualizar:disabled { cursor: wait; opacity: .6; }
+.sys-cerrar { width: 2.2rem; font-size: 1.35rem; line-height: 1; }
+.sys-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .65rem; align-items: start; }
+.sys-tarjeta { display: grid; min-width: 0; gap: .35rem; padding: .8rem; border: 1px solid #354a56; border-radius: 6px; background: #1b2a33; }
+.sys-tarjeta h3 { margin: 0 0 .2rem; color: #8ed9df; font-size: .82rem; font-weight: 700; }
+.sys-tarjeta strong { color: #f0f4f6; font-size: .95rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sys-tarjeta > span, .sys-lectura span, .sys-sublectura span { color: #a9bac5; font-size: .76rem; overflow-wrap: anywhere; }
+.sys-tarjeta-destacada { border-color: #1f7777; background: #193b3a; }
+.sys-tarjeta-destacada strong { color: #a1e2d8; font-size: 1.15rem; }
+.sys-lectura { display: flex; align-items: baseline; justify-content: space-between; gap: .65rem; }
+.sys-sublectura { display: grid; gap: .2rem; padding-block: .35rem; border-top: 1px solid #354a56; }
+.sys-sublectura:first-of-type { border-top: 0; }
+.sys-barra { height: .45rem; overflow: hidden; border-radius: 1rem; background: #354a56; }
+.sys-barra span { display: block; height: 100%; border-radius: inherit; background: #25a79a; }
+.sys-tarjeta-procesos { grid-column: span 2; }
+.sys-error { margin: 0; padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
+.sys-cargando { margin: 0; padding: 1rem; color: #a9bac5; text-align: center; }
+
+@media (max-width: 520px) {
+  .sys-overlay { align-items: end; padding: 0; }
+  .sys-dialog { width: 100%; max-height: 94dvh; padding: .75rem; border-radius: 9px 9px 0 0; }
+  .sys-dialog-cabecera { top: -.75rem; margin: -.75rem -.75rem 0; padding: .75rem; }
+  .sys-dialog-cabecera h2 { font-size: 1rem; }
+  .sys-actualizar { max-width: 6rem; font-size: .72rem; }
+  .sys-tarjetas { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .sys-tarjeta { padding: .65rem; }
+  .sys-tarjeta-procesos { grid-column: span 2; }
+}
+
+@media (max-width: 360px) {
+  .sys-tarjetas { grid-template-columns: 1fr; }
+  .sys-tarjeta-procesos { grid-column: auto; }
+}
