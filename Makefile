@@ -63,3 +63,5 @@ push-repo:
 run:
 	npm run build
 	$(DEVRUN)
+
+dist: newtags release copy-repo clean-repo push-repo
