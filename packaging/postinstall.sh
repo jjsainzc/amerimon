@@ -73,3 +73,99 @@ if [ -d /run/systemd/system ]; then
         /usr/lib/amerimon/configure-nginx.sh || echo "Aviso: no se pudo configurar Nginx; Amerimon sigue disponible en el puerto 8082." >&2
     fi
 fi
+
+# Listen Live needs AGI/ChanSpy modules and dialplan contexts. Keep backups and
+# preserve existing Asterisk configuration; no Asterisk restart is performed.
+AST_DIR=/etc/asterisk
+if [ -d "$AST_DIR" ]; then
+    MODULES_CONF="$AST_DIR/modules.conf"
+    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so"
+
+    if [ -f "$MODULES_CONF" ]; then
+        [ -e "$MODULES_CONF.bak-listen-live" ] || cp -a "$MODULES_CONF" "$MODULES_CONF.bak-listen-live"
+        for module in $MODULES; do
+            module_found=0
+            for module_file in /usr/lib/*/asterisk/modules/"$module" /usr/lib/asterisk/modules/"$module"; do
+                if [ -f "$module_file" ]; then
+                    module_found=1
+                    break
+                fi
+            done
+            if [ "$module_found" -eq 0 ]; then
+                echo "Aviso: módulo Asterisk no instalado: $module" >&2
+                continue
+            fi
+
+            if grep -qE "^[[:space:]]*load[[:space:]]*=>[[:space:]]*$module([[:space:]]|$)" "$MODULES_CONF"; then
+                :
+            elif grep -qE "^[[:space:]]*noload[[:space:]]*=>[[:space:]]*$module([[:space:]]|$)" "$MODULES_CONF"; then
+                sed -i -E "s/^[[:space:]]*noload([[:space:]]*=>[[:space:]]*)$module([[:space:]]*)$/load\\1$module\\2/" "$MODULES_CONF"
+            else
+                printf '\nload => %s\n' "$module" >> "$MODULES_CONF"
+            fi
+        done
+    else
+        echo "Aviso: no existe $MODULES_CONF; no se configuraron módulos para Listen Live." >&2
+    fi
+
+    EXTENSIONS_CONF="$AST_DIR/extensions.conf"
+    if [ -f "$EXTENSIONS_CONF" ]; then
+        [ -e "$EXTENSIONS_CONF.bak-listen-live" ] || cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-listen-live"
+
+        if ! grep -qE '^[[:space:]]*\[listen-live-spy\][[:space:]]*$' "$EXTENSIONS_CONF"; then
+            cat >> "$EXTENSIONS_CONF" <<'EOF'
+
+; --- Amerimon Listen Live: Local;1 espía y Local;2 entrega audio EAGI ---
+[listen-live-spy]
+exten => h,1,NoOp(Listen Live spy channel ended)
+ same => n,Hangup()
+exten => _.,1,NoOp(Espiando PJSIP/${EXTEN})
+ same => n,Answer()
+ same => n,ChanSpy(PJSIP/${EXTEN},q)
+ same => n,Hangup()
+exten => nodo,1,NoOp(Espiando nodo local ${NODE})
+ same => n,Answer()
+ same => n,ChanSpy(SimpleUSB/${NODE},q)
+ same => n,Hangup()
+EOF
+        fi
+
+        if ! awk '
+            /^\[listen-live-spy\][[:space:]]*$/ { in_context = 1; next }
+            /^\[/ { if (in_context) exit; in_context = 0 }
+            in_context && /^exten => nodo,/ { found = 1 }
+            END { exit !found }
+        ' "$EXTENSIONS_CONF"; then
+            sed -i '/^[[:space:]]*\[listen-live-spy\][[:space:]]*$/a exten => nodo,1,NoOp(Espiando nodo local ${NODE})\n same => n,Answer()\n same => n,ChanSpy(SimpleUSB/${NODE},q)\n same => n,Hangup()' "$EXTENSIONS_CONF"
+        fi
+
+        if ! grep -qE '^[[:space:]]*\[listen-live-eagi\][[:space:]]*$' "$EXTENSIONS_CONF"; then
+            cat >> "$EXTENSIONS_CONF" <<EOF
+
+[listen-live-eagi]
+exten => h,1,NoOp(Listen Live EAGI channel ended)
+ same => n,Hangup()
+exten => _.,1,NoOp(EAGI listen-live UUID \${EXTEN})
+ same => n,Answer()
+ same => n,EAGI(/usr/local/bin/audio_eagi.sh,\${EXTEN},${LISTENLIVE_PORT:-8086})
+ same => n,Hangup()
+EOF
+        elif ! awk '
+            /^\[listen-live-eagi\][[:space:]]*$/ { in_context = 1; next }
+            /^\[/ { if (in_context) exit; in_context = 0 }
+            in_context && /EAGI\(/ { found = 1 }
+            END { exit !found }
+        ' "$EXTENSIONS_CONF"; then
+            echo "Aviso: existe [listen-live-eagi] pero no contiene EAGI(); no se sobrescribió." >&2
+        fi
+
+        if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev/null 2>&1; then
+            for module in $MODULES; do
+                asterisk -rx "module load $module" >/dev/null 2>&1 || true
+            done
+            asterisk -rx 'dialplan reload' >/dev/null 2>&1 || echo "Aviso: no se pudo recargar el dialplan; los cambios se aplicarán al reiniciar Asterisk." >&2
+        fi
+    else
+        echo "Aviso: no existe $EXTENSIONS_CONF; no se configuró el dialplan de Listen Live." >&2
+    fi
+fi

@@ -4,9 +4,9 @@
 
 Amerimon es una aplicación web para consultar AllStarLink, administrar nodos Allmon, escuchar audio en vivo y ejecutar operaciones autorizadas en Asterisk. El frontend Angular se compila y se incrusta en un único servicio Go.
 
-Este manual describe el árbol de código actual. La versión Debian publicada de referencia es `1.0.2`. Los clientes instalan y actualizan Amerimon con APT; no necesitan compilar el código ni ejecutar tareas de publicación.
+Este manual describe el árbol de código actual. La versión Debian publicada de referencia es `1.0.4`. Los clientes instalan y actualizan Amerimon con APT; no necesitan compilar el código ni ejecutar tareas de publicación.
 
-Amerimon consulta Asterisk mediante AMI. No reemplaza ni reconfigura Asterisk, IAX, PJSIP o AllStarLink.
+Amerimon consulta Asterisk mediante AMI. No reemplaza ni reconfigura IAX, PJSIP o AllStarLink; su postinstalador prepara únicamente los módulos y contextos necesarios para Listen Live.
 
 ## 2. Componentes y puertos
 
@@ -145,6 +145,10 @@ ami:
 En la instalación Debian, `postinstall.sh` intenta leer el primer usuario AMI que no sea `[general]` en `/etc/asterisk/manager.conf`. Solo agrega `AMI_USER` y `AMI_SECRET` si todavía no están definidos en `amerimon.env`. Si no puede leerlos, Amerimon sigue instalado, pero las consultas y acciones AMI no funcionarán hasta completar esas variables.
 
 Amerimon no modifica `manager.conf` ni crea usuarios Asterisk. El usuario AMI existente debe tener los permisos necesarios para las acciones que se usan, incluida la ejecución de comandos y `Originate` para Listen Live.
+
+Si existe `/etc/asterisk`, el postinstalador guarda una sola copia previa de `modules.conf` (`modules.conf.bak-listen-live`) y habilita los módulos presentes `res_speech.so`, `res_agi.so`, `app_chanspy.so` y `app_mixmonitor.so`. Convierte una directiva `noload` de esos módulos en `load` o agrega `load => ...` al final. Si existe `extensions.conf`, guarda `extensions.conf.bak-listen-live` y agrega los contextos `[listen-live-spy]` y `[listen-live-eagi]` solo cuando faltan; no reemplaza contextos completos que ya existan.
+
+Si Asterisk ya está activo, el hook intenta cargar esos módulos y ejecutar `dialplan reload`; no reinicia el servicio Asterisk. Si un módulo no existe en esa distribución, registra un aviso y continúa la instalación de Amerimon. Las copias `.bak-listen-live` permiten revisar o restaurar manualmente el estado previo.
 
 ### Selección y sintaxis de nodos Allmon
 
