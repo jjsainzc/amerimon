@@ -1,0 +1,1 @@
+ALTER TABLE admin ADD COLUMN username TEXT NOT NULL DEFAULT 'admin';

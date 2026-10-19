@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS favoritos (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero      TEXT NOT NULL UNIQUE,
+    descripcion TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

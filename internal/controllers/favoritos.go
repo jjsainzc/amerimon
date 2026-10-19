@@ -1,0 +1,155 @@
+package controllers
+
+import (
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"amerimon/internal/config"
+
+	"github.com/labstack/echo/v4"
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
+)
+
+// Mismo formato que acepta el campo "nodo remoto" de la conexión.
+var reFavoritoNumero = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,31}$`)
+
+type favorito struct {
+	ID            int64  `json:"id"`
+	Numero        string `json:"numero"`
+	Descripcion   string `json:"descripcion"`
+	DescripcionDB string `json:"descripcion_astdb,omitempty"`
+}
+
+// astdbTexto arma "indicativo descripción ubicación", igual que la información del monitor.
+func astdbTexto(e AstDBEntry) string {
+	parts := make([]string, 0, 3)
+	for _, p := range []string{e.Callsign, e.Descripcion, e.Ubicacion} {
+		if p = strings.TrimSpace(p); p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func astdbEntries() map[string]AstDBEntry {
+	path := strings.TrimSpace(config.App.Sources.AstDBPath)
+	if path == "" {
+		return nil
+	}
+	entries, err := readAstDBEntries(path)
+	if err != nil {
+		return nil
+	}
+	return entries
+}
+
+func leerFavorito(c echo.Context) (favorito, error) {
+	var f favorito
+	if err := c.Bind(&f); err != nil {
+		return f, apiError(http.StatusBadRequest, "Solicitud inválida")
+	}
+	f.Numero, f.Descripcion = strings.TrimSpace(f.Numero), strings.TrimSpace(f.Descripcion)
+	if !reFavoritoNumero.MatchString(f.Numero) {
+		return f, apiError(http.StatusBadRequest, "El número del nodo no es válido")
+	}
+	if len(f.Descripcion) > 120 {
+		return f, apiError(http.StatusBadRequest, "La descripción admite hasta 120 caracteres")
+	}
+	return f, nil
+}
+
+func errFavorito(err error) error {
+	if se, ok := err.(*sqlite.Error); ok && se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
+		return apiError(http.StatusConflict, "Ese número ya está en favoritos")
+	}
+	return apiError(http.StatusInternalServerError, "Error de base de datos")
+}
+
+// ListFavoritos devuelve los nodos favoritos ordenados por descripción.
+func ListFavoritos(c echo.Context) error {
+	rows, err := config.App.DB.QueryContext(c.Request().Context(),
+		`SELECT id, numero, descripcion FROM favoritos ORDER BY descripcion COLLATE NOCASE, numero`)
+	if err != nil {
+		return errFavorito(err)
+	}
+	defer rows.Close()
+	entries := astdbEntries()
+	items := []favorito{}
+	for rows.Next() {
+		var f favorito
+		if err := rows.Scan(&f.ID, &f.Numero, &f.Descripcion); err != nil {
+			return errFavorito(err)
+		}
+		if e, ok := entries[f.Numero]; ok {
+			f.DescripcionDB = astdbTexto(e)
+		}
+		items = append(items, f)
+	}
+	return c.JSON(http.StatusOK, items)
+}
+
+// AstdbFavorito devuelve la descripción del nodo en astdb.txt, para sugerirla al crear un favorito.
+func AstdbFavorito(c echo.Context) error {
+	numero := strings.TrimSpace(c.Param("numero"))
+	if !reFavoritoNumero.MatchString(numero) {
+		return apiError(http.StatusBadRequest, "El número del nodo no es válido")
+	}
+	desc := ""
+	if e, ok := astdbEntries()[numero]; ok {
+		desc = astdbTexto(e)
+	}
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "descripcion": desc})
+}
+
+func CreateFavorito(c echo.Context) error {
+	f, err := leerFavorito(c)
+	if err != nil {
+		return err
+	}
+	res, err := config.App.DB.ExecContext(c.Request().Context(),
+		`INSERT INTO favoritos (numero, descripcion) VALUES (?, ?)`, f.Numero, f.Descripcion)
+	if err != nil {
+		return errFavorito(err)
+	}
+	f.ID, _ = res.LastInsertId()
+	return c.JSON(http.StatusCreated, f)
+}
+
+func UpdateFavorito(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return apiError(http.StatusBadRequest, "Id inválido")
+	}
+	f, err := leerFavorito(c)
+	if err != nil {
+		return err
+	}
+	res, err := config.App.DB.ExecContext(c.Request().Context(),
+		`UPDATE favoritos SET numero = ?, descripcion = ? WHERE id = ?`, f.Numero, f.Descripcion, id)
+	if err != nil {
+		return errFavorito(err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return apiError(http.StatusNotFound, "Favorito no encontrado")
+	}
+	f.ID = id
+	return c.JSON(http.StatusOK, f)
+}
+
+func DeleteFavorito(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return apiError(http.StatusBadRequest, "Id inválido")
+	}
+	res, err := config.App.DB.ExecContext(c.Request().Context(), `DELETE FROM favoritos WHERE id = ?`, id)
+	if err != nil {
+		return errFavorito(err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return apiError(http.StatusNotFound, "Favorito no encontrado")
+	}
+	return c.NoContent(http.StatusNoContent)
+}

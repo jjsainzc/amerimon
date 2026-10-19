@@ -1,0 +1,9 @@
+@if (ip(); as ipActual) {
+  <button type="button" class="geoip-link"
+          [attr.aria-label]="'Geolocalizar IP ' + ipActual"
+          [attr.title]="title()"
+          (click)="abierto.set(true)">
+    {{ label() || ipActual }}
+  </button>
+  <app-geoip-dialog [ip]="abierto() ? ipActual : null" (closed)="cerrar()" />
+}

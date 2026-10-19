@@ -1,0 +1,18 @@
+:host { display: inline; }
+
+.geoip-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #8dcfff;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.geoip-link:hover { color: #b2e2ff; }
+.geoip-link:focus-visible { outline: 2px solid #8dcfff; outline-offset: 2px; }

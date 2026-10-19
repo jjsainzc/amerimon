@@ -1,0 +1,19 @@
+@if (ip(); as ipActual) {
+  <div class="geoip-overlay" (click)="cerrar()">
+    <section class="geoip-dialogo" role="dialog" aria-modal="true" aria-labelledby="geoip-titulo" (click)="$event.stopPropagation()">
+      <button type="button" class="geoip-cerrar" aria-label="Cerrar geolocalización" (click)="cerrar()">&times;</button>
+      <p class="geoip-eyebrow">GEOLOCALIZACIÓN IP</p>
+      <h2 id="geoip-titulo">{{ ipActual }}</h2>
+      @if (cargando()) { <p role="status">Consultando ubicación…</p> }
+      @if (error()) { <p class="geoip-error" role="alert">{{ error() }}</p> }
+      @if (datos(); as geo) {
+        <dl class="geoip-datos">
+          <dt>País</dt><dd>{{ geo.country || '—' }} <span>{{ geo.country_code }}</span></dd>
+          <dt>Ciudad</dt><dd>{{ geo.city || '—' }}</dd>
+          <dt>Coordenadas</dt><dd>{{ geo.latitude }}, {{ geo.longitude }}</dd>
+          <dt>Zona horaria</dt><dd>{{ geo.time_zone || '—' }}</dd>
+        </dl>
+      }
+    </section>
+  </div>
+}

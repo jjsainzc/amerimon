@@ -1,0 +1,84 @@
+version: 2
+
+project_name: amerimon
+
+before:
+  hooks:
+    - go mod tidy
+    - npm ci
+    - npm run build
+
+builds:
+  - id: amerimon
+    main: ./cmd/amerimon
+    binary: amerimon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - formats: [tar.gz]
+
+nfpms:
+  - id: amerimon-deb
+    package_name: amerimon
+    formats:
+      - deb
+    maintainer: "Amerimon <admin@example.com>"
+    description: Amerimon web application with embedded Angular frontend and SQLite storage.
+    license: Proprietary
+    section: web
+    priority: optional
+    contents:
+      - src: packaging/amerimon.service
+        dst: /lib/systemd/system/amerimon.service
+      - src: packaging/amerimon.env
+        dst: /etc/amerimon/amerimon.env
+        type: config|noreplace
+        file_info:
+          mode: 0600
+      - src: packaging/amerimon.yaml
+        dst: /etc/amerimon/amerimon.yaml
+        type: config|noreplace
+      - dst: /var/lib/amerimon
+        type: dir
+        file_info:
+          mode: 0750
+      - src: packaging/astdb.sh
+        dst: /usr/local/bin/astdb.sh
+        file_info:
+          mode: 0755
+      - src: packaging/amerimon-astdb.service
+        dst: /lib/systemd/system/amerimon-astdb.service
+      - src: packaging/amerimon-astdb.timer
+        dst: /lib/systemd/system/amerimon-astdb.timer
+      - src: packaging/audio_eagi.sh
+        dst: /usr/local/bin/audio_eagi.sh
+        file_info:
+          mode: 0755
+      - src: packaging/apache-amerimon.conf.example
+        dst: /usr/share/amerimon/apache-amerimon.conf.example
+      - src: packaging/nginx-amerimon.conf.example
+        dst: /usr/share/amerimon/nginx-amerimon.conf.example
+      - src: packaging/amerimon-reset-password.sh
+        dst: /usr/sbin/amerimon-reset-password
+        file_info:
+          mode: 0750
+    scripts:
+      postinstall: packaging/postinstall.sh
+      preremove: packaging/preremove.sh
+      postremove: packaging/postremove.sh
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc

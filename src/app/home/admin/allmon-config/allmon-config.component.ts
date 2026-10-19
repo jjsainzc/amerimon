@@ -1,0 +1,75 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { AllmonConfigService, AllmonNodoEntrada } from '../../../core/services/allmon-config.service';
+import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
+import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
+
+interface Fila extends AllmonNodoEntrada {
+  passwdSet: boolean;
+}
+
+@Component({
+  selector: 'app-allmon-config',
+  standalone: true,
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent],
+  templateUrl: './allmon-config.component.html',
+  styleUrl: './allmon-config.component.css'
+})
+export class AllmonConfigComponent implements OnInit {
+  private readonly service = inject(AllmonConfigService);
+
+  readonly filas = signal<Fila[]>([]);
+  readonly ruta = signal('');
+  readonly escribible = signal(true);
+  readonly cargando = signal(false);
+  readonly guardando = signal(false);
+  readonly error = signal('');
+  readonly aviso = signal('');
+
+  ngOnInit(): void {
+    this.cargar();
+  }
+
+  cargar(): void {
+    this.cargando.set(true);
+    this.error.set('');
+    this.service.obtener().subscribe({
+      next: r => {
+        this.cargando.set(false);
+        this.ruta.set(r.path);
+        this.escribible.set(r.writable);
+        this.filas.set(r.nodes.map(n => ({ node: n.node, host: n.host, port: n.port, user: n.user, passwd: n.passwd ?? '', passwdSet: n.passwd_set })));
+      },
+      error: (e: HttpErrorResponse) => {
+        this.cargando.set(false);
+        this.error.set(e.error?.message ?? 'No se pudo cargar la configuración.');
+      }
+    });
+  }
+
+  agregar(): void {
+    this.filas.update(f => [...f, { node: '', host: '127.0.0.1', port: '5038', user: '', passwd: '', passwdSet: false }]);
+  }
+
+  quitar(i: number): void {
+    this.filas.update(f => f.filter((_, idx) => idx !== i));
+  }
+
+  guardar(): void {
+    this.error.set('');
+    this.aviso.set('');
+    this.guardando.set(true);
+    this.service.guardar(this.filas().map(({ passwdSet, ...n }) => n)).subscribe({
+      next: r => {
+        this.guardando.set(false);
+        this.aviso.set('Guardado.');
+        this.cargar();
+      },
+      error: (e: HttpErrorResponse) => {
+        this.guardando.set(false);
+        this.error.set(e.error?.message ?? 'No se pudo guardar.');
+      }
+    });
+  }
+}

@@ -1,0 +1,8 @@
+[Unit]
+Description=Actualiza astdb.txt (base de nodos AllStarLink) para amerimon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/astdb.sh

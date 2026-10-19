@@ -1,0 +1,20 @@
+sources:
+  astdb_path: /var/lib/asterisk/astdb.txt
+  astdb_url: https://allmondb.allstarlink.org/allmondb.php
+  privatenodes_path: /var/www/html/supermon/privatenodes.txt
+  # allmon.ini: se busca en /etc/allmon3 y /var/www/html/supermon; si no está, se usa el propio
+  # (editable por el admin desde la web). allmon_ini_path fuerza una ruta concreta.
+  allmon_ini_own_path: /etc/amerimon/allmon.ini
+
+# AMI de Asterisk (manager.conf), usado por listen-live. Usuario con permiso "originate".
+# AMI_USER y AMI_SECRET los toma el servicio de /etc/amerimon/amerimon.env.
+ami:
+  # Puerto TCP interno (127.0.0.1) donde el script EAGI entrega el audio.
+  listen_port: 8086
+  rpt_config_path: /etc/asterisk/rpt.conf
+  pjsip_config_path: /etc/asterisk/pjsip.conf
+  activity_poll_interval: 5s
+  host: 127.0.0.1
+  port: "5038"
+  user: ${AMI_USER}
+  secret: ${AMI_SECRET}

@@ -1,0 +1,146 @@
+:host { display: block; }
+
+.barra {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1rem;
+  padding: .6rem 1rem;
+  background: transparent;
+}
+
+.marca { font-weight: 700; letter-spacing: .06em; color: #9bdcff; }
+
+/* En escritorio el contenedor del menú no afecta al layout. */
+.menu { display: contents; }
+.hamburguesa { display: none; }
+
+@media (max-width: 720px) {
+  .hamburguesa {
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    margin-left: auto;
+    padding: 0;
+    border: 1px solid #3a4f5e;
+    border-radius: 5px;
+    background: #263641;
+    cursor: pointer;
+  }
+  .hamburguesa span,
+  .hamburguesa span::before,
+  .hamburguesa span::after {
+    display: block;
+    width: 1.2rem;
+    height: 2px;
+    border-radius: 1px;
+    background: #dce5eb;
+    transition: transform .15s, opacity .15s;
+  }
+  .hamburguesa span { position: relative; }
+  .hamburguesa span::before,
+  .hamburguesa span::after { content: ""; position: absolute; left: 0; }
+  .hamburguesa span::before { top: -6px; }
+  .hamburguesa span::after { top: 6px; }
+  .hamburguesa[aria-expanded="true"] span { background: transparent; }
+  .hamburguesa[aria-expanded="true"] span::before { top: 0; transform: rotate(45deg); }
+  .hamburguesa[aria-expanded="true"] span::after { top: 0; transform: rotate(-45deg); }
+
+  .menu {
+    display: none;
+    flex: 0 0 100%;
+    flex-direction: column;
+    gap: .5rem;
+    padding: .6rem;
+    border: 1px solid #2d3f4c;
+    border-radius: 8px;
+    background: #111a22;
+  }
+  .menu.abierto { display: flex; }
+  .menu .enlaces, .menu .sesion { flex-direction: column; align-items: stretch; flex: none; }
+  .menu .enlaces a, .menu .sesion .boton-enlace, .menu .sesion button { text-align: left; }
+}
+
+.enlaces { display: flex; flex-wrap: wrap; gap: .5rem; flex: 1; }
+.enlaces a {
+  padding: .35rem .7rem;
+  border-radius: 5px;
+  color: #dce5eb;
+  text-decoration: none;
+}
+.enlaces a.activo { background: #263641; color: #9bdcff; }
+
+.sesion { display: flex; flex-wrap: wrap; gap: .5rem; }
+.sesion .boton-enlace {
+  padding: .4rem .75rem;
+  border: 1px solid #3a4f5e;
+  border-radius: 5px;
+  background: #263641;
+  color: #dce5eb;
+  text-decoration: none;
+}
+.sesion .boton-enlace.activo { color: #9bdcff; }
+.sesion button, .acciones button {
+  padding: .4rem .75rem;
+  border: 1px solid #3a4f5e;
+  border-radius: 5px;
+  background: #263641;
+  color: #dce5eb;
+  font: inherit;
+  cursor: pointer;
+}
+
+
+.fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / .6);
+}
+
+.dialogo {
+  position: relative;
+  display: grid;
+  gap: .75rem;
+  width: min(92vw, 22rem);
+  padding: 1.25rem;
+  border: 1px solid #2d3f4c;
+  border-radius: 8px;
+  background: #1a2630;
+  color: #dce5eb;
+}
+.dialogo h2 { margin: 0; padding-right: 2rem; font-size: 1.1rem; }
+.dialogo .cerrar {
+  position: absolute;
+  top: .5rem;
+  right: .5rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #dce5eb;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.dialogo .cerrar:hover { background: #263641; }
+.dialogo label { display: grid; gap: .25rem; font-size: .85rem; }
+.dialogo input {
+  padding: .45rem .6rem;
+  border: 1px solid #3a4f5e;
+  border-radius: 5px;
+  background: #111a22;
+  color: inherit;
+  font: inherit;
+}
+.acciones { display: flex; justify-content: flex-end; gap: .5rem; }
+.error { margin: 0; color: #ff8a80; }
+.ok { margin: 0; color: #81c784; }

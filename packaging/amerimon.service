@@ -1,0 +1,17 @@
+[Unit]
+Description=Amerimon
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/amerimon/amerimon.env
+LoadCredential=jwt_secret:/etc/amerimon/jwt.secret
+ExecStart=/usr/bin/amerimon
+Restart=on-failure
+RestartSec=5
+StateDirectory=amerimon
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+<p
+  class="loading-indicator"
+  [class.centered]="layout() === 'centered'"
+  [class.inline]="layout() === 'inline'"
+  [class.compact]="layout() === 'compact'"
+  role="status"
+  aria-live="polite">
+  {{ message() }}
+</p>

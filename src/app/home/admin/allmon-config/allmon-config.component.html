@@ -1,0 +1,46 @@
+<section class="allmon">
+  <app-admin-volver />
+  <h3>Nodos de allmon.ini</h3>
+  <p class="allmon-ayuda">
+    Archivo: <code>{{ ruta() }}</code>. Solo se modifican las stanzas de los nodos; el resto del archivo se conserva.
+    Se busca en <code>/etc/allmon3</code> y <code>/var/www/html/supermon</code>; si no existe, se crea el propio en <code>/etc/amerimon</code>.
+  </p>
+  @if (!escribible()) {
+    <p class="allmon-alerta">El servicio no tiene permiso para escribir ese archivo; no se podrán guardar cambios.</p>
+  }
+
+  @if (cargando()) { <p role="status">Cargando…</p> }
+
+  <form (ngSubmit)="guardar()">
+    <div class="allmon-tabla-scroll">
+      <table class="allmon-tabla">
+        <thead>
+          <tr><th>Nodo</th><th>Host</th><th>Puerto</th><th>Usuario AMI</th><th>Contraseña</th><th></th></tr>
+        </thead>
+        <tbody>
+          @for (f of filas(); track $index; let i = $index) {
+            <tr>
+              <td data-label="Nodo"><input name="node{{ i }}" [(ngModel)]="f.node" inputmode="numeric" maxlength="7" required /></td>
+              <td data-label="Host"><input name="host{{ i }}" [(ngModel)]="f.host" required /></td>
+              <td data-label="Puerto"><input name="port{{ i }}" [(ngModel)]="f.port" inputmode="numeric" maxlength="5" /></td>
+              <td data-label="Usuario AMI"><input name="user{{ i }}" [(ngModel)]="f.user" autocomplete="off" required /></td>
+              <td data-label="Contraseña"><app-password-field name="passwd{{ i }}" [(ngModel)]="f.passwd" autocomplete="new-password"
+                         [placeholder]="f.passwdSet ? 'sin cambios' : ''" /></td>
+              <td class="allmon-celda-quitar"><button type="button" class="allmon-quitar" aria-label="Quitar nodo" (click)="quitar(i)">&times;</button></td>
+            </tr>
+          } @empty {
+            <tr class="allmon-vacio"><td colspan="6">No hay nodos definidos.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (error()) { <p class="allmon-error" role="alert">{{ error() }}</p> }
+    @if (aviso()) { <p class="allmon-ok" role="status">{{ aviso() }}</p> }
+
+    <div class="allmon-acciones">
+      <button type="button" (click)="agregar()">Agregar nodo</button>
+      <button type="submit" [disabled]="guardando() || !escribible()">Guardar</button>
+    </div>
+  </form>
+</section>

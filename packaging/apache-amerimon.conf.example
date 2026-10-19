@@ -1,0 +1,19 @@
+# Ejemplo para Apache: la app cuelga de https://<host>/amerimon/ y no toca el resto del sitio.
+# Copiar dentro del <VirtualHost *:443>. Requiere:
+#   a2enmod proxy proxy_http proxy_wstunnel headers && systemctl reload apache2
+# Con proxy, conviene AMERIMON_ADDR=127.0.0.1:8082 en /etc/amerimon/amerimon.env.
+
+RedirectMatch ^/amerimon$ /amerimon/
+
+ProxyPreserveHost On
+RequestHeader set X-Forwarded-Proto "https"
+# Hace que la app use /amerimon/ como base (rutas, API y websocket).
+RequestHeader set X-Forwarded-Prefix "/amerimon"
+
+# El websocket va primero: Apache usa la primera regla que coincide.
+ProxyPass        /amerimon/mon/listen-live/ws ws://127.0.0.1:8082/mon/listen-live/ws
+ProxyPassReverse /amerimon/mon/listen-live/ws ws://127.0.0.1:8082/mon/listen-live/ws
+
+# Frontend y API (/amerimon/mon) salen del mismo binario; Apache quita el prefijo /amerimon.
+ProxyPass        /amerimon/ http://127.0.0.1:8082/
+ProxyPassReverse /amerimon/ http://127.0.0.1:8082/

@@ -1,0 +1,71 @@
+<main class="fav-admin">
+  <app-admin-volver />
+
+  <header class="fa-cabecera">
+    <div>
+      <h1>Favoritos</h1>
+      <p>Nodos que se ofrecen al conectar desde el monitor de AllStarLink.</p>
+    </div>
+    <button type="button" class="fa-btn fa-primario" (click)="abrirNuevo()">＋ Nuevo favorito</button>
+  </header>
+
+  @if (error() && !formularioAbierto()) { <p class="fa-mensaje fa-error" role="alert">{{ error() }}</p> }
+  @if (exito()) { <p class="fa-mensaje fa-exito" role="status">{{ exito() }}</p> }
+  @if (cargando()) { <app-loading-indicator message="Cargando favoritos…" layout="inline" /> }
+
+  @if (!cargando() && favoritos().length) {
+    <div class="fa-lista">
+      @for (f of favoritos(); track f.id) {
+        <article class="fa-item">
+          <div class="fa-detalle">
+            <h2>{{ f.numero }}</h2>
+            <span>{{ f.descripcion || f.descripcion_astdb || 'Sin descripción' }}</span>
+          </div>
+          <div class="fa-acciones">
+            <button type="button" class="fa-btn" (click)="abrirEditar(f)">Editar</button>
+            <button type="button" class="fa-btn fa-icono" title="Eliminar favorito" aria-label="Eliminar favorito" (click)="solicitarBorrado(f)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+          </div>
+        </article>
+      }
+    </div>
+  } @else if (!cargando() && !error()) {
+    <p class="fa-estado">No hay favoritos. Crea el primero para usarlo al conectar.</p>
+  }
+</main>
+
+@if (formularioAbierto()) {
+  <div class="fa-overlay">
+    <section class="fa-dialogo" role="dialog" aria-modal="true" aria-labelledby="fa-form-titulo">
+      <button type="button" class="fa-cerrar" aria-label="Cerrar" (click)="cerrarFormulario()">&times;</button>
+      <h2 id="fa-form-titulo">{{ editandoId() === null ? 'Nuevo favorito' : 'Editar favorito' }}</h2>
+
+      @if (error()) { <p class="fa-mensaje fa-error" role="alert">{{ error() }}</p> }
+
+      <form [formGroup]="form" (ngSubmit)="guardar()" novalidate>
+        <label class="fa-campo">
+          <span>Número del nodo *</span>
+          <input type="text" formControlName="numero" maxlength="32" autocomplete="off" placeholder="448511" />
+          @if (form.controls.numero.touched && form.controls.numero.invalid) { <small>Usa letras, números, punto, guion o barra (hasta 32).</small> }
+        </label>
+        <label class="fa-campo">
+          <span>Descripción</span>
+          <input type="text" formControlName="descripcion" maxlength="120" [placeholder]="sugerida() || 'HI3ACS La Vega, RD'" />
+          @if (sugerida() && !form.controls.descripcion.value) { <small class="fa-sugerida">Si lo dejas vacío se usará la de astdb: {{ sugerida() }}</small> }
+        </label>
+        <div class="fa-form-acciones">
+          <button type="button" class="fa-btn" (click)="cerrarFormulario()" [disabled]="guardando()">Cancelar</button>
+          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : 'Guardar' }}</button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+<app-confirmacion-dialog
+  [open]="pendienteBorrar() !== null"
+  title="Eliminar favorito"
+  [message]="pendienteBorrar() ? '¿Eliminar «' + pendienteBorrar()!.numero + '»? Esta acción no se puede deshacer.' : ''"
+  confirmLabel="Eliminar"
+  [showDeleteIcon]="true"
+  (confirmed)="confirmarBorrado()"
+  (cancelled)="cancelarBorrado()" />

@@ -1,0 +1,7 @@
+{
+  "/mon": {
+    "target": "http://localhost:8082",
+    "ws": true,
+    "secure": false
+  }
+}

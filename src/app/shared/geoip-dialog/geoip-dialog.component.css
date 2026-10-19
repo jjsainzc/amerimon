@@ -1,0 +1,15 @@
+:host { display: contents; }
+
+.geoip-overlay { position: fixed; inset: 0; z-index: 7000; display: grid; place-items: center; padding: 1rem; background: rgba(8, 24, 36, .62); }
+.geoip-dialogo { position: relative; box-sizing: border-box; width: min(100%, 440px); padding: 1.5rem; border-radius: 8px; background: #1d2a34; color: #dce5eb; box-shadow: 0 18px 54px rgba(0, 0, 0, .28); }
+.geoip-dialogo h2 { margin: 0; padding-right: 2rem; color: #e5edf2; font-size: 1.15rem; overflow-wrap: anywhere; }
+.geoip-cerrar { position: absolute; top: .7rem; right: .7rem; width: 2rem; height: 2rem; border: 0; border-radius: 50%; background: #263641; color: #dce5eb; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.geoip-eyebrow { margin: 0 0 .25rem; color: #a24720; font-size: .72rem; font-weight: 800; letter-spacing: .08em; }
+.geoip-error { padding: .6rem .8rem; border: 1px solid #f5c6c3; border-radius: 6px; background: #fdecea; color: #c0392b; }
+.geoip-datos { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: .25rem .65rem; margin: 1rem 0 0; font-size: .88rem; }
+.geoip-datos dt, .geoip-datos dd span { color: #a9bac5; font-weight: 650; }
+.geoip-datos dd { min-width: 0; margin: 0; color: #dce5eb; overflow-wrap: anywhere; }
+
+@media print {
+  :host { display: none !important; }
+}

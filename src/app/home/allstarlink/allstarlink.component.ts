@@ -1,0 +1,702 @@
+import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { timeout } from 'rxjs';
+import {
+  AllstarlinkActivity,
+  AllstarlinkGrupo,
+  AllstarlinkNode,
+  AllstarlinkTabla,
+  SupermonCommand,
+  SupermonCommandResult
+} from '../../core/models/allstarlink.model';
+import { AllstarlinkService } from '../../core/services/allstarlink.service';
+import { AuthService } from '../../core/services/auth.service';
+import { environment } from '../../core/environment';
+import { indicativoQrz } from '../../core/validators/callsign.validator';
+import { FavoritosPopupComponent } from '../../shared/favoritos-popup/favoritos-popup.component';
+import { ScrollTopComponent } from '../../shared/scroll-top/scroll-top.component';
+
+type CampoOrden = 'protocolo' | 'nodo' | 'callsign' | 'informacion' | 'ubicacion' | 'enlace' | 'direccion' | 'actividad' | 'conectado' | 'modo';
+
+@Component({
+  selector: 'app-allstarlink',
+  standalone: true,
+  imports: [CommonModule, ScrollTopComponent, FavoritosPopupComponent],
+  templateUrl: './allstarlink.component.html',
+  styleUrl: './allstarlink.component.css'
+})
+export class AllstarlinkComponent implements OnInit, OnDestroy {
+  private readonly service = inject(AllstarlinkService);
+  private readonly auth = inject(AuthService);
+  private readonly sanitizer = inject(DomSanitizer);
+
+  readonly nodos = signal<AllstarlinkNode[]>([]);
+  readonly actividades = signal<AllstarlinkActivity[]>([]);
+  readonly conexionesPendientes = signal<AllstarlinkNode[]>([]);
+  readonly filtroBusqueda = signal('');
+  readonly campoOrden = signal<CampoOrden>('actividad');
+  readonly direccionOrden = signal<'asc' | 'desc'>('desc');
+  readonly nodoPrincipal = computed(() =>
+    this.grupos().length === 1 ? this.grupos()[0].nodoLocal : '616262'
+  );
+  readonly lsnodesUrl = computed<SafeResourceUrl>(() => this.sanitizer.bypassSecurityTrustResourceUrl(
+    `${environment.apiUrl}/sm_lsnodes?format=html&node=${encodeURIComponent(this.nodoPrincipal())}`
+  ));
+  readonly lsnodesAbierto = signal(false);
+  readonly tablasLocales = signal<AllstarlinkTabla[]>([]);
+  readonly cargando = signal(false);
+  readonly consultado = signal(false);
+  readonly error = signal('');
+  readonly intervaloMs = signal(15_000);
+  readonly esAdmin = this.auth.esAdmin;
+  readonly panelAdminAbierto = signal(false);
+  readonly comandos = signal<SupermonCommand[]>([]);
+  readonly cargandoComandos = signal(false);
+  readonly errorComandos = signal('');
+  readonly nodoLocal = signal('');
+  readonly nodoRemoto = signal('');
+  readonly nodoRemotoConexion = signal('');
+  readonly favoritosAbierto = signal(false);
+
+  elegirFavorito(numero: string): void {
+    this.nodoRemotoConexion.set(numero);
+    this.favoritosAbierto.set(false);
+  }
+  readonly modoConexion = signal<'connect' | 'monitor' | 'localmonitor'>('connect');
+  readonly permanenteConexion = signal(false);
+  readonly timeoutConexion = signal(15);
+  readonly conectando = signal(false);
+  readonly resultadoConexion = signal<{ texto: string; error: boolean } | null>(null);
+  readonly accionSeleccionada = signal('');
+  readonly permanente = signal(false);
+  readonly ejecutando = signal(false);
+  readonly errorEjecucion = signal('');
+  readonly resultado = signal<SupermonCommandResult | null>(null);
+  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean } | null>(null);
+  readonly confirmacionPendiente = signal<{ titulo: string; mensaje: string; confirmar: () => void } | null>(null);
+  readonly desconexionEnCurso = signal<string | null>(null);
+  readonly resultadoDesconexion = signal<{ clave: string; texto: string; error: boolean } | null>(null);
+  private temporizador?: ReturnType<typeof setInterval>;
+  private temporizadorRecargaDesconexion?: ReturnType<typeof setTimeout>;
+  private recargaPendiente = false;
+  private readonly desconexionesEnVerificacion = new Map<string, number>();
+  readonly comandoSeleccionado = computed(() =>
+    this.comandos().find(comando => comando.id === this.accionSeleccionada()) ?? null
+  );
+  readonly requiereConfirmacion = computed(() => {
+    const accion = this.accionSeleccionada();
+    return !['core_version', 'core_uptime', 'node_status', 'link_status', 'iax_channels',
+      'iax_netstats', 'iax_peers', 'iax_registry', 'rpt_channels', 'rpt_variables',
+      'rpt_registrations'].includes(accion);
+  });
+  readonly grupos = computed<AllstarlinkGrupo[]>(() => {
+    const porNodoLocal = new Map<string, AllstarlinkNode[]>();
+    const conexionesVisibles = [...this.nodos()];
+    for (const pendiente of this.conexionesPendientes()) {
+      const indice = conexionesVisibles.findIndex(nodo =>
+        nodo.nodo_local === pendiente.nodo_local && nodo.nodo === pendiente.nodo &&
+        nodo.protocolo?.trim().toLowerCase() === pendiente.protocolo?.trim().toLowerCase()
+      );
+      if (indice >= 0) {
+        conexionesVisibles[indice] = {
+          ...conexionesVisibles[indice],
+          pendiente: true,
+          permanente: pendiente.permanente
+        };
+      } else {
+        conexionesVisibles.push(pendiente);
+      }
+    }
+
+    for (const nodo of conexionesVisibles) {
+      const nodoLocal = nodo.nodo_local || 'Sin nodo local';
+      const conexiones = porNodoLocal.get(nodoLocal) ?? [];
+      conexiones.push(nodo);
+      porNodoLocal.set(nodoLocal, conexiones);
+    }
+
+    const nodosLocales = new Set([
+      ...this.tablasLocales().map(tabla => tabla.nodo_local?.trim()).filter((nodo): nodo is string => !!nodo),
+      ...porNodoLocal.keys()
+    ]);
+    const servidorPorNodo = new Map(this.tablasLocales().map(tabla => [tabla.nodo_local, tabla.servidor_conectado]));
+
+    return Array.from(nodosLocales, nodoLocal => {
+      const conexiones = porNodoLocal.get(nodoLocal) ?? [];
+      return {
+        nodoLocal,
+        nodos: conexiones,
+        conectados: conexiones.filter(nodo => nodo.enlace?.trim().toLowerCase() === 'established').length,
+        servidorConectado: servidorPorNodo.get(nodoLocal) ?? conexiones.length > 0
+      };
+    }).sort((a, b) => a.nodoLocal.localeCompare(b.nodoLocal, undefined, { numeric: true }));
+  });
+  readonly actividadPorNodo = computed(() => {
+    const actividadPorNodo = new Map<string, number>();
+    for (const actividad of this.actividades()) {
+      const clave = `${actividad.local_node.trim()}:${actividad.remote_node.trim()}`;
+      const fecha = Date.parse(actividad.ultima_actividad);
+      if (Number.isFinite(fecha) && fecha > (actividadPorNodo.get(clave) ?? Number.NEGATIVE_INFINITY)) {
+        actividadPorNodo.set(clave, fecha);
+      }
+    }
+    return actividadPorNodo;
+  });
+  readonly gruposFiltrados = computed(() => {
+    const termino = this.normalizarTexto(this.filtroBusqueda().trim());
+    const actividadPorNodo = this.actividadPorNodo();
+    return this.grupos().map(grupo => {
+      const nodos = termino
+        ? grupo.nodos.filter(nodo => [
+          grupo.nodoLocal,
+          nodo.protocolo,
+          nodo.categoria,
+          nodo.nodo,
+          nodo.callsign,
+          nodo.informacion,
+          nodo.descripcion,
+          nodo.contacto,
+          nodo.ubicacion,
+          nodo.enlace,
+          nodo.direccion,
+          nodo.conectado,
+          nodo.modo
+        ].some(valor => this.normalizarTexto(valor ?? '').includes(termino)))
+        : grupo.nodos;
+      const campo = this.campoOrden();
+      const direccion = this.direccionOrden() === 'asc' ? 1 : -1;
+      return {
+        ...grupo,
+        nodos: [...nodos].sort((a, b) => {
+          const actividadA = actividadPorNodo.get(`${a.nodo_local.trim()}:${a.nodo.trim()}`);
+          const actividadB = actividadPorNodo.get(`${b.nodo_local.trim()}:${b.nodo.trim()}`);
+          const comparacion = campo === 'actividad'
+            ? this.compararActividad(actividadA, actividadB, direccion)
+            : this.valorOrden(a, campo).localeCompare(this.valorOrden(b, campo), undefined, { numeric: true, sensitivity: 'base' }) * direccion;
+          return comparacion || this.compararActividad(actividadA, actividadB, -1);
+        })
+      };
+    }).filter(grupo => !termino || grupo.nodos.length > 0);
+  });
+  readonly nodosLocales = computed(() => Array.from(new Set(
+    [
+      ...this.tablasLocales().map(tabla => tabla.nodo_local?.trim()),
+      ...this.nodos().map(nodo => nodo.nodo_local?.trim())
+    ].filter((nodo): nodo is string => !!nodo && /^\d+$/.test(nodo))
+  )).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
+
+  ngOnInit(): void {
+    this.cargar();
+    this.programarActualizacion();
+  }
+
+  // Los comandos de administración se piden cuando hay sesión de admin, incluso si inicia después.
+  private readonly cargaComandosAdmin = effect(() => {
+    if (this.esAdmin()) { untracked(() => this.cargarComandos()); }
+  });
+
+  ngOnDestroy(): void {
+    if (this.temporizador) { clearInterval(this.temporizador); }
+    if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
+  }
+
+  cambiarIntervalo(valor: string): void {
+    const intervalo = Number(valor);
+    this.intervaloMs.set(Number.isFinite(intervalo) ? intervalo : 0);
+    this.programarActualizacion();
+  }
+
+  private normalizarTexto(valor: string): string {
+    return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+  }
+
+  private esNodoRemotoValido(valor: string): boolean {
+    return /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(valor);
+  }
+
+  urlEstadisticasNodo(nodo: AllstarlinkNode): string | null {
+    const numero = nodo.nodo?.trim();
+    if (!numero || !/^\d{4,7}$/.test(numero) || this.categoriaNodo(nodo) === 'echolink') { return null; }
+    return `https://stats.allstarlink.org/stats/${numero}`;
+  }
+
+  urlQrz(callsign?: string): string | null {
+    const indicativo = indicativoQrz(callsign);
+    return indicativo ? `https://www.qrz.com/db/${encodeURIComponent(indicativo)}` : null;
+  }
+
+  urlNodo(nodo: AllstarlinkNode): string | null {
+    const categoria = this.categoriaNodo(nodo);
+    if (categoria === 'sip' || categoria === 'nodo_privado') { return null; }
+    return categoria === 'iaxrpt' ? this.urlQrz(nodo.nodo) : this.urlEstadisticasNodo(nodo);
+  }
+
+  private valorOrden(nodo: AllstarlinkNode, campo: CampoOrden): string {
+    switch (campo) {
+      case 'protocolo': return this.etiquetaProtocolo(nodo);
+      case 'informacion': return nodo.informacion || nodo.descripcion || nodo.contacto || '';
+      case 'actividad': return '';
+      default: return nodo[campo] ?? '';
+    }
+  }
+
+  private compararActividad(a: number | undefined, b: number | undefined, direccion: 1 | -1): number {
+    if (a === b) { return 0; }
+    if (a === undefined) { return 1; }
+    if (b === undefined) { return -1; }
+    return (a - b) * direccion;
+  }
+
+  ultimaActividad(nodo: AllstarlinkNode): string {
+    const fecha = this.actividadPorNodo().get(`${nodo.nodo_local.trim()}:${nodo.nodo.trim()}`);
+    if (fecha === undefined) { return '—'; }
+    const fechaLocal = new Date(fecha);
+    const dosDigitos = (valor: number) => String(valor).padStart(2, '0');
+    return `${fechaLocal.getFullYear()}-${dosDigitos(fechaLocal.getMonth() + 1)}-${dosDigitos(fechaLocal.getDate())} ${dosDigitos(fechaLocal.getHours())}:${dosDigitos(fechaLocal.getMinutes())}:${dosDigitos(fechaLocal.getSeconds())}`;
+  }
+
+  ordenarPor(campo: CampoOrden): void {
+    if (this.campoOrden() === campo) {
+      this.direccionOrden.update(direccion => direccion === 'asc' ? 'desc' : 'asc');
+      return;
+    }
+    this.campoOrden.set(campo);
+    this.direccionOrden.set(campo === 'actividad' ? 'desc' : 'asc');
+  }
+
+  alternarDireccionOrden(): void {
+    this.direccionOrden.update(direccion => direccion === 'asc' ? 'desc' : 'asc');
+  }
+
+  alternarPanelAdmin(): void {
+    this.panelAdminAbierto.update(abierto => !abierto);
+  }
+
+  abrirLsnodes(): void {
+    if (this.esAdmin()) { this.lsnodesAbierto.set(true); }
+  }
+
+  cerrarLsnodes(): void {
+    this.lsnodesAbierto.set(false);
+  }
+
+  cambiarAccion(valor: string): void {
+    this.accionSeleccionada.set(valor);
+    this.permanente.set(false);
+    this.resultado.set(null);
+    this.errorEjecucion.set('');
+  }
+
+  cargarComandos(): void {
+    if (!this.esAdmin() || this.cargandoComandos()) { return; }
+    this.cargandoComandos.set(true);
+    this.errorComandos.set('');
+    this.service.listarComandos().pipe(timeout({ each: 10_000 })).subscribe({
+      next: respuesta => {
+        const comandos = respuesta?.status === 'success'
+          ? (respuesta.data ?? []).filter(comando => !['connect', 'monitor', 'localmonitor', 'disconnect'].includes(comando.id))
+          : [];
+        this.comandos.set(comandos);
+        this.accionSeleccionada.set(comandos[0]?.id ?? '');
+        if (respuesta?.status !== 'success') {
+          this.errorComandos.set(respuesta?.message || 'No se pudieron cargar las operaciones.');
+        }
+        this.cargandoComandos.set(false);
+      },
+      error: err => {
+        this.cargandoComandos.set(false);
+        this.errorComandos.set(err?.name === 'TimeoutError'
+          ? 'El servidor no respondió a tiempo.'
+          : err?.error?.message || 'No se pudieron cargar las operaciones.');
+      }
+    });
+  }
+
+  ejecutarComando(confirmado = false): void {
+    const comando = this.comandoSeleccionado();
+    const localNode = this.nodoLocal().trim();
+    const remoteNode = this.nodoRemoto().trim();
+    if (!comando || !/^\d+$/.test(localNode) ||
+        (comando.requires_remote_node && !this.esNodoRemotoValido(remoteNode))) {
+      this.errorEjecucion.set('Ingresa un nodo local numérico y un número de nodo o indicativo remoto válido.');
+      this.mostrarPopup('Operación no ejecutada', '', [this.errorEjecucion()], true);
+      return;
+    }
+
+    if (this.requiereConfirmacion() && !confirmado) {
+      this.solicitarConfirmacion(
+        'Confirmar operación',
+        `Se ejecutará "${comando.label}" en el nodo ${localNode}${remoteNode ? ` hacia ${remoteNode}` : ''}.`,
+        () => this.ejecutarComando(true)
+      );
+      return;
+    }
+
+    this.ejecutando.set(true);
+    this.errorEjecucion.set('');
+    this.resultado.set(null);
+    this.service.ejecutarComando({
+      local_node: localNode,
+      ...(comando.requires_remote_node ? { remote_node: remoteNode } : {}),
+      action: comando.id,
+      permanent: comando.supports_permanent && comando.id !== 'disconnect' && this.permanente()
+    }).pipe(timeout({ each: 10_000 })).subscribe({
+      next: respuesta => {
+        this.ejecutando.set(false);
+        if (respuesta?.status === 'success' && respuesta.data) {
+          this.resultado.set(respuesta.data);
+          this.mostrarPopup(comando.label, respuesta.data.command, respuesta.data.lines);
+        } else {
+          this.errorEjecucion.set(respuesta?.message || 'No se pudo ejecutar la operación.');
+          this.mostrarPopup('Error de operación', '', [this.errorEjecucion()], true);
+        }
+      },
+      error: err => {
+        this.ejecutando.set(false);
+        this.errorEjecucion.set(err?.name === 'TimeoutError'
+          ? 'El servidor no respondió a tiempo.'
+          : err?.error?.message || 'No se pudo ejecutar la operación.');
+        this.mostrarPopup('Error de operación', '', [this.errorEjecucion()], true);
+      }
+    });
+  }
+
+  conectarNodo(confirmado = false): void {
+    const local = this.nodoLocal().trim();
+    const remoto = this.nodoRemotoConexion().trim();
+    if (!this.esAdmin() || !/^\d+$/.test(local) || !this.esNodoRemotoValido(remoto)) {
+      this.resultadoConexion.set({ texto: 'Selecciona un servidor e ingresa un número de nodo o indicativo válido.', error: true });
+      this.mostrarPopup('Conexión no ejecutada', '', [this.resultadoConexion()!.texto], true);
+      return;
+    }
+
+    const modo = this.modoConexion();
+    const modoLabel = modo === 'connect' ? 'Transceive' : modo === 'monitor' ? 'Monitor' : 'Local Monitor';
+    const permanente = this.permanenteConexion();
+    const timeoutSegundos = Math.min(300, Math.max(1, Math.floor(Number(this.timeoutConexion()) || 15)));
+    this.timeoutConexion.set(timeoutSegundos);
+    const tipoConexion = permanente ? 'permanente' : 'temporal';
+    if (!confirmado) {
+      this.solicitarConfirmacion(
+        'Confirmar conexión',
+        `Conectar el nodo ${remoto} a ${local} en modo ${modoLabel} (${tipoConexion}).`,
+        () => this.conectarNodo(true)
+      );
+      return;
+    }
+
+    this.conectando.set(true);
+    this.resultadoConexion.set(null);
+  this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
+    this.service.ejecutarComando({
+      local_node: local,
+      remote_node: remoto,
+      action: modo,
+      permanent: permanente,
+      timeout_seconds: timeoutSegundos
+    }).pipe(timeout({ each: permanente ? 10_000 : timeoutSegundos * 1000 + 10_000 })).subscribe({
+      next: respuesta => {
+        this.conectando.set(false);
+        if (respuesta?.status === 'success') { this.programarRecargaConexiones(); }
+        this.resultadoConexion.set(respuesta?.status === 'success' && respuesta.data
+          ? { texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
+          : { texto: respuesta?.message || 'No se pudo conectar el nodo.', error: true });
+        this.mostrarPopup(
+          this.resultadoConexion()!.error ? 'Error de conexión' : 'Conexión solicitada',
+          respuesta?.data?.command ?? '',
+          respuesta?.data?.lines ?? [this.resultadoConexion()!.texto],
+          this.resultadoConexion()!.error
+        );
+      },
+      error: err => {
+        this.conectando.set(false);
+        this.quitarConexionPendiente(local, remoto);
+        this.resultadoConexion.set({
+          texto: err?.name === 'TimeoutError'
+            ? 'El servidor no respondió a tiempo.'
+            : err?.error?.message || 'No se pudo conectar el nodo.',
+          error: true
+        });
+        this.mostrarPopup('Error de conexión', '', [this.resultadoConexion()!.texto], true);
+      }
+    });
+  }
+
+  desconectar(nodoLocal: string, nodoRemoto: string, confirmado = false): void {
+    const local = nodoLocal.trim();
+    const remoto = nodoRemoto.trim();
+    const nodo = [...this.nodos(), ...this.conexionesPendientes()].find(item =>
+      item.nodo_local === local && item.nodo === remoto && item.protocolo?.trim().toLowerCase() !== 'sip'
+    );
+    if (!this.esAdmin() || nodo?.protocolo?.trim().toLowerCase() === 'sip' || !/^\d+$/.test(local) || !this.esNodoRemotoValido(remoto)) { return; }
+
+    const clave = `${local}-${remoto}`;
+    if (this.desconexionEnCurso()) { return; }
+    if (!confirmado) {
+      this.solicitarConfirmacion(
+        'Confirmar desconexión',
+        `Desconectar el nodo ${remoto} del nodo local ${local}.`,
+        () => this.desconectar(local, remoto, true)
+      );
+      return;
+    }
+
+    this.desconexionEnCurso.set(clave);
+    this.resultadoDesconexion.set(null);
+    this.service.ejecutarComando({
+      local_node: local,
+      remote_node: remoto,
+      action: 'disconnect',
+      permanent: false
+    }).pipe(timeout({ each: 10_000 })).subscribe({
+      next: respuesta => {
+        if (respuesta?.status === 'success') {
+          this.quitarConexionPendiente(local, remoto);
+          this.desconexionesEnVerificacion.set(clave, 0);
+          this.programarRecargaConexiones(1000);
+        } else {
+          this.desconexionEnCurso.set(null);
+        }
+        this.resultadoDesconexion.set(respuesta?.status === 'success' && respuesta.data
+          ? { clave, texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
+          : { clave, texto: respuesta?.message || 'No se pudo desconectar el nodo.', error: true });
+        this.mostrarPopup(
+          this.resultadoDesconexion()!.error ? 'Error de desconexión' : 'Desconexión solicitada',
+          respuesta?.data?.command ?? '',
+          respuesta?.data?.lines ?? [this.resultadoDesconexion()!.texto],
+          this.resultadoDesconexion()!.error
+        );
+      },
+      error: err => {
+        this.desconexionEnCurso.set(null);
+        this.resultadoDesconexion.set({
+          clave,
+          texto: err?.name === 'TimeoutError'
+            ? 'El servidor no respondió a tiempo.'
+            : err?.error?.message || 'No se pudo desconectar el nodo.',
+          error: true
+        });
+        this.mostrarPopup('Error de desconexión', '', [this.resultadoDesconexion()!.texto], true);
+      }
+    });
+  }
+
+  cerrarPopup(): void {
+    this.resultadoPopup.set(null);
+  }
+
+  cancelarConfirmacion(): void {
+    this.confirmacionPendiente.set(null);
+  }
+
+  confirmarAccion(): void {
+    const confirmacion = this.confirmacionPendiente();
+    this.confirmacionPendiente.set(null);
+    confirmacion?.confirmar();
+  }
+
+  private solicitarConfirmacion(titulo: string, mensaje: string, confirmar: () => void): void {
+    this.confirmacionPendiente.set({ titulo, mensaje, confirmar });
+  }
+
+  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false): void {
+    this.resultadoPopup.set({ titulo, comando, lineas, error });
+  }
+
+  claseModo(modo?: string): string {
+    switch (modo?.trim().toLowerCase()) {
+      case 'transceive': return 'modo-transceive';
+      case 'simplex': return 'modo-simplex';
+      case 'duplex': return 'modo-duplex';
+      case 'monitor': return 'modo-monitor';
+      case 'local monitor': return 'modo-duplex';
+      default: return 'modo-otro';
+    }
+  }
+
+  etiquetaModo(modo?: string): string {
+    switch (modo?.trim().toLowerCase()) {
+      case 'transceive': return 'T';
+      case 'local monitor': return 'LM';
+      case 'monitor': return 'M';
+      default: return modo || '—';
+    }
+  }
+
+  etiquetaEnlace(enlace?: string): string {
+    return enlace?.trim().toLowerCase() === 'established' ? '—' : enlace || '—';
+  }
+
+  private agregarConexionPendiente(local: string, remoto: string, modo: string, permanente: boolean): void {
+    const categoria = remoto.length === 4
+      ? 'nodo_privado'
+      : remoto.startsWith('3') && remoto.length >= 5 ? 'echolink' : 'iax';
+    const pendiente: AllstarlinkNode = {
+      protocolo: 'iax',
+      categoria,
+      nodo_local: local,
+      nodo: remoto,
+      enlace: 'CONNECTING',
+      direccion: 'OUT',
+      modo,
+      modo_codigo: modo === 'Transceive' ? 'T' : 'R',
+      pendiente: true,
+      permanente
+    };
+    this.conexionesPendientes.update(actuales => [
+      ...actuales.filter(item => item.nodo_local !== local || item.nodo !== remoto),
+      pendiente
+    ]);
+  }
+
+  private quitarConexionPendiente(local: string, remoto: string): void {
+    this.conexionesPendientes.update(actuales =>
+      actuales.filter(item => item.nodo_local !== local || item.nodo !== remoto)
+    );
+  }
+
+  private reconciliarConexionesPendientes(nodos: AllstarlinkNode[]): void {
+    const establecidos = new Set(nodos
+      .filter(nodo => nodo.enlace?.trim().toLowerCase() === 'established')
+      .map(nodo => `${nodo.nodo_local}:${nodo.nodo}:${nodo.protocolo?.trim().toLowerCase() ?? ''}`));
+    this.conexionesPendientes.update(actuales =>
+      actuales.filter(nodo => !establecidos.has(`${nodo.nodo_local}:${nodo.nodo}:${nodo.protocolo?.trim().toLowerCase() ?? ''}`))
+    );
+  }
+
+  categoriaNodo(nodo: AllstarlinkNode): string {
+    const categoria = nodo.categoria?.trim().toLowerCase();
+    const protocolo = nodo.protocolo?.trim().toLowerCase();
+    const identificadorAlfanumerico = !!nodo.nodo && !/^\d+$/.test(nodo.nodo);
+    if (protocolo === 'iax' && identificadorAlfanumerico && /iaxrpt|web txcvr|phone portal/i.test(nodo.informacion ?? '')) {
+      return 'iaxrpt';
+    }
+    if (categoria) { return categoria; }
+
+    if (protocolo === 'sip') { return 'sip'; }
+    return nodo.nodo?.startsWith('3') && nodo.nodo.length >= 5 ? 'echolink' : 'iax';
+  }
+
+  etiquetaProtocolo(nodo: AllstarlinkNode): string {
+    switch (this.categoriaNodo(nodo)) {
+      case 'iaxrpt': return 'IAXRPT';
+      case 'echolink': return 'EchoLink';
+      case 'nodo_privado': return 'Privado';
+      case 'sip': return 'SIP';
+      default: return 'IAX';
+    }
+  }
+
+  claseCategoria(nodo: AllstarlinkNode): string {
+    switch (this.categoriaNodo(nodo)) {
+      case 'iaxrpt': return 'modo-iaxrpt';
+      case 'echolink': return 'modo-duplex';
+      case 'nodo_privado': return 'modo-transceive';
+      case 'sip': return 'modo-monitor';
+      default: return 'modo-simplex';
+    }
+  }
+
+  cargar(forzar = false): void {
+    if (this.cargando()) {
+      if (forzar) { this.recargaPendiente = true; }
+      return;
+    }
+    this.cargando.set(true);
+    this.error.set('');
+    this.service.listarActividad().pipe(timeout({ each: 10_000 })).subscribe({
+      next: respuesta => {
+        if (respuesta?.status === 'success') {
+          this.actividades.set(respuesta.data ?? []);
+        }
+      },
+      error: () => undefined
+    });
+    this.service.listarNodos().pipe(timeout({ each: 10_000 })).subscribe({
+      next: respuesta => {
+        this.consultado.set(true);
+        if (respuesta?.status === 'success') {
+          const nodos = respuesta.data?.resultados ?? [];
+          this.tablasLocales.set(respuesta.data?.tablas ?? []);
+          this.nodos.set(nodos);
+          this.reconciliarConexionesPendientes(nodos);
+          this.revisarDesconexionesEnVerificacion(nodos);
+          if (!this.nodoLocal()) {
+            this.nodoLocal.set(this.nodosLocales()[0] ?? '');
+          }
+        } else {
+          this.error.set(respuesta?.message || 'No se pudo cargar el listado de nodos.');
+        }
+        this.finalizarCarga();
+        this.programarSondeoPermanente();
+      },
+      error: err => {
+        this.finalizarCarga();
+        this.consultado.set(true);
+        this.error.set(err?.name === 'TimeoutError'
+          ? 'El servidor no respondió a tiempo.'
+          : err?.status === 0
+            ? 'No se pudo conectar con el servidor.'
+            : err?.error?.message || 'No se pudo cargar el listado de nodos.');
+        this.programarSondeoPermanente();
+        this.revisarDesconexionesEnVerificacion();
+      }
+    });
+  }
+
+  private programarRecargaConexiones(retardoMs = 1500): void {
+    if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
+    this.temporizadorRecargaDesconexion = setTimeout(() => {
+      this.temporizadorRecargaDesconexion = undefined;
+      this.cargar(true);
+    }, retardoMs);
+  }
+
+  private programarSondeoPermanente(): void {
+    if (this.conexionesPendientes().some(nodo => nodo.permanente)) {
+      this.programarRecargaConexiones(5000);
+    }
+  }
+
+  private revisarDesconexionesEnVerificacion(nodos?: AllstarlinkNode[]): void {
+    if (this.desconexionesEnVerificacion.size === 0) { return; }
+    let requiereOtraConsulta = false;
+    for (const [clave, intentos] of this.desconexionesEnVerificacion) {
+      const [local, ...partesRemoto] = clave.split('-');
+      const remoto = partesRemoto.join('-');
+      const sigueConectado = !nodos || nodos.some(nodo =>
+        nodo.nodo_local === local && nodo.nodo === remoto && nodo.protocolo?.trim().toLowerCase() !== 'sip'
+      );
+      if (!sigueConectado) {
+        this.desconexionesEnVerificacion.delete(clave);
+        if (this.desconexionEnCurso() === clave) { this.desconexionEnCurso.set(null); }
+        continue;
+      }
+      if (intentos >= 15) {
+        this.desconexionesEnVerificacion.delete(clave);
+        if (this.desconexionEnCurso() === clave) { this.desconexionEnCurso.set(null); }
+        continue;
+      }
+      this.desconexionesEnVerificacion.set(clave, intentos + 1);
+      requiereOtraConsulta = true;
+    }
+    if (requiereOtraConsulta) { this.programarRecargaConexiones(1500); }
+  }
+
+  private finalizarCarga(): void {
+    this.cargando.set(false);
+    if (this.recargaPendiente) {
+      this.recargaPendiente = false;
+      this.cargar(true);
+    }
+  }
+
+  private programarActualizacion(): void {
+    if (this.temporizador) { clearInterval(this.temporizador); }
+    const intervalo = this.intervaloMs();
+    if (intervalo > 0) {
+      this.temporizador = setInterval(() => this.cargar(), intervalo);
+    }
+  }
+}

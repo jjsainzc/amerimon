@@ -42,3 +42,10 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Go / release
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
+*.db
+*.db-shm
+*.db-wal

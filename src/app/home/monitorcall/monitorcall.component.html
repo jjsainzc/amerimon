@@ -1,0 +1,158 @@
+<section class="monitor-card">
+  <p class="monitor-eyebrow">ASTERISK</p>
+  <h3>Tráfico en vivo</h3>
+
+  @if (listenService.isListening()) {
+    <p class="monitor-estado" aria-live="polite">
+      <span class="monitor-punto" aria-hidden="true"></span>
+      Escuchando {{ ext() === 'nodo' ? 'el nodo local' : 'extensión ' + ext() }}
+    </p>
+    <div class="monitor-medidor">
+      <div class="monitor-medidor-cabecera">
+        <span>Nivel de audio</span>
+        <strong>{{ listenService.audioLevelDb().toFixed(1) }} dBFS</strong>
+      </div>
+      <div
+        class="monitor-medidor-pista"
+        role="meter"
+        aria-label="Nivel de audio recibido"
+        aria-valuemin="-60"
+        aria-valuemax="0"
+        [attr.aria-valuenow]="listenService.audioLevelDb().toFixed(1)"
+        [attr.aria-valuetext]="listenService.audioLevelDb().toFixed(1) + ' dBFS'">
+        <div
+          class="monitor-medidor-nivel"
+          [style.width.%]="(listenService.audioLevelDb() + 60) * 100 / 60">
+        </div>
+      </div>
+      <div class="monitor-medidor-escala" aria-hidden="true">
+        <span>-60</span><span>-40</span><span>-20</span><span>0 dBFS</span>
+      </div>
+    </div>
+    <button type="button" class="monitor-btn monitor-btn-detener" (click)="stop()">
+      Detener
+    </button>
+  } @else {
+    <label class="monitor-campo" style="display: none;" for="ext-monitor">
+      <span>Extensión</span>
+      <input
+        #extInput
+        id="ext-monitor"
+        type="text"
+        inputmode="numeric"
+        maxlength="32"
+        autocomplete="off"
+        placeholder="nodo"
+        value="nodo"
+        /* [value]="ext()" */
+        (input)="ext.set(extInput.value.trim())"
+        (keydown.enter)="listen()"
+        readonly
+        />
+    </label>
+    <button
+      type="button"
+      class="monitor-btn"
+      (click)="listen()"
+      /* [disabled]="!extValida() || listenService.connecting()" */
+      [disabled]="true"
+      >
+      {{ listenService.connecting() ? 'Conectando…' : '' }}
+    </button>
+    <button
+      type="button"
+      class="monitor-btn monitor-btn-nodo"
+      (click)="listenNodo()"
+      [disabled]="listenService.connecting()">
+      LISTEN LIVE
+    </button>
+  }
+
+  <button type="button" class="monitor-btn monitor-btn-como-funciona" (click)="abrirManual()">
+    ¿Cómo funciona?
+  </button>
+
+  @if (listenService.error()) {
+    <p class="monitor-error" role="alert">{{ listenService.error() }}</p>
+  }
+</section>
+
+<section class="monitor-sesiones" aria-labelledby="sesiones-titulo">
+  <header class="monitor-sesiones-cabecera">
+    <div>
+      <h3 id="sesiones-titulo">Reporte de escuchas</h3>
+      <p>Sesiones de usuarios conectados, la tabla no se actualiza automáticamente, debe hacerlo manual</p>
+    </div>
+    <button type="button" class="monitor-actualizar accion-estandar" (click)="actualizarMonitor()" [disabled]="cargandoSesiones() || listenService.asteriskStatus() === 'checking'">
+      <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+      {{ cargandoSesiones() || listenService.asteriskStatus() === 'checking' ? 'Actualizando…' : 'Actualizar' }}
+    </button>
+  </header>
+
+  @if (errorSesiones()) {
+    <p class="monitor-error" role="alert">{{ errorSesiones() }}</p>
+  }
+
+  @if (cargandoSesiones() && sesiones().length === 0) {
+    <app-loading-indicator message="Cargando sesiones…" layout="centered" />
+  } @else if (sesiones().length === 0) {
+    <p class="monitor-vacio">No hay usuarios conectados.</p>
+  } @else {
+    <div class="monitor-tabla-contenedor">
+      <table class="monitor-tabla">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Usuario</th>
+            <th scope="col">Indicativo</th>
+            <th scope="col">IP de origen</th>
+            <th scope="col">Inicio</th>
+            @if (esAdmin()) { <th scope="col">Acciones</th> }
+          </tr>
+        </thead>
+        <tbody>
+          @for (sesion of sesiones(); track sesion.listenliveid) {
+            <tr>
+              <td data-label="ID">{{ sesion.userid ?? '—' }}</td>
+              <td data-label="Usuario">{{ sesion.nombre || '—' }}</td>
+              <td data-label="Indicativo">
+                @if (urlQrz(sesion.callsign); as url) {
+                  <a class="monitor-qrz-link" [href]="url" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'Ver ' + sesion.callsign + ' en QRZ.com'">
+                    {{ sesion.callsign }} ↗
+                  </a>
+                } @else { {{ sesion.callsign || '—' }} }
+              </td>
+              <td data-label="IP de origen">
+                @if (sesion.ip_origen && esAdmin()) {
+                  <app-geoip-link [ip]="sesion.ip_origen" [label]="sesion.ip_origen" />
+                } @else { {{ sesion.ip_origen || '—' }} }
+              </td>
+              <td data-label="Inicio"><time [attr.datetime]="sesion.fecha_inicio">{{ sesion.fecha_inicio | utcToLocal:'dd/MM/yyyy HH:mm:ss' }}</time></td>
+              @if (esAdmin()) {
+                <td data-label="Acciones">
+                  <button type="button" class="monitor-desconectar" [disabled]="!sesion.uuid" (click)="pedirDesconexion(sesion)" [attr.aria-label]="'Desconectar sesión ' + sesion.listenliveid" title="Desconectar">⏻ Desconectar</button>
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+<app-confirmacion-dialog
+  [open]="sesionPendiente() !== null"
+  title="Desconectar escucha"
+  [message]="sesionPendiente() ? '¿Desconectar la escucha de ' + (sesionPendiente()!.callsign || sesionPendiente()!.nombre || 'este usuario') + '?' : ''"
+  confirmLabel="Desconectar"
+  (confirmed)="confirmarDesconexion()"
+  (cancelled)="cancelarDesconexion()" />
+
+
+<app-markdown-viewer
+  [open]="manualAbierto()"
+  markdownUrl="assets/docs/listen-live.md"
+  title="Cómo funciona"
+  eyebrow="LISTEN LIVE"
+  (closed)="cerrarManual()" />

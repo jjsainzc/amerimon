@@ -1,0 +1,28 @@
+@if (abierto()) {
+  <div class="fav-overlay">
+    <section class="fav-dialogo" role="dialog" aria-modal="true" aria-labelledby="fav-titulo">
+      <button type="button" class="fav-cerrar" aria-label="Cerrar" (click)="cerrado.emit()">&times;</button>
+      <h2 id="fav-titulo">Favoritos</h2>
+
+      @if (cargando()) { <p role="status">Cargando…</p> }
+      @if (error()) { <p class="fav-error" role="alert">{{ error() }}</p> }
+
+      @if (!cargando() && !error()) {
+        @if (favoritos().length) {
+          <ul class="fav-lista">
+            @for (f of favoritos(); track f.id) {
+              <li>
+                <button type="button" class="fav-item" (click)="seleccionado.emit(f.numero)">
+                  <strong>{{ f.numero }}</strong>
+                  <span>{{ f.descripcion || f.descripcion_astdb || 'Sin descripción' }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="fav-vacio">No hay favoritos definidos.</p>
+        }
+      }
+    </section>
+  </div>
+}

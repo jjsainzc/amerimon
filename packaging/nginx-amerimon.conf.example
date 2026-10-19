@@ -1,0 +1,26 @@
+# Ejemplo para nginx: la app cuelga de https://<host>/amerimon/ y no toca el resto del sitio.
+# Copiar dentro del bloque server { listen 443 ssl; ... }.
+# Con proxy, conviene AMERIMON_ADDR=127.0.0.1:8082 en /etc/amerimon/amerimon.env.
+
+location = /amerimon { return 301 /amerimon/; }
+
+location /amerimon/mon/listen-live/ws {
+    proxy_pass http://127.0.0.1:8082/mon/listen-live/ws;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 1h;
+}
+
+# Frontend y API (/amerimon/mon); el "/" final de proxy_pass quita el prefijo /amerimon.
+location /amerimon/ {
+    proxy_pass http://127.0.0.1:8082/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Prefix /amerimon;
+}
