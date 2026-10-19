@@ -90,3 +90,7 @@ dev-front:
 run:
 	npm run build
 	$(DEVRUN)
+
+
+# Comprobar version
+# dpkg-query -W -f='${Version}\n' amerimon

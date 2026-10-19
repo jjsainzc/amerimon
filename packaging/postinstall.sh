@@ -43,4 +43,33 @@ if [ -d /run/systemd/system ]; then
     systemctl enable amerimon.service
     systemctl restart amerimon.service
     systemctl enable --now amerimon-astdb.timer
+
+    # Prefer the active frontend when both web servers are installed.
+    if command -v nginx >/dev/null 2>&1 && systemctl is-active --quiet nginx; then
+        if [ -x /usr/lib/amerimon/configure-nginx.sh ]; then
+            /usr/lib/amerimon/configure-nginx.sh || echo "Aviso: no se pudo configurar Nginx; Amerimon sigue disponible en el puerto 8082." >&2
+        fi
+    elif command -v a2enmod >/dev/null 2>&1 && [ -f /usr/share/amerimon/apache-amerimon.conf.example ]; then
+        APACHE_CONF=/etc/apache2/conf-available/amerimon.conf
+        APACHE_WAS_ENABLED=0
+        [ -e /etc/apache2/conf-enabled/amerimon.conf ] && APACHE_WAS_ENABLED=1
+        if [ ! -e "$APACHE_CONF" ]; then
+            install -D -m 0644 /usr/share/amerimon/apache-amerimon.conf.example "$APACHE_CONF"
+        fi
+        if a2enmod proxy proxy_http proxy_wstunnel headers alias >/dev/null && \
+            a2enconf amerimon >/dev/null && apache2ctl configtest; then
+            if systemctl is-active --quiet apache2; then
+                systemctl reload apache2 || echo "Aviso: no se pudo recargar Apache; Amerimon sigue disponible en el puerto 8082." >&2
+            else
+                systemctl start apache2 || echo "Aviso: no se pudo iniciar Apache; Amerimon sigue disponible en el puerto 8082." >&2
+            fi
+        else
+            if [ "$APACHE_WAS_ENABLED" -eq 0 ]; then
+                a2disconf amerimon >/dev/null 2>&1 || true
+            fi
+            echo "Aviso: la configuración de Apache no pasó configtest; se dejó deshabilitada para proteger el sitio existente." >&2
+        fi
+    elif command -v nginx >/dev/null 2>&1 && [ -x /usr/lib/amerimon/configure-nginx.sh ]; then
+        /usr/lib/amerimon/configure-nginx.sh || echo "Aviso: no se pudo configurar Nginx; Amerimon sigue disponible en el puerto 8082." >&2
+    fi
 fi

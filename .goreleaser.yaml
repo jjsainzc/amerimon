@@ -72,6 +72,10 @@ nfpms:
         dst: /usr/share/amerimon/apache-amerimon.conf.example
       - src: packaging/nginx-amerimon.conf.example
         dst: /usr/share/amerimon/nginx-amerimon.conf.example
+      - src: packaging/configure-nginx.sh
+        dst: /usr/lib/amerimon/configure-nginx.sh
+        file_info:
+          mode: 0755
       - src: packaging/amerimon-reset-password.sh
         dst: /usr/sbin/amerimon-reset-password
         file_info:
