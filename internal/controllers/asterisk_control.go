@@ -1,11 +1,12 @@
 package controllers
 
 import (
+	"amerimon/internal/config"
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
-	"amerimon/internal/config"
 	"strings"
 	"time"
 
@@ -206,7 +207,9 @@ func ExecuteSupermonCommand(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]any{"status": "error", "message": "JSON inválido"})
 	}
+	startedAt := time.Now()
 	if !isNumericNode(request.LocalNode) {
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, "", "invalid_request", "local_node debe ser numérico", startedAt)
 		return c.JSON(http.StatusBadRequest, map[string]any{"status": "error", "message": "local_node debe ser numérico"})
 	}
 
@@ -219,13 +222,16 @@ func ExecuteSupermonCommand(c echo.Context) error {
 	}
 	command, err := buildSupermonCommand(request, definition)
 	if err != nil {
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, "", "invalid_request", err.Error(), startedAt)
 		return c.JSON(http.StatusBadRequest, map[string]any{"status": "error", "message": err.Error()})
 	}
 	instance, allmonConfigured, err := findAllmonInstance(request.LocalNode)
 	if err != nil {
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "configuration_error", err.Error(), startedAt)
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "No se pudo leer la configuración de Allmon"})
 	}
 	if allmonConfigured && instance.Node == "" {
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "configuration_error", "El nodo local no existe en allmon.ini", startedAt)
 		return c.JSON(http.StatusNotFound, map[string]any{"status": "error", "message": "El nodo local no existe en allmon.ini"})
 	}
 	if !allmonConfigured {
@@ -233,24 +239,36 @@ func ExecuteSupermonCommand(c echo.Context) error {
 		instance = allmonInstance{Node: request.LocalNode, Host: ami.Host, Port: ami.Port, User: ami.User, Secret: ami.Secret}
 	}
 	if instance.Host == "" || instance.Port == "" || instance.User == "" || (!allmonConfigured && instance.Secret == "") {
+		log.Printf("asterisk: configuración AMI incompleta para nodo local %s (allmon=%t)", request.LocalNode, allmonConfigured)
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "configuration_error", "La configuración AMI está incompleta", startedAt)
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "La configuración AMI de Asterisk está incompleta"})
 	}
 
+	log.Printf("asterisk: solicitando acción=%s local=%s remoto=%s permanente=%t destino=%s:%s comando=%q", request.Action, request.LocalNode, request.RemoteNode, request.Permanent, instance.Host, instance.Port, command)
 	raw, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
 	if err != nil {
+		log.Printf("asterisk: fallo AMI acción=%s local=%s remoto=%s destino=%s:%s comando=%q: %v", request.Action, request.LocalNode, request.RemoteNode, instance.Host, instance.Port, command, err)
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "ami_error", err.Error(), startedAt)
 		return c.JSON(http.StatusBadGateway, map[string]any{"status": "error", "command": command, "message": "No se pudo ejecutar el comando en Asterisk"})
-	}
-	if shouldWaitForRPTConnection(request.Action, request.Permanent) && !waitForRPTConnection(instance, request.RemoteNode, resolveRPTConnectionTimeout(request.TimeoutSeconds)) {
-		return c.JSON(http.StatusGatewayTimeout, map[string]any{
-			"status":  "error",
-			"command": command,
-			"message": fmt.Sprintf("No se pudo conectar el nodo %s en el servidor %s dentro del tiempo esperado.", request.RemoteNode, request.LocalNode),
-		})
 	}
 	lines := config.ParseAMIOutputToLines(raw)
 	if len(lines) == 0 {
 		lines = []string{"No data returned"}
 	}
+	log.Printf("asterisk: AMI aceptó acción=%s local=%s remoto=%s respuesta=%q", request.Action, request.LocalNode, request.RemoteNode, strings.Join(lines, " | "))
+	if shouldWaitForRPTConnection(request.Action, request.Permanent) {
+		timeout := resolveRPTConnectionTimeout(request.TimeoutSeconds)
+		if !waitForRPTConnection(instance, request.RemoteNode, timeout) {
+			log.Printf("asterisk: comando aceptado pero enlace no confirmado; acción=%s local=%s remoto=%s timeout=%s", request.Action, request.LocalNode, request.RemoteNode, timeout)
+			recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "not_confirmed", fmt.Sprintf("Asterisk aceptó el comando; XStat no confirmó el enlace en %s", timeout), startedAt)
+			return c.JSON(http.StatusGatewayTimeout, map[string]any{
+				"status":  "error",
+				"command": command,
+				"message": fmt.Sprintf("Asterisk aceptó el comando, pero no se confirmó la conexión del nodo %s en %s dentro del tiempo esperado.", request.RemoteNode, request.LocalNode),
+			})
+		}
+	}
+	recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "success", strings.Join(lines, " | "), startedAt)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "success",
 		"data": map[string]any{
@@ -290,24 +308,35 @@ func resolveRPTConnectionTimeout(seconds int) time.Duration {
 // waitForRPTConnection consulta XStat hasta confirmar el enlace o agotar el timeout.
 func waitForRPTConnection(instance allmonInstance, remoteNode string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
-	for {
+	attempts := 0
+	lastState := "nodo remoto no aparece en XStat"
+	var lastErr error
+	for time.Until(deadline) > 0 {
+		attempts++
 		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return false
-		}
-
 		queryTimeout := 5 * time.Second
 		if remaining < queryTimeout {
 			queryTimeout = remaining
 		}
 		xstat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "XStat", queryTimeout)
-		if err == nil && hasEstablishedRPTConnection(xstat, remoteNode) {
-			return true
+		if err != nil {
+			lastErr = err
+		} else {
+			lastErr = nil
+			for _, connection := range parseRPTConnections(xstat, "") {
+				if connection.Node == remoteNode {
+					lastState = connection.Link
+					if connection.Link == "ESTABLISHED" {
+						log.Printf("asterisk: XStat confirmó local=%s remoto=%s estado=%s intentos=%d", instance.Node, remoteNode, connection.Link, attempts)
+						return true
+					}
+				}
+			}
 		}
 
 		remaining = time.Until(deadline)
 		if remaining <= 0 {
-			return false
+			break
 		}
 		pause := time.Second
 		if remaining < pause {
@@ -315,6 +344,8 @@ func waitForRPTConnection(instance allmonInstance, remoteNode string, timeout ti
 		}
 		time.Sleep(pause)
 	}
+	log.Printf("asterisk: XStat agotó timeout local=%s remoto=%s intentos=%d último_estado=%q último_error=%v", instance.Node, remoteNode, attempts, lastState, lastErr)
+	return false
 }
 
 // hasEstablishedRPTConnection comprueba si XStat muestra el nodo remoto como establecido.
@@ -344,15 +375,19 @@ func AddNodeConnection(c echo.Context) error {
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]any{"status": "error", "message": "JSON inválido"})
 	}
+	startedAt := time.Now()
 	command, err := buildNodeConnectionCommand(request)
 	if err != nil {
+		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, "", "invalid_request", err.Error(), startedAt)
 		return c.JSON(http.StatusBadRequest, map[string]any{"status": "error", "message": err.Error()})
 	}
 	instance, allmonConfigured, err := findAllmonInstance(request.LocalNode)
 	if err != nil {
+		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "configuration_error", err.Error(), startedAt)
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "No se pudo leer la configuración de Allmon"})
 	}
 	if allmonConfigured && instance.Node == "" {
+		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "configuration_error", "El nodo local no existe en allmon.ini", startedAt)
 		return c.JSON(http.StatusNotFound, map[string]any{"status": "error", "message": "El nodo local no existe en allmon.ini"})
 	}
 	if !allmonConfigured {
@@ -360,17 +395,20 @@ func AddNodeConnection(c echo.Context) error {
 		instance = allmonInstance{Node: request.LocalNode, Host: ami.Host, Port: ami.Port, User: ami.User, Secret: ami.Secret}
 	}
 	if instance.Host == "" || instance.Port == "" || instance.User == "" || (!allmonConfigured && instance.Secret == "") {
+		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "configuration_error", "La configuración AMI está incompleta", startedAt)
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "La configuración AMI de Asterisk está incompleta"})
 	}
 
 	raw, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
 	if err != nil {
+		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "ami_error", err.Error(), startedAt)
 		return c.JSON(http.StatusBadGateway, map[string]any{"status": "error", "command": command, "message": "No se pudo agregar la conexión en Asterisk"})
 	}
 	lines := config.ParseAMIOutputToLines(raw)
 	if len(lines) == 0 {
 		lines = []string{"No data returned"}
 	}
+	recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "success", strings.Join(lines, " | "), startedAt)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "success",
 		"data": map[string]any{

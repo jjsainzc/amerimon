@@ -1,59 +1,47 @@
 # Amerimon
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.8.
+Interfaz web para consultar AllStarLink, administrar nodos Allmon y escuchar el nodo principal de Asterisk.
 
-## Development server
+## Instalación
 
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Paquetes Debian disponibles para `arm64` y `amd64`:
 
 ```bash
-ng generate component component-name
+curl -fsSL https://raw.githubusercontent.com/jjsainzc/repo-deb/main/hc1lnm.gpg \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/hc1lnm-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/hc1lnm-archive-keyring.gpg arch=$(dpkg --print-architecture)] https://jjsainzc.github.io/repo-deb/ ./" \
+  | sudo tee /etc/apt/sources.list.d/amerinet.list
+
+sudo apt update
+sudo apt install amerimon
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+El instalador habilita `amerimon.service` y, si detecta Apache o Nginx, intenta configurar el proxy para `/amerimon`. Sin servidor web, abre `http://<IP-del-servidor>:8082/`.
+
+## Primer acceso
+
+Abre `http(s)://<host>/amerimon/` con el proxy configurado, o `http://<IP-del-servidor>:8082/` si accedes directamente. Pulsa **Admin** y define el usuario y contraseña iniciales. El nombre de usuario debe tener entre 3 y 32 caracteres; la contraseña debe tener al menos 8. La contraseña se guarda como hash.
+
+## Restablecer contraseña de administrador
+
+Si se olvidó la contraseña, ejecuta en el servidor:
 
 ```bash
-ng generate --help
+sudo amerimon-reset-password
 ```
 
-## Building
+El comando borra únicamente la cuenta de administrador para que puedas definirla de nuevo desde **Admin**. No borra nodos Allmon, favoritos, registros ni el resto de la base de datos. Después, vuelve a abrir la web y define el usuario y la contraseña.
 
-To build the project run:
+## Servicio y actualización
 
 ```bash
-ng build
+sudo systemctl status amerimon --no-pager
+sudo apt update
+apt list --upgradable
+sudo apt upgrade
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Manual técnico
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Para configuración de nodos, puertos, SQLite, proxy, respaldos, operaciones administrativas y diagnóstico, consulta el [Manual de Operación Técnica](docs/manual-operacion-tecnica.md).

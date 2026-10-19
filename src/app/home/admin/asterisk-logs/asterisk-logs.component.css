@@ -1,0 +1,21 @@
+.asterisk-logs { min-width: 0; padding: 1.25rem clamp(.75rem, 2vw, 1.5rem) 2rem; color: #dce5eb; }
+.logs-cabecera { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin: .5rem 0 1.1rem; }
+.logs-eyebrow { margin: 0 0 .25rem; color: #80cfd6; font-size: .72rem; font-weight: 750; }
+.logs-cabecera h1 { margin: 0; color: #eef4f7; font-size: 1.35rem; }
+.logs-cabecera p:last-child { margin: .25rem 0 0; color: #a9bac5; font-size: .86rem; }
+.logs-actualizar { flex: 0 0 auto; }
+.logs-tabla-scroll { width: 100%; overflow: auto; border: 1px solid #354a56; border-radius: 6px; }
+.logs-tabla { min-width: 900px; }
+.logs-tabla code { display: block; max-width: 18rem; overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.logs-resultado { display: inline-block; padding: .18rem .4rem; border: 1px solid #455b68; border-radius: 4px; color: #dce5eb; font-size: .74rem; white-space: nowrap; }
+.resultado-success { border-color: #347c69; background: #183c34; color: #9cddc2; }
+.resultado-not_confirmed, .resultado-ami_error, .resultado-configuration_error, .resultado-invalid_request { border-color: #80533f; background: #3c2d25; color: #ffc5a2; }
+.logs-detalle { max-width: 18rem; margin-top: .25rem; color: #9db0ba; font-size: .74rem; }
+.logs-detalle summary { cursor: pointer; }
+.logs-detalle p { max-width: 18rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.logs-error { padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
+.logs-estado, .logs-vacio { padding: 1rem 0; color: #a9bac5; }
+
+@media (max-width: 700px) {
+  .logs-cabecera h1 { font-size: 1.15rem; }
+}

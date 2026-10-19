@@ -167,18 +167,9 @@ html, body {
     min-height: 100vh; /* Ocupa al menos el 100% de la ventana */
   }
 
-  /* El contenido crece automáticamente y empuja al footer hacia abajo */
+  /* El header permanece en el flujo para que el contenido no quede debajo. */
   .main-content {
     flex: 1;
-    padding-top: 141px;
-  }
-
-  /* Pantallas pequeñas (Móviles) */
-  @media (max-width: 600px) {
-    .main-content {
-      /* Alto del header en móvil, franja Recientes y separación. */
-      padding-top: 100px;
-    }
   }
 
   .btn-regresar {

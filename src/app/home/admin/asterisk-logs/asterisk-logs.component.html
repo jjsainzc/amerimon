@@ -1,0 +1,59 @@
+<main class="asterisk-logs">
+  <app-admin-volver />
+  <header class="logs-cabecera">
+    <div>
+      <p class="logs-eyebrow">ADMINISTRACIÓN · ASTERISK</p>
+      <h1>Registro de operaciones</h1>
+      <p>Solicitudes, respuestas AMI y confirmación de enlaces.</p>
+    </div>
+    <button type="button" class="logs-actualizar accion-estandar" (click)="cargar()" [disabled]="cargando()">
+      {{ cargando() ? 'Actualizando…' : 'Actualizar' }}
+    </button>
+  </header>
+
+  @if (error()) { <p class="logs-error" role="alert">{{ error() }}</p> }
+  @if (cargando()) { <p class="logs-estado" role="status">Consultando operaciones Asterisk…</p> }
+
+  @if (!cargando() && !error()) {
+    <app-table-pagination placement="top" [showPageSize]="true" [showSearch]="true"
+      [pageSize]="itemsPorPagina()" [currentPage]="pagina()" [totalPages]="totalPaginas()"
+      [searchText]="busqueda()" searchLabel="Buscar operaciones Asterisk"
+      searchPlaceholder="Buscar nodo, acción, comando o error…"
+      [summaryText]="registros().length + ' operaciones · ' + filtrados().length + ' coinciden'"
+      (pageSizeChange)="cambiarTamano($event)" (searchChange)="buscar($event)" />
+
+    @if (paginados().length) {
+      <div class="logs-tabla-scroll">
+        <table class="allstarlink-tabla-base logs-tabla">
+          <thead>
+            <tr>
+              <th>Fecha y hora</th><th>Acción</th><th>Nodo local</th><th>Nodo remoto</th>
+              <th>Modo</th><th>Comando</th><th>Resultado</th><th>Duración</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (registro of paginados(); track registro.id) {
+              <tr>
+                <td><time [attr.datetime]="registro.created_at">{{ registro.created_at | date:'yyyy-MM-dd HH:mm:ss' }}</time></td>
+                <td>{{ registro.action }}</td>
+                <td>{{ registro.local_node || '—' }}</td>
+                <td>{{ registro.remote_node || '—' }}</td>
+                <td>{{ registro.mode || '—' }}{{ registro.permanent ? ' · Permanente' : '' }}</td>
+                <td><code [title]="registro.command">{{ registro.command || '—' }}</code></td>
+                <td>
+                  <span class="logs-resultado" [class]="'logs-resultado resultado-' + registro.result">{{ etiquetaResultado(registro.result) }}</span>
+                  @if (registro.details) { <details class="logs-detalle"><summary>Detalle</summary><p>{{ registro.details }}</p></details> }
+                </td>
+                <td>{{ registro.duration_ms }} ms</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <app-table-pagination placement="bottom" [currentPage]="pagina()" [totalPages]="totalPaginas()"
+        (pageChange)="pagina.set($event)" />
+    } @else {
+      <p class="logs-vacio">{{ registros().length ? 'No hay operaciones que coincidan con la búsqueda.' : 'Todavía no hay operaciones registradas.' }}</p>
+    }
+  }
+</main>

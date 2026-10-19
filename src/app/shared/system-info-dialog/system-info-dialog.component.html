@@ -59,7 +59,14 @@
         <article class="sys-tarjeta">
           <h3>Almacenamiento</h3>
           @for (disco of info.storage; track disco.mountpoint) {
-            <div class="sys-sublectura"><strong>{{ disco.mountpoint }} · {{ disco.used_percent }}</strong><span>{{ disco.free }} libres de {{ disco.total }}</span><span>{{ disco.fs_type }} · Swap {{ disco.swap }}</span></div>
+            <div class="sys-sublectura">
+              <strong>{{ disco.mountpoint }} · {{ disco.used_percent }}</strong>
+              <div class="sys-barra" role="meter" [attr.aria-label]="'Almacenamiento usado en ' + disco.mountpoint" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="porcentaje(disco.used_percent)">
+                <span [style.width.%]="porcentaje(disco.used_percent)"></span>
+              </div>
+              <span>{{ disco.free }} libres de {{ disco.total }}</span>
+              <span>{{ disco.fs_type }} · Swap {{ disco.swap }}</span>
+            </div>
           } @empty { <span>Sin datos de almacenamiento.</span> }
         </article>
         <article class="sys-tarjeta">
@@ -69,9 +76,9 @@
           } @empty { <span>Sin interfaces de red.</span> }
         </article>
         <article class="sys-tarjeta">
-          <h3>Tráfico de red</h3>
-          <div class="sys-lectura"><span>Recibido</span><strong>{{ info.traffic.bytes_recv | number }} B</strong></div>
-          <div class="sys-lectura"><span>Enviado</span><strong>{{ info.traffic.bytes_sent | number }} B</strong></div>
+          <h3>Tráfico acumulado</h3>
+          <div class="sys-lectura"><span>Recibido</span><strong>{{ (info.traffic.bytes_recv / 1000000) | number:'1.2-2' }} MB</strong></div>
+          <div class="sys-lectura"><span>Enviado</span><strong>{{ (info.traffic.bytes_sent / 1000000) | number:'1.2-2' }} MB</strong></div>
         </article>
         <article class="sys-tarjeta sys-tarjeta-procesos">
           <h3>Procesos con mayor uso de CPU</h3>

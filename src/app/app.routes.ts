@@ -17,6 +17,11 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/allstarlink-historial/allstarlink-historial.component').then((m) => m.AllstarlinkHistorialComponent),
   },
   {
+    path: 'admin/asterisk-logs',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/asterisk-logs/asterisk-logs.component').then((m) => m.AsteriskLogsComponent),
+  },
+  {
     path: 'admin/allmon',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/allmon-config/allmon-config.component').then((m) => m.AllmonConfigComponent),

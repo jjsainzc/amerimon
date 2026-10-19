@@ -4,21 +4,36 @@
   position: sticky;
   top: 0;
   z-index: 50;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .5rem 1rem;
-  padding: .6rem 1rem;
-  background: transparent;
+  display: grid;
+  gap: .75rem;
+  margin: .75rem;
+  padding: 1rem 1rem .75rem;
+  border: 1px solid #405461;
+  border-radius: 8px;
+  background: #17252e;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .2);
+  transition: transform .25s ease;
 }
 
-.marca { font-weight: 700; letter-spacing: .06em; color: #9bdcff; }
+.barra.oculta { transform: translateY(calc(-100% - .75rem)); }
 
-/* En escritorio el contenedor del menú no afecta al layout. */
-.menu { display: contents; }
+.barra-superior { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; }
+.identidad { min-width: 0; }
+.identidad h1 { margin: 0; color: #e5edf2; font-size: 1.25rem; line-height: 1.25; overflow-wrap: anywhere; }
+.identidad p { margin: .2rem 0 0; color: #a9bac5; font-size: .84rem; line-height: 1.35; overflow-wrap: anywhere; }
+
+.menu { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding-top: .65rem; border-top: 1px solid #344751; }
 .hamburguesa { display: none; }
+.enlaces { display: flex; flex-wrap: wrap; gap: .4rem; margin-right: auto; }
+.enlaces a { padding: .4rem .65rem; border-radius: 5px; color: #dce5eb; text-decoration: none; }
+.enlaces a.activo { background: #263d47; color: #79d3dd; }
+.sesion { display: flex; flex-wrap: wrap; gap: .4rem; }
+.sesion .boton-enlace { padding: .42rem .65rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; font-size: .82rem; text-decoration: none; cursor: pointer; }
+.sesion .boton-enlace:hover, .enlaces a:hover { background: #304651; }
+.sesion .boton-enlace.activo { color: #79d3dd; }
 
 @media (max-width: 720px) {
+  .barra { margin: .5rem; padding: .8rem; }
   .hamburguesa {
     display: grid;
     place-items: center;
@@ -26,9 +41,10 @@
     height: 2.4rem;
     margin-left: auto;
     padding: 0;
-    border: 1px solid #3a4f5e;
+    border: 1px solid #455b68;
     border-radius: 5px;
     background: #263641;
+    color: #dce5eb;
     cursor: pointer;
   }
   .hamburguesa span,
@@ -52,38 +68,16 @@
 
   .menu {
     display: none;
-    flex: 0 0 100%;
     flex-direction: column;
+    align-items: stretch;
     gap: .5rem;
-    padding: .6rem;
-    border: 1px solid #2d3f4c;
-    border-radius: 8px;
-    background: #111a22;
+    padding-top: .65rem;
   }
   .menu.abierto { display: flex; }
-  .menu .enlaces, .menu .sesion { flex-direction: column; align-items: stretch; flex: none; }
-  .menu .enlaces a, .menu .sesion .boton-enlace, .menu .sesion button { text-align: left; }
+  .menu .enlaces, .menu .sesion { flex-direction: column; align-items: stretch; width: 100%; }
+  .menu .enlaces a, .menu .sesion .boton-enlace { text-align: left; }
 }
 
-.enlaces { display: flex; flex-wrap: wrap; gap: .5rem; flex: 1; }
-.enlaces a {
-  padding: .35rem .7rem;
-  border-radius: 5px;
-  color: #dce5eb;
-  text-decoration: none;
-}
-.enlaces a.activo { background: #263641; color: #9bdcff; }
-
-.sesion { display: flex; flex-wrap: wrap; gap: .5rem; }
-.sesion .boton-enlace {
-  padding: .4rem .75rem;
-  border: 1px solid #3a4f5e;
-  border-radius: 5px;
-  background: #263641;
-  color: #dce5eb;
-  text-decoration: none;
-}
-.sesion .boton-enlace.activo { color: #9bdcff; }
 .sesion button, .acciones button {
   padding: .4rem .75rem;
   border: 1px solid #3a4f5e;
@@ -93,6 +87,8 @@
   font: inherit;
   cursor: pointer;
 }
+
+.nota-cabecera { margin: -.25rem 0 0; color: #a9bac5; font-size: .8rem; }
 
 
 .fondo {

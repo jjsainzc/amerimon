@@ -34,7 +34,10 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.POST("/auth/login", controllers.AdminLogin)
 	publica.GET("/auth/status", controllers.AdminStatus)
 	publica.POST("/auth/setup", controllers.SetupAdminPassword)
+	publica.GET("/site-settings", controllers.GetSiteSettings)
 	privada.POST("/auth/password", controllers.ChangeAdminPassword, jwt, admin)
+	privada.PUT("/site-settings", controllers.SaveSiteSettings, jwt, admin)
+	privada.GET("/system-info", controllers.GetSystemInfo, jwt, admin)
 
 	publica.GET("/astdb", controllers.GetAstDB)
 	publica.GET("/sm_lsnodes", controllers.HandleAllStarNodes)
@@ -42,6 +45,7 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.POST("/asterisk", controllers.SendAsteriskCmd, jwt, admin)
 	privada.GET("/asterisk/commands", controllers.ListSupermonCommands, jwt, admin)
 	privada.POST("/asterisk/commands", controllers.ExecuteSupermonCommand, jwt, admin)
+	privada.GET("/asterisk/logs", controllers.GetAsteriskOperationLogs, jwt, admin)
 	privada.POST("/asterisk/connections", controllers.AddNodeConnection, jwt, admin)
 
 	// Rutas sin rol A: públicas; el token es opcional y, si es válido, identifica al usuario.
