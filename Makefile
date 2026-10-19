@@ -18,8 +18,8 @@ export REPO_DIR
 # tag -> release (genera los .deb) -> copiar al repo local -> dejar 3 versiones -> publicar
 dist: newtags release copy-repo clean-repo push-repo
 
-# Uso: make newtags             -> siguiente patch del tag mas alto (sin tags: v1.0.1)
-#      make dist VERSION=v1.0.1 -> fuerza la version
+# Uso: make dist                -> siguiente patch del tag mas alto; las versiones 0.x se saltan a v1.0.1
+#      make dist VERSION=v1.2.0 -> fuerza la version
 newtags:
 	@if [ -n "$$(git status --porcelain --untracked-files=all)" ]; then \
 		echo "ERROR: Hay cambios sin commit; no se creará ni publicará el tag." >&2; \
@@ -30,6 +30,7 @@ newtags:
 	if [ -z "$$NEW_TAG" ]; then \
 		CURRENT_TAG=$$(git tag --list 'v*' --sort=-v:refname | head -n 1); \
 		[ -n "$$CURRENT_TAG" ] || CURRENT_TAG=v1.0.0; \
+		case "$$CURRENT_TAG" in v0.*) CURRENT_TAG=v1.0.0;; esac; \
 		NEW_TAG=$$(echo $$CURRENT_TAG | awk -F. '{print($$1"."$$2"."$$3+1)}'); \
 	fi; \
 	if ! echo "$$NEW_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
