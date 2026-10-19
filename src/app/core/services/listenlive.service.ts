@@ -47,7 +47,7 @@ export class ListenLiveService {
     this.error.set(null);
     this.connecting.set(true);
 
-    const uuid = crypto.randomUUID();
+    const uuid = this.crearUUID();
 
     // Se crea antes del await para conservar el gesto del usuario (política de autoplay).
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 8000 });
@@ -171,5 +171,31 @@ export class ListenLiveService {
         this.error.set('La escucha se detuvo, pero no se pudo cerrar su registro');
       }
     }
+  }
+
+  private crearUUID(): string {
+    const cryptoAPI = globalThis.crypto;
+    if (typeof cryptoAPI?.randomUUID === 'function') {
+      return cryptoAPI.randomUUID();
+    }
+
+    const bytes = new Uint8Array(16);
+    try {
+      cryptoAPI?.getRandomValues(bytes);
+    } catch {
+      for (let index = 0; index < bytes.length; index++) {
+        bytes[index] = Math.floor(Math.random() * 256);
+      }
+    }
+    if (!cryptoAPI?.getRandomValues) {
+      for (let index = 0; index < bytes.length; index++) {
+        bytes[index] = Math.floor(Math.random() * 256);
+      }
+    }
+
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
 }
