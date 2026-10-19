@@ -1,6 +1,22 @@
-TAG=`git describe --tags`
-User = `id -u -n`
-DateTime = `date`
+# Distribucion de amerimon (.deb) y utilidades de desarrollo.
+
+REPO_DIR ?= /var/www/html/repo
+PORT     ?= 8082
+
+# scripts/clean-rep.sh lee REPO_DIR del entorno.
+export REPO_DIR
+
+.PHONY: dist newtags release copy-repo index-repo clean-repo push-repo dev-backend dev-front run
+
+# Los pasos de dist dependen unos de otros: no ejecutar con make -j.
+.NOTPARALLEL:
+
+# ---------------------------------------------------------------------------
+# Distribucion
+# ---------------------------------------------------------------------------
+
+# tag -> release (genera los .deb) -> copiar al repo local -> dejar 3 versiones -> publicar
+dist: newtags release copy-repo clean-repo push-repo
 
 newtags:
 	@if [ -n "$$(git status --porcelain --untracked-files=all)" ]; then \
@@ -10,7 +26,7 @@ newtags:
 	fi
 	@echo "Pushing current branch before creating the tag..."
 	@git push
-	@# Fallback to v0.0.0 if git describe fails due to no existing tags
+	@# Si no hay tags, git describe falla y se parte de v0.0.0
 	@CURRENT_TAG=$$(git describe --tags 2>/dev/null || echo "v0.0.0"); \
 	NEW_TAG=$$(echo $$CURRENT_TAG | awk -F. '{print($$1"."$$2"."$$3+1)}'); \
 	echo "Creating and pushing new tag: $$NEW_TAG"; \
@@ -18,36 +34,18 @@ newtags:
 	git push --tags
 
 release:
-	goreleaser release  --clean
+	goreleaser release --clean
 
 copy-repo:
-	cp dist/*.deb /var/www/html/repo/
+	cp dist/*.deb $(REPO_DIR)/
 
+# Regenera y firma Packages/Release en el repo local.
 index-repo:
-	cd /var/www/html/repo/ && ./update-repo.sh
+	cd $(REPO_DIR) && ./update-repo.sh
 
-.PHONY: clean-rep
+# Conserva las 3 ultimas versiones de cada paquete y regenera los indices.
 clean-repo:
 	bash scripts/clean-rep.sh
-
-.PHONY: dist dev-backend dev-front run
-dist: newtags release copy-repo clean-repo push-repo
-
-# Desarrollo: backend en :$(PORT) y ng serve (:4200) con proxy /mon -> :8082.
-# Toma las credenciales AMI de manager.conf; el secreto JWT es solo de desarrollo.
-PORT ?= 8082
-DEVRUN = AMERIMON_JWT_SECRET=dev-secret \
-	AMI_USER=$$(grep -E '^\s*\[.+\]' /etc/asterisk/manager.conf | grep -v '\[general\]' | head -n 1 | tr -d '[] ') \
-	AMI_SECRET=$$(grep -E '^\s*secret\s*=' /etc/asterisk/manager.conf | head -n 1 | cut -d= -f2 | tr -d ' ') \
-	go run ./cmd/amerimon -config packaging/amerimon.yaml -addr 127.0.0.1:$(PORT) -db /tmp/amerimon-dev.db
-
-dev-backend:
-	$(DEVRUN)
-
-dev-front:
-	npm start
-
-REPO_DIR ?= /var/www/html/repo
 
 # Publica en el repo git publico (repo-deb) los .deb vigentes de serverutil y amerimon y los
 # indices firmados. Los .deb que clean-repo borro del disco quedan fuera del repo.
@@ -59,9 +57,24 @@ push-repo:
 	{ git diff --staged --quiet || git commit -m "Actualizar paquetes de serverutil y amerimon - $$(git -C $(CURDIR) describe --tags --always)"; } && \
 	git push origin main
 
-# Binario unico: compila Angular, lo embebe y lo ejecuta
+# ---------------------------------------------------------------------------
+# Desarrollo
+# ---------------------------------------------------------------------------
+
+# Credenciales AMI tomadas de manager.conf; el secreto JWT es solo de desarrollo.
+DEVRUN = AMERIMON_JWT_SECRET=dev-secret \
+	AMI_USER=$$(grep -E '^\s*\[.+\]' /etc/asterisk/manager.conf | grep -v '\[general\]' | head -n 1 | tr -d '[] ') \
+	AMI_SECRET=$$(grep -E '^\s*secret\s*=' /etc/asterisk/manager.conf | head -n 1 | cut -d= -f2 | tr -d ' ') \
+	go run ./cmd/amerimon -config packaging/amerimon.yaml -addr 127.0.0.1:$(PORT) -db /tmp/amerimon-dev.db
+
+# Backend en :$(PORT); ng serve (:4200) lo usa como proxy para /mon.
+dev-backend:
+	$(DEVRUN)
+
+dev-front:
+	npm start
+
+# Binario unico: compila Angular, lo embebe y lo ejecuta.
 run:
 	npm run build
 	$(DEVRUN)
-
-dist: newtags release copy-repo clean-repo push-repo

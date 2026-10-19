@@ -1,6 +1,7 @@
 #!/bin/bash
 
-REPO_DIR="/var/www/html/repo"
+# El Makefile exporta REPO_DIR; sin él se usa la ruta por defecto.
+REPO_DIR="${REPO_DIR:-/var/www/html/repo}"
 KEEP_COUNT=3
 DRY_RUN=false
 
