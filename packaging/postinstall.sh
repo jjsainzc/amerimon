@@ -83,6 +83,7 @@ if [ -d "$AST_DIR" ]; then
 
     if [ -f "$MODULES_CONF" ]; then
         [ -e "$MODULES_CONF.bak-listen-live" ] || cp -a "$MODULES_CONF" "$MODULES_CONF.bak-listen-live"
+        AVAILABLE_MODULES=
         for module in $MODULES; do
             module_found=0
             for module_file in /usr/lib/*/asterisk/modules/"$module" /usr/lib/asterisk/modules/"$module"; do
@@ -95,15 +96,23 @@ if [ -d "$AST_DIR" ]; then
                 echo "Aviso: módulo Asterisk no instalado: $module" >&2
                 continue
             fi
-
-            if grep -qE "^[[:space:]]*load[[:space:]]*=>[[:space:]]*$module([[:space:]]|$)" "$MODULES_CONF"; then
-                :
-            elif grep -qE "^[[:space:]]*noload[[:space:]]*=>[[:space:]]*$module([[:space:]]|$)" "$MODULES_CONF"; then
-                sed -i -E "s/^[[:space:]]*noload([[:space:]]*=>[[:space:]]*)$module([[:space:]]*)$/load\\1$module\\2/" "$MODULES_CONF"
-            else
-                printf '\nload => %s\n' "$module" >> "$MODULES_CONF"
-            fi
+                AVAILABLE_MODULES="$AVAILABLE_MODULES $module"
         done
+
+        if [ -n "$AVAILABLE_MODULES" ]; then
+            sed -i '/^; BEGIN AMERIMON LISTEN LIVE MODULES$/,/^; END AMERIMON LISTEN LIVE MODULES$/d' "$MODULES_CONF"
+            for module in $AVAILABLE_MODULES; do
+                module_pattern=$(printf '%s' "$module" | sed 's/\./\\./g')
+                sed -i -E "/^[[:space:]]*(load|noload)[[:space:]]*(=>|=)[[:space:]]*$module_pattern([[:space:]]*(;.*)?)$/d" "$MODULES_CONF"
+            done
+            {
+                printf '\n; BEGIN AMERIMON LISTEN LIVE MODULES\n'
+                for module in $AVAILABLE_MODULES; do
+                    printf 'load => %s\n' "$module"
+                done
+                printf '; END AMERIMON LISTEN LIVE MODULES\n'
+            } >> "$MODULES_CONF"
+        fi
     else
         echo "Aviso: no existe $MODULES_CONF; no se configuraron módulos para Listen Live." >&2
     fi
