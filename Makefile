@@ -18,20 +18,30 @@ export REPO_DIR
 # tag -> release (genera los .deb) -> copiar al repo local -> dejar 3 versiones -> publicar
 dist: newtags release copy-repo clean-repo push-repo
 
+# Uso: make newtags             -> siguiente patch del tag mas alto (sin tags: v1.0.1)
+#      make dist VERSION=v1.0.1 -> fuerza la version
 newtags:
 	@if [ -n "$$(git status --porcelain --untracked-files=all)" ]; then \
 		echo "ERROR: Hay cambios sin commit; no se creará ni publicará el tag." >&2; \
 		git status --short; \
 		exit 1; \
 	fi
-	@echo "Pushing current branch before creating the tag..."
-	@git push
-	@# Se parte del tag vX.Y.Z mas alto; sin tags, de v1.0.0 (el primer release sera v1.0.1)
-	@CURRENT_TAG=$$(git tag --list 'v*' --sort=-v:refname | head -n 1); \
-	[ -n "$$CURRENT_TAG" ] || CURRENT_TAG=v1.0.0; \
-	NEW_TAG=$$(echo $$CURRENT_TAG | awk -F. '{print($$1"."$$2"."$$3+1)}'); \
-	echo "Creating and pushing new tag: $$NEW_TAG"; \
-	git tag $$NEW_TAG -m "new tag"; \
+	@NEW_TAG="$(VERSION)"; \
+	if [ -z "$$NEW_TAG" ]; then \
+		CURRENT_TAG=$$(git tag --list 'v*' --sort=-v:refname | head -n 1); \
+		[ -n "$$CURRENT_TAG" ] || CURRENT_TAG=v1.0.0; \
+		NEW_TAG=$$(echo $$CURRENT_TAG | awk -F. '{print($$1"."$$2"."$$3+1)}'); \
+	fi; \
+	if ! echo "$$NEW_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "ERROR: la version debe tener el formato vX.Y.Z (recibido: $$NEW_TAG)" >&2; exit 1; \
+	fi; \
+	if git rev-parse -q --verify "refs/tags/$$NEW_TAG" >/dev/null; then \
+		echo "ERROR: el tag $$NEW_TAG ya existe" >&2; exit 1; \
+	fi; \
+	echo "Pushing current branch before creating the tag..."; \
+	git push && \
+	echo "Creating and pushing new tag: $$NEW_TAG" && \
+	git tag $$NEW_TAG -m "new tag" && \
 	git push --tags
 
 release:
