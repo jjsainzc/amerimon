@@ -26,8 +26,9 @@ newtags:
 	fi
 	@echo "Pushing current branch before creating the tag..."
 	@git push
-	@# Si no hay tags, git describe falla y se parte de v0.0.0
-	@CURRENT_TAG=$$(git describe --tags 2>/dev/null || echo "v0.0.0"); \
+	@# Se parte del tag vX.Y.Z mas alto; sin tags, de v1.0.0 (el primer release sera v1.0.1)
+	@CURRENT_TAG=$$(git tag --list 'v*' --sort=-v:refname | head -n 1); \
+	[ -n "$$CURRENT_TAG" ] || CURRENT_TAG=v1.0.0; \
 	NEW_TAG=$$(echo $$CURRENT_TAG | awk -F. '{print($$1"."$$2"."$$3+1)}'); \
 	echo "Creating and pushing new tag: $$NEW_TAG"; \
 	git tag $$NEW_TAG -m "new tag"; \
