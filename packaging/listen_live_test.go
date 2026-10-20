@@ -42,6 +42,9 @@ func TestListenLiveDialplanInstallation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(string(postinstall), "app_verbose.so") {
+		t.Fatal("Verbose and Log require app_verbose.so in the installed module list")
+	}
 	start := strings.Index(string(postinstall), `    EXTENSIONS_CONF="$AST_DIR/extensions.conf"`)
 	end := strings.Index(string(postinstall), `        if command -v asterisk`)
 	if start < 0 || end < start {

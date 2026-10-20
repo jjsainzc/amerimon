@@ -79,7 +79,7 @@ fi
 AST_DIR=/etc/asterisk
 if [ -d "$AST_DIR" ]; then
     MODULES_CONF="$AST_DIR/modules.conf"
-    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so func_config.so func_strings.so func_logic.so func_cut.so"
+    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so app_verbose.so func_config.so func_strings.so func_logic.so func_cut.so"
 
     if [ -f "$MODULES_CONF" ]; then
         [ -e "$MODULES_CONF.bak-listen-live" ] || cp -a "$MODULES_CONF" "$MODULES_CONF.bak-listen-live"
