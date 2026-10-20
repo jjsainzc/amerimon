@@ -119,18 +119,6 @@ func GetAllStarLinkNodes(c echo.Context) error {
 			amiInstances = filtered
 		}
 	} else {
-		var localNodes []string
-		if localNode != "" {
-			localNodes = []string{localNode}
-		} else {
-			localNodes, err = readLocalRPTNodes(rptConfigPath)
-			if err != nil {
-				return c.JSON(http.StatusInternalServerError, map[string]any{
-					"status":  "error",
-					"message": "No se pudieron obtener los nodos locales de Asterisk",
-				})
-			}
-		}
 		ami := config.App.AMI
 		if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -138,11 +126,26 @@ func GetAllStarLinkNodes(c echo.Context) error {
 				"message": "La configuración AMI de Asterisk está incompleta",
 			})
 		}
-		amiInstances = make([]allmonInstance, 0, len(localNodes))
-		for _, node := range localNodes {
-			amiInstances = append(amiInstances, allmonInstance{
-				Node: node, Host: ami.Host, Port: ami.Port, User: ami.User, Secret: ami.Secret,
+		amiInstances, err = reconcileLocalAllmonInstances(nil)
+		if err != nil {
+			log.Printf("allstarlink: no se pudieron obtener los nodos locales: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{
+				"status": "error", "message": "No se pudieron obtener los nodos locales de Asterisk",
 			})
+		}
+		if localNode != "" {
+			filtered := make([]allmonInstance, 0, 1)
+			for _, instance := range amiInstances {
+				if instance.Node == localNode {
+					filtered = append(filtered, instance)
+				}
+			}
+			if len(filtered) == 0 {
+				return c.JSON(http.StatusNotFound, map[string]any{
+					"status": "error", "message": "El nodo local no existe en rpt.conf",
+				})
+			}
+			amiInstances = filtered
 		}
 	}
 

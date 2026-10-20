@@ -581,21 +581,7 @@ func allStarLinkActivityInstances() ([]allmonInstance, error) {
 	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
 		return nil, fmt.Errorf("la configuración AMI de Asterisk está incompleta")
 	}
-	rptConfigPath := strings.TrimSpace(ami.RPTConfigPath)
-	if rptConfigPath == "" {
-		rptConfigPath = "/etc/asterisk/rpt.conf"
-	}
-	localNodes, err := readLocalRPTNodes(rptConfigPath)
-	if err != nil {
-		return nil, err
-	}
-	instances = make([]allmonInstance, 0, len(localNodes))
-	for _, node := range localNodes {
-		instances = append(instances, allmonInstance{
-			Node: node, Host: ami.Host, Port: ami.Port, User: ami.User, Secret: ami.Secret,
-		})
-	}
-	return instances, nil
+	return reconcileLocalAllmonInstances(nil)
 }
 
 // parseRPTLastActivity convierte los tiempos de SawStat en marcas horarias por nodo remoto.

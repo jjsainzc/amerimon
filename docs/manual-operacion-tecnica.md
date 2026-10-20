@@ -165,7 +165,9 @@ La búsqueda de `allmon.ini` sigue este orden:
 3. `/var/www/html/supermon/allmon.ini`.
 4. `sources.allmon_ini_own_path`; predeterminado `/etc/amerimon/allmon.ini`.
 
-Cuando existe un `allmon.ini` con nodos válidos, esas instancias proporcionan la conexión AMI de cada nodo. Una entrada típica es:
+Los nodos locales se obtienen de `/etc/asterisk/rpt.conf` (o `ami.rpt_config_path`), incluido el principal identificado por `<nodo> = radio@127.0.0.1/<nodo>,NONE`. Usan las credenciales AMI globales de Amerimon. Las entradas Allmon dirigidas a loopback o al host AMI global no sustituyen estos nodos ni sus credenciales. Las instancias de servidores remotos conservan su configuración Allmon. Esta selección se comparte entre la tabla, el sondeo de actividad y las acciones sobre nodos.
+
+Cuando existe un `allmon.ini` con nodos remotos válidos, esas instancias proporcionan la conexión AMI de cada servidor remoto. Una entrada típica es:
 
 ```ini
 [616260]
@@ -433,7 +435,7 @@ Antes de entregar instrucciones APT, comprobar que `https://jjsainzc.github.io/r
 | Síntoma | Comprobaciones |
 | --- | --- |
 | Servicio no inicia | `systemctl status amerimon`; `journalctl -u amerimon -n 100`; revisar `8082` y `8086` |
-| Nodo local no aparece | Confirmar `rpt_config_path` o la sección numérica `system=Nodes` y `menu=yes` en el `allmon.ini` activo |
+| Nodo local no aparece | Confirmar `rpt_config_path`, las secciones numéricas y la entrada loopback del nodo principal en `rpt.conf`; Allmon solo aporta servidores remotos |
 | AMI rechaza operación | Revisar `AMI_USER`/`AMI_SECRET` sin imprimirlos; validar host/puerto y permisos del usuario existente; consultar `journalctl -u amerimon` |
 | AMI acepta, pero no confirma conexión | Abrir Registros Asterisk y revisar detalle de `XStat`, estado remoto y timeout |
 | `/amerimon` devuelve 404 | Confirmar conf Apache/Nginx habilitada, ruta, `configtest` y proxy del VirtualHost correcto |

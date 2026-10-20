@@ -3,6 +3,7 @@ package controllers
 import (
 	"amerimon/internal/config"
 	"bufio"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -143,7 +144,59 @@ func loadAllmonInstances() ([]allmonInstance, bool, error) {
 			instances[i].Secret = config.App.AMI.Secret
 		}
 	}
+	if err != nil {
+		return nil, true, err
+	}
+	instances, err = reconcileLocalAllmonInstances(instances)
 	return instances, true, err
+}
+
+// reconcileLocalAllmonInstances toma los nodos locales de rpt.conf y conserva los servidores remotos de Allmon.
+func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance, error) {
+	ami := config.App.AMI
+	path := strings.TrimSpace(ami.RPTConfigPath)
+	if path == "" {
+		path = "/etc/asterisk/rpt.conf"
+	}
+	primary, err := readPrimaryRPTNode(path)
+	if err != nil {
+		return nil, fmt.Errorf("leer nodo principal de rpt.conf: %w", err)
+	}
+	nodes, err := readLocalRPTNodes(path)
+	if err != nil {
+		return nil, err
+	}
+	if primary != "" {
+		nodes = append([]string{primary}, nodes...)
+	}
+	port := strings.TrimSpace(ami.Port)
+	if port == "" {
+		port = "5038"
+	}
+	resolved := make([]allmonInstance, 0, len(nodes)+len(instances))
+	local := make(map[string]bool)
+	for _, node := range nodes {
+		if local[node] {
+			continue
+		}
+		local[node] = true
+		resolved = append(resolved, allmonInstance{
+			Node: node, Host: ami.Host, Port: port, User: ami.User, Secret: ami.Secret,
+		})
+	}
+	for _, instance := range instances {
+		ip := net.ParseIP(instance.Host)
+		isLocal := strings.EqualFold(instance.Host, "localhost") ||
+			(ip != nil && ip.IsLoopback()) ||
+			strings.EqualFold(instance.Host, strings.TrimSpace(ami.Host))
+		if isLocal {
+			continue
+		}
+		if !local[instance.Node] {
+			resolved = append(resolved, instance)
+		}
+	}
+	return resolved, nil
 }
 
 // findAllmonInstance busca un nodo local y devuelve si hay configuración Allmon y cualquier error de lectura.
