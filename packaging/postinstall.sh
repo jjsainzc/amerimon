@@ -121,6 +121,20 @@ if [ -d "$AST_DIR" ]; then
     if [ -f "$EXTENSIONS_CONF" ]; then
         [ -e "$EXTENSIONS_CONF.bak-listen-live" ] || cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-listen-live"
 
+        if ! grep -qE '^[[:space:]]*\[amerimon-listen-node\][[:space:]]*(;.*)?$' "$EXTENSIONS_CONF"; then
+            cat >> "$EXTENSIONS_CONF" <<'EOF'
+
+; --- Amerimon: monitor app_rpt independiente de rxchannel ---
+[amerimon-listen-node]
+exten => h,1,NoOp(Listen Live node channel ended)
+ same => n,Hangup()
+exten => _X.,1,NoOp(Listen Live monitor nodo ${EXTEN})
+ same => n,Answer()
+ same => n,Rpt(${EXTEN},Pm)
+ same => n,Hangup()
+EOF
+        fi
+
         if ! grep -qE '^[[:space:]]*\[listen-live-spy\][[:space:]]*$' "$EXTENSIONS_CONF"; then
             cat >> "$EXTENSIONS_CONF" <<'EOF'
 
@@ -134,7 +148,7 @@ exten => _.,1,NoOp(Espiando PJSIP/${EXTEN})
  same => n,Hangup()
 exten => nodo,1,NoOp(Espiando nodo local ${NODE})
  same => n,Answer()
- same => n,ChanSpy(SimpleUSB/${NODE},q)
+ same => n,Rpt(${NODE},Pm)
  same => n,Hangup()
 EOF
         fi
@@ -145,7 +159,7 @@ EOF
             in_context && /^exten => nodo,/ { found = 1 }
             END { exit !found }
         ' "$EXTENSIONS_CONF"; then
-            sed -i '/^[[:space:]]*\[listen-live-spy\][[:space:]]*$/a exten => nodo,1,NoOp(Espiando nodo local ${NODE})\n same => n,Answer()\n same => n,ChanSpy(SimpleUSB/${NODE},q)\n same => n,Hangup()' "$EXTENSIONS_CONF"
+            sed -i '/^[[:space:]]*\[listen-live-spy\][[:space:]]*$/a exten => nodo,1,NoOp(Espiando nodo local ${NODE})\n same => n,Answer()\n same => n,Rpt(${NODE},Pm)\n same => n,Hangup()' "$EXTENSIONS_CONF"
         fi
 
         if ! grep -qE '^[[:space:]]*\[listen-live-eagi\][[:space:]]*$' "$EXTENSIONS_CONF"; then

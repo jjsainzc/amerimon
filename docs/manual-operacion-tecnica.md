@@ -204,11 +204,15 @@ Las acciones integradas usan `rpt cmd` por AMI:
 
 Para conexiones temporales, Amerimon consulta `XStat` hasta confirmar el enlace `ESTABLISHED`. El timeout predeterminado es 15 segundos, configurable entre 1 y 300 segundos en la petición. Las permanentes no esperan esa confirmación automática.
 
-Listen Live recibe audio solo del **nodo principal configurado para Asterisk**. No selecciona nodos remotos de Allmon. Su puerto EAGI `8086` permanece enlazado a loopback.
+Listen Live recibe audio solo del **nodo principal configurado para Asterisk**, identificado por la entrada `<nodo> = radio@127.0.0.1/<nodo>,NONE` en `rpt.conf`. Para la petición `ext=nodo`, Amerimon origina `Local/<nodo>@amerimon-listen-node/n` y el contexto ejecuta `Rpt(${EXTEN},Pm)` en modo monitor, sin habilitar transmisión ni controles DTMF. Así escucha mediante `app_rpt` sin asumir una interfaz `SimpleUSB`, `Radio`, `DAHDI` o `Local/pseudo`; Asterisk administra la configuración efectiva del nodo, incluidas sus plantillas.
+
+El instalador agrega `[amerimon-listen-node]` si falta, conserva los contextos existentes y recarga el dialplan sin reiniciar Asterisk. El contexto `[listen-live-spy]` se mantiene para la escucha de extensiones PJSIP; los bloques antiguos `nodo` con ChanSpy ya no se usan para la escucha principal. Si `[amerimon-listen-node]` ya existe, debe conservar su extensión numérica y el modo `Pm`. Tras actualizar, detén e inicia una escucha nueva: una llamada existente no cambia de aplicación al recargar el dialplan. Si falta la entrada del nodo principal, la API devuelve un error de configuración en lugar de elegir un canal arbitrario.
+
+No selecciona nodos remotos de Allmon. Su puerto EAGI `8086` permanece enlazado a loopback.
 
 ### Diagnosticar y limpiar canales huérfanos
 
-El paquete instala `/usr/local/bin/limpiar_canales_listen_live.sh`. El modo predeterminado `--check` solo muestra canales `Local/...@listen-live-spy` y procesos `audio_eagi.sh`, `cat` y `nc` asociados al listener:
+El paquete instala `/usr/local/bin/limpiar_canales_listen_live.sh`. El modo predeterminado `--check` solo muestra canales `Local/...@listen-live-spy` y `Local/...@amerimon-listen-node`, y procesos `audio_eagi.sh`, `cat` y `nc` asociados al listener:
 
 ```bash
 sudo limpiar_canales_listen_live.sh --check

@@ -18,7 +18,7 @@ fi
 
 channel_output=$(asterisk -rx "core show channels concise") || exit 1
 get_channels() {
-	printf '%s\n' "$1" | awk -F'!' '$1 ~ /^Local\/.*@listen-live-spy-/ { print $1 }' | sort -u
+	printf '%s\n' "$1" | awk -F'!' '$1 ~ /^Local\/.*@(listen-live-spy|amerimon-listen-node)-/ { print $1 }' | sort -u
 }
 channels=$(get_channels "$channel_output")
 

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -43,6 +44,10 @@ func TestListenLiveFailureIsStoredInOperationLogs(t *testing.T) {
 	config.App.UseDB = true
 	config.App.AMI.Host, config.App.AMI.Port = host, port
 	defer func() { config.App = previous }()
+	config.App.AMI.RPTConfigPath = filepath.Join(t.TempDir(), "rpt.conf")
+	if err := os.WriteFile(config.App.AMI.RPTConfigPath, []byte("[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	request := httptest.NewRequest(http.MethodPost, "/mon/listen-live/start",
 		strings.NewReader(`{"ext":"nodo","uuid":"12345678-1234-1234-1234-123456789012"}`))
 	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

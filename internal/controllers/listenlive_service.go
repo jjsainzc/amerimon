@@ -50,7 +50,7 @@ func ListenLiveAsteriskStatus(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "connected": true})
 }
 
-// StartListenLive origina el canal Local que espía la extensión (listen-live-spy)
+// StartListenLive origina un monitor app_rpt del principal o ChanSpy de una extensión
 // y envía el audio a Go por EAGI (listen-live-eagi, el uuid viaja como Exten).
 // Debe llamarse antes de abrir el WebSocket. La llamada termina sola cuando el
 // último WebSocket del uuid se cierra (ver HandleEAGIConnection).
@@ -73,8 +73,12 @@ func StartListenLive(c echo.Context) error {
 	}
 
 	ami := config.App.AMI
-	// /n evita la optimización del canal Local, que rompería el camino ChanSpy -> EAGI.
-	channel := fmt.Sprintf("Local/%s@listen-live-spy/n", req.Ext)
+	channel, err := listenLiveOriginateChannel(req.Ext)
+	if err != nil {
+		log.Printf("[ListenLive] configuración de escucha inválida uuid=%s: %v", req.UUID, err)
+		recordAsteriskOperation(c.Request().Context(), "listen_start", req.Ext, "", "", false, "", "configuration_error", err.Error(), startedAt)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "error", "message": err.Error()})
+	}
 	log.Printf("[ListenLive] inicio solicitado extensión=%s uuid=%s sesión=%d", req.Ext, req.UUID, req.ListenLiveID)
 	if err := config.ExecuteAMIOriginate(ami.Host, ami.Port, ami.User, ami.Secret, channel, "listen-live-eagi", req.UUID, 5*time.Second); err != nil {
 		log.Printf("[ListenLive] inicio fallido extensión=%s uuid=%s: %v", req.Ext, req.UUID, err)
@@ -101,6 +105,26 @@ func StartListenLive(c echo.Context) error {
 	log.Printf("[ListenLive] Originate aceptado extensión=%s uuid=%s", req.Ext, req.UUID)
 	recordAsteriskOperation(c.Request().Context(), "listen_start", req.Ext, "", "", false, channel, "success", "Originate aceptado; recepción de audio pendiente", startedAt)
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "data": nil, "message": "escucha iniciada"})
+}
+
+// listenLiveOriginateChannel escucha el principal mediante app_rpt; conserva ChanSpy para extensiones PJSIP.
+func listenLiveOriginateChannel(ext string) (string, error) {
+	if ext != "nodo" {
+		return fmt.Sprintf("Local/%s@listen-live-spy/n", ext), nil
+	}
+	path := strings.TrimSpace(config.App.AMI.RPTConfigPath)
+	if path == "" {
+		path = "/etc/asterisk/rpt.conf"
+	}
+	node, err := readPrimaryRPTNode(path)
+	if err != nil {
+		return "", fmt.Errorf("no se pudo leer el nodo principal de rpt.conf: %w", err)
+	}
+	if node == "" {
+		return "", fmt.Errorf("rpt.conf no contiene una entrada principal radio@127.0.0.1/<nodo>,NONE")
+	}
+	// /n mantiene ambos lados del canal Local durante la entrega de audio EAGI.
+	return fmt.Sprintf("Local/%s@amerimon-listen-node/n", node), nil
 }
 
 type stopListenLiveRequest struct {
