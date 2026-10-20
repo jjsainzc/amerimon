@@ -414,7 +414,7 @@ sudo journalctl -u amerimon-astdb.service -n 50 --no-pager
 
 El YAML debe apuntar `sources.astdb_path` al archivo que realmente se actualiza.
 
-## 13. Desarrollo local (solo mantenedores)
+## 13. Desarrollo local (solo desarrolladores)
 
 Antes de iniciar el modo desarrollo, detén el servicio instalado para liberar `8082` y `8086`:
 
@@ -435,7 +435,7 @@ Para alternar al servicio instalado con el código actual:
 
 Para recarga separada de frontend y backend, utiliza dos terminales: `make dev-backend` y `npm start`.
 
-## 14. Construcción y publicación (solo mantenedores)
+## 14. Construcción y publicación (solo desarrolladores)
 
 Esta sección es exclusivamente para el equipo que desarrolla y publica Amerimon. **No aplica a clientes**: para instalar o actualizar, usar APT como se indica en la sección 4. `make dist` exige un árbol Git limpio y publica de forma real. Ejecuta:
 
