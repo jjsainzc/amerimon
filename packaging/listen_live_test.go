@@ -8,6 +8,35 @@ import (
 	"testing"
 )
 
+func TestLocalInstallerAppliesListenLiveMigration(t *testing.T) {
+	data, err := os.ReadFile("../install.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(data)
+	hook := strings.Index(script, `"${SUDO[@]}" sh packaging/postinstall.sh`)
+	if hook < 0 {
+		t.Fatal("local installer must execute the shared postinstall hook")
+	}
+	for _, resource := range []string{
+		"packaging/listen-live-dialplan.awk",
+		"packaging/audio_eagi.sh",
+		"packaging/astdb.sh",
+		"scripts/limpiar_canales_listen_live.sh",
+		"packaging/amerimon-astdb.service",
+		"packaging/amerimon-astdb.timer",
+		"packaging/amerimon.service",
+	} {
+		index := strings.Index(script, resource)
+		if index < 0 || index > hook {
+			t.Fatalf("resource %s must be installed before running postinstall", resource)
+		}
+	}
+	if strings.Contains(script, "systemctl enable --now amerimon.service") {
+		t.Fatal("local installer must use the shared hook to restart an active service")
+	}
+}
+
 func TestListenLiveDialplanInstallation(t *testing.T) {
 	postinstall, err := os.ReadFile("postinstall.sh")
 	if err != nil {

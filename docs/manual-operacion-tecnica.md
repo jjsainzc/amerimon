@@ -421,7 +421,7 @@ Para alternar al servicio instalado con el código actual:
 ./install.sh
 ```
 
-`install.sh` recompila frontend/backend, actualiza `/usr/bin/amerimon` y activa el servicio systemd. Si se ejecuta cuando ya está activo, `systemctl enable --now` no reinicia un proceso activo; primero detenlo o reinícialo después. No ejecutes `make run` y `amerimon.service` simultáneamente porque comparten puertos.
+`install.sh` recompila frontend/backend, actualiza `/usr/bin/amerimon`, instala el script EAGI, la migración del dialplan y los archivos auxiliares del servicio. Ejecuta el mismo `packaging/postinstall.sh` del paquete Debian para migrar Listen Live con respaldo, habilitar los módulos disponibles, recargar el dialplan y reiniciar Amerimon aunque ya esté activo. Conserva los archivos existentes de configuración, credenciales y Allmon. También aplica la configuración del proxy web y del temporizador de astdb del paquete. No ejecutes `make run` y `amerimon.service` simultáneamente porque comparten puertos.
 
 Para recarga separada de frontend y backend, utiliza dos terminales: `make dev-backend` y `npm start`.
 
