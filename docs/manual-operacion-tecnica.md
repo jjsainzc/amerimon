@@ -165,7 +165,7 @@ La búsqueda de `allmon.ini` sigue este orden:
 3. `/var/www/html/supermon/allmon.ini`.
 4. `sources.allmon_ini_own_path`; predeterminado `/etc/amerimon/allmon.ini`.
 
-Los nodos locales se obtienen de `/etc/asterisk/rpt.conf` (o `ami.rpt_config_path`), incluido el principal identificado por `<nodo> = radio@127.0.0.1/<nodo>,NONE`. Usan las credenciales AMI globales de Amerimon. Las entradas Allmon dirigidas a loopback o al host AMI global no sustituyen estos nodos ni sus credenciales. Las instancias de servidores remotos conservan su configuración Allmon. Esta selección se comparte entre la tabla, el sondeo de actividad y las acciones sobre nodos.
+Los nodos locales se obtienen de `/etc/asterisk/rpt.conf` (o `ami.rpt_config_path`), incluido el principal identificado por `<nodo> = radio@127.0.0.1/<nodo>,NONE` en `[nodes]`. Se excluyen como servidores los nodos de `privatenodes.txt` y los clasificados como privados (cuatro dígitos): no crean tablas ni opciones del selector de servidores. Sus conexiones siguen apareciendo en la tabla del nodo al que están conectadas, sea el principal u otro servidor. El principal no se elige por orden: si varias entradas no privadas cumplen la regla loopback, se registra el error de ambigüedad. Los nodos locales usan las credenciales AMI globales de Amerimon. Las entradas Allmon dirigidas a loopback o al host AMI global no sustituyen estos nodos ni sus credenciales. Las instancias de servidores remotos conservan su configuración Allmon. Esta selección se comparte entre la tabla, el sondeo de actividad y las acciones sobre nodos.
 
 Cuando existe un `allmon.ini` con nodos remotos válidos, esas instancias proporcionan la conexión AMI de cada servidor remoto. Una entrada típica es:
 
@@ -276,7 +276,7 @@ sudo sh -c 'umask 077; head -c 48 /dev/urandom | base64 -w0 > /etc/amerimon/jwt.
 sudo systemctl restart amerimon
 ```
 
-El diálogo de acceso muestra el logo de Amerimon y permite marcar **Recordar sesión en este dispositivo**. Sin marcarlo, el JWT permanece en memoria y se pierde al recargar; al marcarlo, se almacena en el navegador hasta cerrar sesión o recibir un rechazo del servidor. Nunca se guarda la contraseña. Usa esta opción solo en dispositivos de confianza.
+El diálogo de acceso permite marcar **Recordar usuario, contraseña y sesión en este dispositivo**. Sin marcarlo, el JWT permanece en memoria y se pierde al recargar; al marcarlo, se almacena en Local Storage hasta cerrar sesión o recibir un rechazo del servidor. La casilla, el último usuario y su contraseña se conservan por separado en Local Storage incluso después de salir y se restauran al abrir el formulario. Un acceso correcto con la casilla desmarcada elimina la preferencia y las credenciales recordadas. Un cambio correcto de contraseña actualiza la recordada. Un acceso fallido no reemplaza las credenciales guardadas. **La contraseña se guarda sin cifrar, accesible a los scripts de la página y a quien acceda al perfil del navegador. Usa esta opción solo en dispositivos de confianza.**
 
 La interfaz utiliza únicamente el tema oscuro, incluidos los formularios y los diagramas del manual. Los títulos, etiquetas y textos deben mantener un contraste mínimo de 4,5:1 (3:1 para texto grande); las reglas oscuras globales conservan su prioridad frente a los estilos encapsulados de Angular. La impresión conserva su formato de papel.
 

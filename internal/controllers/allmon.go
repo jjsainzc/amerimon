@@ -169,6 +169,10 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 	if primary != "" {
 		nodes = append([]string{primary}, nodes...)
 	}
+	privateNodes, err := readPrivateNodeEntries()
+	if err != nil {
+		return nil, err
+	}
 	port := strings.TrimSpace(ami.Port)
 	if port == "" {
 		port = "5038"
@@ -176,6 +180,9 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 	resolved := make([]allmonInstance, 0, len(nodes)+len(instances))
 	local := make(map[string]bool)
 	for _, node := range nodes {
+		if isPrivateMonitorNode(node, privateNodes) {
+			continue
+		}
 		if local[node] {
 			continue
 		}
@@ -185,6 +192,9 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 		})
 	}
 	for _, instance := range instances {
+		if isPrivateMonitorNode(instance.Node, privateNodes) {
+			continue
+		}
 		ip := net.ParseIP(instance.Host)
 		isLocal := strings.EqualFold(instance.Host, "localhost") ||
 			(ip != nil && ip.IsLoopback()) ||

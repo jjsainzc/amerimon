@@ -546,19 +546,50 @@ func readLocalRPTNodes(path string) ([]string, error) {
 	return nodes, nil
 }
 
-// readPrimaryRPTNode busca en rpt.conf el nodo principal de Asterisk y devuelve errores de apertura o lectura.
+func readPrivateNodeEntries() (map[string]AstDBEntry, error) {
+	entries, err := readAstDBEntries(privateNodesFilePath())
+	if os.IsNotExist(err) {
+		return map[string]AstDBEntry{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("leer privatenodes.txt: %w", err)
+	}
+	return entries, nil
+}
+
+func isPrivateMonitorNode(node string, entries map[string]AstDBEntry) bool {
+	_, listed := entries[node]
+	return listed || allStarLinkNodeCategory(node) == "nodo_privado"
+}
+
+// readPrimaryRPTNode exige una única entrada loopback pública en [nodes], sin depender del orden.
 func readPrimaryRPTNode(path string) (string, error) {
+	privateNodes, err := readPrivateNodeEntries()
+	if err != nil {
+		return "", err
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
+	primary := ""
+	section := ""
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if comment := strings.IndexAny(line, ";#"); comment >= 0 {
 			line = strings.TrimSpace(line[:comment])
+		}
+		if strings.HasPrefix(line, "[") {
+			if end := strings.IndexByte(line, ']'); end >= 0 {
+				section = strings.ToLower(strings.TrimSpace(line[1:end]))
+			}
+			continue
+		}
+		if section != "nodes" {
+			continue
 		}
 		key, value, ok := strings.Cut(line, "=")
 		if !ok {
@@ -568,15 +599,21 @@ func readPrimaryRPTNode(path string) (string, error) {
 		if !isNumericNode(node) {
 			continue
 		}
+		if isPrivateMonitorNode(node, privateNodes) {
+			continue
+		}
 		expected := "radio@127.0.0.1/" + node + ",NONE"
 		if strings.EqualFold(strings.TrimSpace(value), expected) {
-			return node, nil
+			if primary != "" && primary != node {
+				return "", fmt.Errorf("rpt.conf contiene varios nodos principales posibles: %s y %s", primary, node)
+			}
+			primary = node
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return "", err
 	}
-	return "", nil
+	return primary, nil
 }
 
 type rptConnection struct {

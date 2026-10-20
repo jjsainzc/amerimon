@@ -9,6 +9,9 @@ interface TokenResponse {
 }
 
 const rememberedTokenKey = 'amerimon.admin.token';
+const rememberPreferenceKey = 'amerimon.admin.remember';
+const rememberedUserKey = 'amerimon.admin.user';
+const rememberedPasswordKey = 'amerimon.admin.password';
 
 /** Un solo administrador; la sesión solo se persiste si el usuario lo solicita. */
 @Injectable({ providedIn: 'root' })
@@ -30,35 +33,60 @@ export class AuthService {
   configurar(user: string, password: string, recordar = false): Observable<TokenResponse> {
     return this.http
       .post<TokenResponse>(`${environment.apiUrl}/auth/setup`, { user, new: password })
-      .pipe(tap((resp) => this.iniciarSesion(resp.token, recordar)));
+      .pipe(tap((resp) => this.iniciarSesion(resp.token, recordar, user, password)));
   }
 
   /** Autentica al administrador y conserva el token si se solicita recordar la sesión. */
   login(user: string, password: string, recordar = false): Observable<TokenResponse> {
     return this.http
       .post<TokenResponse>(`${environment.apiUrl}/auth/login`, { user, password })
-      .pipe(tap((resp) => this.iniciarSesion(resp.token, recordar)));
+      .pipe(tap((resp) => this.iniciarSesion(resp.token, recordar, user, password)));
   }
 
   /** Solicita cambiar la contraseña verificando primero la contraseña actual. */
   cambiarPassword(current: string, nueva: string): Observable<{ status: string }> {
-    return this.http.post<{ status: string }>(`${environment.apiUrl}/auth/password`, { current, new: nueva });
+    return this.http.post<{ status: string }>(`${environment.apiUrl}/auth/password`, { current, new: nueva })
+      .pipe(tap(() => {
+        if (this.recordarSesion() && this.usuarioRecordado()) {
+          localStorage.setItem(rememberedPasswordKey, nueva);
+        }
+      }));
   }
 
-  /** Elimina el token tanto del almacenamiento persistente como del estado de la UI. */
+  /** Cierra el acceso sin borrar las credenciales que se eligió recordar. */
   logout(): void {
     localStorage.removeItem(rememberedTokenKey);
     this.tokenSignal.set(null);
   }
 
   /** Actualiza la sesión en memoria y sincroniza su persistencia según la opción elegida. */
-  private iniciarSesion(token: string, recordar: boolean): void {
+  private iniciarSesion(token: string, recordar: boolean, user: string, password: string): void {
     if (recordar) {
       localStorage.setItem(rememberedTokenKey, token);
+      localStorage.setItem(rememberPreferenceKey, 'true');
+      localStorage.setItem(rememberedUserKey, user);
+      localStorage.setItem(rememberedPasswordKey, password);
     } else {
       localStorage.removeItem(rememberedTokenKey);
+      localStorage.removeItem(rememberPreferenceKey);
+      localStorage.removeItem(rememberedUserKey);
+      localStorage.removeItem(rememberedPasswordKey);
     }
     this.tokenSignal.set(token);
+  }
+
+  /** Restaura la casilla, incluyendo sesiones recordadas antes de existir la preferencia separada. */
+  recordarSesion(): boolean {
+    return localStorage.getItem(rememberPreferenceKey) === 'true' || localStorage.getItem(rememberedTokenKey) !== null;
+  }
+
+  /** Recupera el nombre de usuario recordado. */
+  usuarioRecordado(): string {
+    return this.recordarSesion() ? localStorage.getItem(rememberedUserKey) ?? '' : '';
+  }
+
+  passwordRecordada(): string {
+    return this.recordarSesion() ? localStorage.getItem(rememberedPasswordKey) ?? '' : '';
   }
 
   /** Devuelve el token actual para autenticar peticiones HTTP y conexiones de audio. */

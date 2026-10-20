@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"amerimon/internal/config"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -93,5 +94,86 @@ func TestReadPrimaryRPTNodeNotConfigured(t *testing.T) {
 	}
 	if node != "" {
 		t.Fatalf("expected no primary node, got %q", node)
+	}
+}
+
+func TestPrivateNodesAreConnectionsNotServers(t *testing.T) {
+	for _, withAllmon := range []bool{false, true} {
+		t.Run(fmt.Sprint(withAllmon), func(t *testing.T) {
+			dir := t.TempDir()
+			rptPath := filepath.Join(dir, "rpt.conf")
+			privatePath := filepath.Join(dir, "privatenodes.txt")
+			rpt := `[1964]
+	[1998]
+	[616265](node-main)
+	[612345]
+	[nodes]
+	1998 = radio@127.0.0.1/1998,NONE
+	612345 = radio@127.0.0.1/612345,NONE
+	616265 = radio@127.0.0.1/616265,NONE
+	[functions]
+	616299 = radio@127.0.0.1/616299,NONE
+	`
+			if err := os.WriteFile(rptPath, []byte(rpt), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			// 1998 deliberately absent: use the existing private-node category too.
+			if err := os.WriteFile(privatePath, []byte("1964|PRIVATE1\n612345|PRIVATE2\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			previous := config.App
+			defer func() { config.App = previous }()
+			config.App.AMI.RPTConfigPath = rptPath
+			config.App.AMI.Host = "127.0.0.1"
+			config.App.Sources.PrivateNodesPath = privatePath
+			var configured []allmonInstance
+			if withAllmon {
+				configured = []allmonInstance{
+					{Node: "1964", Host: "192.0.2.1"},
+					{Node: "1998", Host: "127.0.0.1"},
+					{Node: "612345", Host: "192.0.2.2"},
+					{Node: "700001", Host: "192.0.2.3", User: "remote-user", Secret: "remote-secret"},
+				}
+			}
+			primary, err := readPrimaryRPTNode(rptPath)
+			if err != nil || primary != "616265" {
+				t.Fatalf("primary = %q, error = %v", primary, err)
+			}
+			instances, err := reconcileLocalAllmonInstances(configured)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedCount := 1
+			if withAllmon {
+				expectedCount++
+			}
+			if len(instances) != expectedCount || instances[0].Node != primary {
+				t.Fatalf("private nodes became servers: %+v", instances)
+			}
+			if withAllmon && (instances[1].Node != "700001" || instances[1].Secret != "remote-secret") {
+				t.Fatalf("remote configuration changed: %+v", instances[1])
+			}
+			connections := parseRPTConnections(
+				"Conn: 1964 127.0.0.1 1 OUT 00:01:00 ESTABLISHED\nConn: 1998 127.0.0.1 1 OUT 00:02:00 ESTABLISHED\n", "")
+			rows := make([]AllStarLinkNode, 0, len(connections))
+			for _, connection := range connections {
+				rows = append(rows, AllStarLinkNode{NodoLocal: primary, Nodo: connection.Node, Protocolo: "iax"})
+			}
+			tables := buildAllStarLinkLocalTables(instances, rows, map[string]bool{primary: true})
+			if len(rows) != 2 || len(tables) != expectedCount || tables[0].NodoLocal != primary ||
+				len(tables[0].NodosDisponibles) != 2 {
+				t.Fatalf("private connections lost or given separate tables: rows=%+v tables=%+v", rows, tables)
+			}
+		})
+	}
+}
+
+func TestPrimaryRPTNodeDoesNotChooseFirstAmbiguousMatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rpt.conf")
+	if err := os.WriteFile(path, []byte("[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n616262 = radio@127.0.0.1/616262,NONE\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if node, err := readPrimaryRPTNode(path); err == nil || node != "" {
+		t.Fatalf("ambiguous config selected %q with error %v", node, err)
 	}
 }

@@ -113,6 +113,7 @@ export class App implements OnInit {
   protected abrirLogin(): void {
     this.menuAbierto.set(false);
     this.limpiar();
+    this.password = this.auth.passwordRecordada();
     this.dialogoAbierto.set(true);
     this.modo.set('login');
     this.auth.configurada().subscribe({
@@ -211,10 +212,11 @@ export class App implements OnInit {
     }
   }
 
-  /** Vacía credenciales y reinicia los mensajes y el estado de envío. */
+  /** Borra contraseñas y restaura el usuario y la casilla desde la preferencia persistente. */
   private limpiar(): void {
-    this.usuario = this.password = this.nueva = this.repetir = '';
-    this.recordarSesion = false;
+    this.password = this.nueva = this.repetir = '';
+    this.usuario = this.auth.usuarioRecordado();
+    this.recordarSesion = this.auth.recordarSesion();
     this.error.set('');
     this.aviso.set('');
     this.enviando.set(false);
