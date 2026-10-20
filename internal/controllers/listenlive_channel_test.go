@@ -22,7 +22,7 @@ func TestListenLiveOriginateChannel(t *testing.T) {
 			}
 			channel, err := listenLiveOriginateChannel("nodo")
 			if err != nil || channel != "Local/616265@amerimon-listen-node/n" {
-				t.Fatalf("wrong monitor target: %q, error=%v", channel, err)
+				t.Fatalf("wrong rxchannel context: %q, error=%v", channel, err)
 			}
 		})
 	}
@@ -44,11 +44,11 @@ func TestListenLiveOriginateChannel(t *testing.T) {
 	}
 }
 
-func TestListenLiveMonitorChannelsCanBeStopped(t *testing.T) {
+func TestListenLiveRXChannelsCanBeStopped(t *testing.T) {
 	uuid := "12345678-1234-1234-1234-123456789012"
 	channel := "Local/616265@amerimon-listen-node-00000001"
 	output := channel + ";1!listen-live-eagi!" + uuid + "!3!Up!EAGI!audio\n" +
-		channel + ";2!amerimon-listen-node!616265!3!Up!Rpt!616265,Pm\n"
+		channel + ";2!amerimon-listen-node!616265!11!Up!ChanSpy!Local/pseudo@default,q\n"
 	channels := listenLiveChannels(output, uuid)
 	if len(channels) != 2 || !strings.HasSuffix(channels[0], ";1") || !strings.HasSuffix(channels[1], ";2") {
 		t.Fatalf("expected both monitor channel legs, got %v", channels)

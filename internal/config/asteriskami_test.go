@@ -68,6 +68,10 @@ func TestExecuteAMIOriginate(t *testing.T) {
 					done <- fmt.Errorf("Originate sin ActionID: %q", message)
 					return
 				}
+				if !strings.Contains(message, "Variable: __AMERIMON_RPT_CONFIG=/etc/asterisk/rpt.conf\r\n") {
+					done <- fmt.Errorf("missing inherited config path in Originate")
+					return
+				}
 				if tc.response != "" {
 					fmt.Fprint(conn, "Event: Unrelated\r\nActionID: other\r\n\r\n")
 					fmt.Fprintf(conn, "Response: %s\r\nActionID: %s\r\nMessage: Originate result\r\n\r\n", tc.response, actionID)
@@ -75,10 +79,12 @@ func TestExecuteAMIOriginate(t *testing.T) {
 				done <- nil
 			}()
 			host, port, _ := net.SplitHostPort(listener.Addr().String())
-			err = ExecuteAMIOriginate(host, port, "test-user", "test-secret", "Local/nodo@listen-live-spy/n", "listen-live-eagi", "test", 2*time.Second)
+			err = ExecuteAMIOriginate(host, port, "test-user", "test-secret", "Local/nodo@listen-live-spy/n", "listen-live-eagi", "test", 2*time.Second,
+				AMIOriginateVariable{Name: "__AMERIMON_RPT_CONFIG", Value: "/etc/asterisk/rpt.conf"})
 			if tc.wantErr == "" && err != nil {
 				t.Fatal(err)
 			}
+
 			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
 				t.Fatalf("expected %q, got %v", tc.wantErr, err)
 			}
@@ -86,5 +92,17 @@ func TestExecuteAMIOriginate(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestExecuteAMIOriginateRejectsVariableInjection(t *testing.T) {
+	for _, variable := range []AMIOriginateVariable{
+		{Name: "NAME\r\nAction: Hangup", Value: "value"},
+		{Name: "NAME", Value: "value\r\nAction: Hangup"},
+	} {
+		err := ExecuteAMIOriginate("", "", "", "", "", "", "", time.Second, variable)
+		if err == nil || !strings.Contains(err.Error(), "variable Originate inválida") {
+			t.Fatalf("expected variable validation before connecting, got %v", err)
+		}
 	}
 }

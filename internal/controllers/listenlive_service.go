@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -50,7 +51,7 @@ func ListenLiveAsteriskStatus(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "connected": true})
 }
 
-// StartListenLive origina un monitor app_rpt del principal o ChanSpy de una extensión
+// StartListenLive origina ChanSpy del rxchannel del principal o de una extensión
 // y envía el audio a Go por EAGI (listen-live-eagi, el uuid viaja como Exten).
 // Debe llamarse antes de abrir el WebSocket. La llamada termina sola cuando el
 // último WebSocket del uuid se cierra (ver HandleEAGIConnection).
@@ -73,6 +74,18 @@ func StartListenLive(c echo.Context) error {
 	}
 
 	ami := config.App.AMI
+	var variables []config.AMIOriginateVariable
+	if req.Ext == "nodo" {
+		path := strings.TrimSpace(ami.RPTConfigPath)
+		if path == "" {
+			path = "/etc/asterisk/rpt.conf"
+		}
+		absolutePath, err := filepath.Abs(path)
+		if err != nil {
+			return fmt.Errorf("ruta de rpt.conf inválida: %w", err)
+		}
+		variables = append(variables, config.AMIOriginateVariable{Name: "__AMERIMON_RPT_CONFIG", Value: absolutePath})
+	}
 	channel, err := listenLiveOriginateChannel(req.Ext)
 	if err != nil {
 		log.Printf("[ListenLive] configuración de escucha inválida uuid=%s: %v", req.UUID, err)
@@ -80,7 +93,7 @@ func StartListenLive(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "error", "message": err.Error()})
 	}
 	log.Printf("[ListenLive] inicio solicitado extensión=%s uuid=%s sesión=%d", req.Ext, req.UUID, req.ListenLiveID)
-	if err := config.ExecuteAMIOriginate(ami.Host, ami.Port, ami.User, ami.Secret, channel, "listen-live-eagi", req.UUID, 5*time.Second); err != nil {
+	if err := config.ExecuteAMIOriginate(ami.Host, ami.Port, ami.User, ami.Secret, channel, "listen-live-eagi", req.UUID, 5*time.Second, variables...); err != nil {
 		log.Printf("[ListenLive] inicio fallido extensión=%s uuid=%s: %v", req.Ext, req.UUID, err)
 		recordAsteriskOperation(c.Request().Context(), "listen_start", req.Ext, "", "", false, channel, "ami_error", err.Error(), startedAt)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "error", "message": err.Error()})
@@ -107,7 +120,7 @@ func StartListenLive(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "data": nil, "message": "escucha iniciada"})
 }
 
-// listenLiveOriginateChannel escucha el principal mediante app_rpt; conserva ChanSpy para extensiones PJSIP.
+// listenLiveOriginateChannel usa el nodo principal de rpt.conf y conserva la ruta de extensiones PJSIP.
 func listenLiveOriginateChannel(ext string) (string, error) {
 	if ext != "nodo" {
 		return fmt.Sprintf("Local/%s@listen-live-spy/n", ext), nil

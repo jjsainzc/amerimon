@@ -79,7 +79,7 @@ fi
 AST_DIR=/etc/asterisk
 if [ -d "$AST_DIR" ]; then
     MODULES_CONF="$AST_DIR/modules.conf"
-    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so"
+    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so func_config.so func_strings.so func_logic.so func_cut.so"
 
     if [ -f "$MODULES_CONF" ]; then
         [ -e "$MODULES_CONF.bak-listen-live" ] || cp -a "$MODULES_CONF" "$MODULES_CONF.bak-listen-live"
@@ -121,16 +121,38 @@ if [ -d "$AST_DIR" ]; then
     if [ -f "$EXTENSIONS_CONF" ]; then
         [ -e "$EXTENSIONS_CONF.bak-listen-live" ] || cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-listen-live"
 
+        migrated=$(mktemp "${EXTENSIONS_CONF}.amerimon.XXXXXX")
+        if awk -f /usr/lib/amerimon/listen-live-dialplan.awk "$EXTENSIONS_CONF" > "$migrated"; then
+            if ! cmp -s "$EXTENSIONS_CONF" "$migrated"; then
+                cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-listen-live-rxchannel"
+                cat "$migrated" > "$EXTENSIONS_CONF"
+            fi
+            rm -f "$migrated"
+        else
+            rm -f "$migrated"
+            echo "Error: no se pudo migrar el dialplan Listen Live." >&2
+            exit 1
+        fi
+
         if ! grep -qE '^[[:space:]]*\[amerimon-listen-node\][[:space:]]*(;.*)?$' "$EXTENSIONS_CONF"; then
             cat >> "$EXTENSIONS_CONF" <<'EOF'
 
-; --- Amerimon: monitor app_rpt independiente de rxchannel ---
+; --- Amerimon: escucha del rxchannel efectivo de rpt.conf ---
 [amerimon-listen-node]
 exten => h,1,NoOp(Listen Live node channel ended)
  same => n,Hangup()
-exten => _X.,1,NoOp(Listen Live monitor nodo ${EXTEN})
+exten => _X.,1,NoOp(Listen Live rxchannel nodo ${EXTEN})
+ same => n,Set(AMERIMON_RPT_CONFIG=${IF($["${AMERIMON_RPT_CONFIG}" = ""]?rpt.conf:${AMERIMON_RPT_CONFIG})})
+ same => n,Set(AMERIMON_RX=${AST_CONFIG(${AMERIMON_RPT_CONFIG},${EXTEN},rxchannel,-1)})
+ same => n,GotoIf($["${AMERIMON_RX}" = ""]?missing)
+ same => n,Set(AMERIMON_TECH=${CUT(AMERIMON_RX,/,1)})
+ same => n,ExecIf($["${TOLOWER(${AMERIMON_TECH})}" = "local"]?Set(AMERIMON_RX=${CUT(AMERIMON_RX,/,1-2)}))
+ same => n,ExecIf($["${TOLOWER(${AMERIMON_TECH})}" = "local" & ${REGEX("@" ${AMERIMON_RX})} = 0]?Set(AMERIMON_RX=${AMERIMON_RX}@default))
+ same => n,Verbose(1,Amerimon Listen Live nodo ${EXTEN} rxchannel ${AMERIMON_RX})
  same => n,Answer()
- same => n,Rpt(${EXTEN},Pm)
+ same => n,ChanSpy(${AMERIMON_RX},q)
+ same => n,Hangup()
+ same => n(missing),Log(ERROR,Amerimon Listen Live sin rxchannel para nodo ${EXTEN} en ${AMERIMON_RPT_CONFIG})
  same => n,Hangup()
 EOF
         fi
@@ -146,20 +168,17 @@ exten => _.,1,NoOp(Espiando PJSIP/${EXTEN})
  same => n,Answer()
  same => n,ChanSpy(PJSIP/${EXTEN},q)
  same => n,Hangup()
-exten => nodo,1,NoOp(Espiando nodo local ${NODE})
- same => n,Answer()
- same => n,Rpt(${NODE},Pm)
- same => n,Hangup()
+exten => nodo,1,Goto(amerimon-listen-node,${NODE},1)
 EOF
         fi
 
         if ! awk '
-            /^\[listen-live-spy\][[:space:]]*$/ { in_context = 1; next }
+            /^[[:space:]]*\[listen-live-spy\][[:space:]]*(;.*)?$/ { in_context = 1; next }
             /^\[/ { if (in_context) exit; in_context = 0 }
-            in_context && /^exten => nodo,/ { found = 1 }
+            in_context && /^[[:space:]]*exten[[:space:]]*=>[[:space:]]*nodo[[:space:]]*,/ { found = 1 }
             END { exit !found }
         ' "$EXTENSIONS_CONF"; then
-            sed -i '/^[[:space:]]*\[listen-live-spy\][[:space:]]*$/a exten => nodo,1,NoOp(Espiando nodo local ${NODE})\n same => n,Answer()\n same => n,Rpt(${NODE},Pm)\n same => n,Hangup()' "$EXTENSIONS_CONF"
+            sed -i '/^[[:space:]]*\[listen-live-spy\][[:space:]]*$/a exten => nodo,1,Goto(amerimon-listen-node,${NODE},1)' "$EXTENSIONS_CONF"
         fi
 
         if ! grep -qE '^[[:space:]]*\[listen-live-eagi\][[:space:]]*$' "$EXTENSIONS_CONF"; then

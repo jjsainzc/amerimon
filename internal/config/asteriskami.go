@@ -113,8 +113,20 @@ func ExecuteAMIRptStatus(host, port, username, secret, node, command string, tim
 	return rawOutput, nil
 }
 
-// ExecuteAMIOriginate inicia una llamada mediante Action: Originate de AMI.
-func ExecuteAMIOriginate(host, port, username, secret, channel, context, exten string, timeout time.Duration) error {
+type AMIOriginateVariable struct {
+	Name  string
+	Value string
+}
+
+// ExecuteAMIOriginate inicia una llamada AMI y propaga las variables indicadas al canal.
+func ExecuteAMIOriginate(host, port, username, secret, channel, context, exten string, timeout time.Duration, variables ...AMIOriginateVariable) error {
+	var variableHeaders strings.Builder
+	for _, variable := range variables {
+		if variable.Name == "" || strings.ContainsAny(variable.Name, "\r\n=: ") || strings.ContainsAny(variable.Value, "\r\n") {
+			return fmt.Errorf("variable Originate inválida")
+		}
+		fmt.Fprintf(&variableHeaders, "Variable: %s=%s\r\n", variable.Name, variable.Value)
+	}
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
 	if err != nil {
 		return fmt.Errorf("error al conectar: %w", err)
@@ -141,7 +153,7 @@ func ExecuteAMIOriginate(host, port, username, secret, channel, context, exten s
 	}
 
 	actionID := fmt.Sprintf("listen-live-%d", time.Now().UnixNano())
-	orig := fmt.Sprintf("Action: Originate\r\nActionID: %s\r\nChannel: %s\r\nContext: %s\r\nExten: %s\r\nPriority: 1\r\nAsync: true\r\n\r\n", actionID, channel, context, exten)
+	orig := fmt.Sprintf("Action: Originate\r\nActionID: %s\r\nChannel: %s\r\nContext: %s\r\nExten: %s\r\nPriority: 1\r\nAsync: true\r\n%s\r\n", actionID, channel, context, exten, variableHeaders.String())
 	if _, err := conn.Write([]byte(orig)); err != nil {
 		return fmt.Errorf("error enviando originate: %w", err)
 	}

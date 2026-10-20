@@ -68,6 +68,8 @@ nfpms:
         dst: /usr/local/bin/audio_eagi.sh
         file_info:
           mode: 0755
+      - src: packaging/listen-live-dialplan.awk
+        dst: /usr/lib/amerimon/listen-live-dialplan.awk
       - src: scripts/limpiar_canales_listen_live.sh
         dst: /usr/local/bin/limpiar_canales_listen_live.sh
         file_info:
