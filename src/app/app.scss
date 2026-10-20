@@ -18,6 +18,8 @@
 .barra.oculta { transform: translateY(calc(-100% - .75rem)); }
 
 .barra-superior { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-width: 0; }
+.marca-cabecera { display: flex; align-items: center; gap: .7rem; min-width: 0; }
+.logo-cabecera { width: 2.5rem; height: 2.5rem; flex: 0 0 auto; object-fit: contain; }
 .identidad { min-width: 0; }
 .identidad h1 { margin: 0; color: #e5edf2; font-size: 1.25rem; line-height: 1.25; overflow-wrap: anywhere; }
 .identidad p { margin: .2rem 0 0; color: #a9bac5; font-size: .84rem; line-height: 1.35; overflow-wrap: anywhere; }
@@ -34,6 +36,7 @@
 
 @media (max-width: 720px) {
   .barra { margin: .5rem; padding: .8rem; }
+  .logo-cabecera { width: 2.2rem; height: 2.2rem; }
   .hamburguesa {
     display: grid;
     place-items: center;

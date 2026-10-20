@@ -1,8 +1,11 @@
 <header class="barra" [class.oculta]="headerOculto()">
   <div class="barra-superior">
-    <div class="identidad">
-      <h1>{{ tituloAplicacion() }}</h1>
-      <p>{{ subtituloAplicacion() }}</p>
+    <div class="marca-cabecera">
+      <img class="logo-cabecera" src="assets/images/amerimon.png" alt="" aria-hidden="true" />
+      <div class="identidad">
+        <h1>{{ tituloAplicacion() }}</h1>
+        <p>{{ subtituloAplicacion() }}</p>
+      </div>
     </div>
     <button type="button" class="hamburguesa" aria-label="Menú" aria-controls="menu-principal"
             [attr.aria-expanded]="menuAbierto()" (click)="alternarMenu()">
