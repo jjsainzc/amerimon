@@ -1,10 +1,13 @@
 package controllers
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -26,9 +29,10 @@ type systemControlResult struct {
 }
 
 type systemControl struct {
-	run   func(context.Context, time.Duration, string, ...string) (string, error)
-	ami   func() error
-	pause func(time.Duration)
+	run        func(context.Context, time.Duration, string, ...string) (string, error)
+	ami        func() error
+	pause      func(time.Duration)
+	fileErrors func(time.Time) (string, error)
 }
 
 // runSystemCommand ejecuta únicamente comandos y argumentos definidos por el servidor, con plazo limitado.
@@ -59,7 +63,63 @@ func checkControlAMI() error {
 
 // ControlSystem restringe mantenimiento al administrador y no acepta comandos ni unidades arbitrarios.
 func ControlSystem(c echo.Context) error {
-	return (systemControl{run: runSystemCommand, ami: checkControlAMI, pause: time.Sleep}).handle(c)
+	return (systemControl{
+		run: runSystemCommand, ami: checkControlAMI, pause: time.Sleep,
+		fileErrors: func(since time.Time) (string, error) {
+			return asteriskFileErrors("/var/log/asterisk/messages.log", since)
+		},
+	}).handle(c)
+}
+
+// asteriskFileErrors limita la lectura al final del log estándar y filtra errores posteriores a la solicitud.
+func asteriskFileErrors(path string, since time.Time) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return "", err
+	}
+	const maxBytes = 256 * 1024
+	start := max(int64(0), info.Size()-maxBytes)
+	if _, err := file.Seek(start, io.SeekStart); err != nil {
+		return "", err
+	}
+	reader := bufio.NewReader(io.LimitReader(file, maxBytes))
+	if start > 0 {
+		if _, err := reader.ReadString('\n'); err != nil {
+			return "", err
+		}
+	}
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 4096), maxBytes)
+	var lines []string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.Contains(line, " ERROR[") && !strings.Contains(line, " CRITICAL[") {
+			continue
+		}
+		end := strings.IndexByte(line, ']')
+		if !strings.HasPrefix(line, "[") || end < 0 {
+			return "", fmt.Errorf("formato de fecha no reconocido en %s", path)
+		}
+		stamp, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", line[1:end], time.Local)
+		if err != nil {
+			return "", fmt.Errorf("fecha de log inválida en %s: %w", path, err)
+		}
+		if !stamp.Before(since.Truncate(time.Second)) {
+			lines = append(lines, line)
+			if len(lines) > 40 {
+				lines = lines[1:]
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return strings.Join(lines, "\n"), nil
 }
 
 // handle confirma, serializa y registra cada operación; un apagado solo se informa como programado.
@@ -108,6 +168,15 @@ func (s systemControl) handle(c echo.Context) error {
 			result.Warnings = "No se pudieron consultar los errores del arranque: " + journalErr.Error()
 		} else if warnings != "" && warnings != "-- No entries --" {
 			result.Warnings = warnings
+		}
+		if s.fileErrors != nil {
+			fileWarnings, fileErr := s.fileErrors(started)
+			if fileErr != nil {
+				fileWarnings = "No se pudo consultar /var/log/asterisk/messages.log: " + fileErr.Error()
+			}
+			if fileWarnings != "" {
+				result.Warnings = strings.TrimSpace(result.Warnings + "\n" + fileWarnings)
+			}
 		}
 	} else {
 		flag := "-r"

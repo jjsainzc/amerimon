@@ -344,6 +344,16 @@ Si Asterisk escribe en archivo en lugar del journal, consulta también `/var/log
 
 ## 10. Información del sistema
 
+### Mantenimiento administrativo
+
+En **Admin → Sistema**, el administrador dispone de **Reiniciar Asterisk**, **Reiniciar Linux** y **Apagar Linux**. Cada acción exige escribir su frase de confirmación; todas interrumpen comunicaciones. La API `POST /mon/system/control` exige JWT y rol administrador y solo acepta estas tres acciones fijas, nunca comandos arbitrarios.
+
+- **Asterisk:** intenta `systemctl restart asterisk.service`. Si falla, solicita la parada del servicio y envía SIGTERM solo a los procesos de esa unidad; si no terminan, usa SIGKILL. No busca procesos por nombre ni termina procesos ajenos. Solo hace `start` tras confirmar la parada; después verifica servicio activo y AMI mediante uptime. Una recuperación o verificación fallida se devuelve como error, sin informar un reinicio exitoso. El plazo total es aproximadamente un minuto.
+- **Diagnóstico:** muestra los errores del journal de `asterisk.service` desde la solicitud y los errores recientes del archivo estándar `/var/log/asterisk/messages.log` (últimos 256 KiB, hasta 40 líneas). Si alguna fuente no puede consultarse, lo indica. Los errores del arranque se muestran como advertencias aunque servicio y AMI respondan; por ejemplo, puede faltar una interfaz USB. Un archivo de log personalizado debe consultarse aparte.
+- **Linux:** programa `shutdown -r +1` o `shutdown -P +1`, con un minuto de margen. La respuesta confirma la programación, no que el reinicio/apagado haya terminado. El apagado puede requerir acceso físico para volver a encender el equipo. Para cancelar desde una consola antes de que ocurra: `sudo shutdown -c`.
+
+Las solicitudes y sus resultados quedan en **Registros Asterisk** y en el journal de Amerimon. El servicio instalado se ejecuta como root; una instancia de desarrollo sin esos permisos devolverá el error del sistema, sin intentar elevar privilegios. No se deben probar las acciones Linux sobre un equipo compartido o en producción sin autorización. Los tests de estas acciones simulan todos los comandos, sin reiniciar ni apagar el equipo.
+
 El popup **Sistema** requiere sesión de administrador. Incluye:
 
 - Host, distribución, arquitectura, kernel y uptime.

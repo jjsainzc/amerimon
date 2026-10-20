@@ -5,12 +5,49 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
 )
+
+func TestAsteriskFileErrorsOnlyIncludesCurrentErrors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "messages.log")
+	since := time.Date(2026, 10, 20, 10, 0, 0, 0, time.Local)
+	data := "[2026-10-20 09:59:59.999] ERROR[1] Old error\n" +
+		"[2026-10-20 10:00:00.001] NOTICE[1] Normal startup\n" +
+		"[2026-10-20 10:00:00.100] ERROR[2] USB missing\n"
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output, err := asteriskFileErrors(path, since)
+	if err != nil || strings.Contains(output, "Old error") || strings.Contains(output, "Normal startup") || !strings.Contains(output, "USB missing") {
+		t.Fatalf("wrong current error selection: %q %v", output, err)
+	}
+}
+
+func TestAsteriskRecoveryDoesNotStartOverStuckService(t *testing.T) {
+	control := systemControl{
+		pause: func(time.Duration) {},
+		run: func(_ context.Context, _ time.Duration, _ string, args ...string) (string, error) {
+			switch args[0] {
+			case "restart":
+				return "", errors.New("timeout")
+			case "show":
+				return "deactivating", nil
+			case "start":
+				t.Fatal("must not start a second instance over a stuck service")
+			}
+			return "", nil
+		},
+	}
+	if err := control.restartAsterisk(context.Background(), &systemControlResult{}); err == nil {
+		t.Fatal("expected stuck service error")
+	}
+}
 
 func TestRestartAsteriskRecovery(t *testing.T) {
 	for _, tc := range []struct {
