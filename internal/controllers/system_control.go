@@ -207,18 +207,31 @@ func (s systemControl) handle(c echo.Context) error {
 }
 
 // stopped espera a que systemd haya terminado el trabajo de parada antes de intentar start.
-func (s systemControl) stopped(ctx context.Context, attempts int) bool {
+func (s systemControl) stopped(ctx context.Context, attempts int) (bool, error) {
 	for i := 0; i < attempts; i++ {
 		state, err := s.run(ctx, 2*time.Second, "systemctl", "show", "asterisk.service", "--property=ActiveState", "--value")
 		if err != nil {
-			return false
+			return false, fmt.Errorf("no se pudo comprobar la parada de Asterisk: %w", err)
 		}
 		if state == "inactive" || state == "failed" {
-			return true
+			return true, nil
 		}
 		s.pause(time.Second)
 	}
-	return false
+	return false, nil
+}
+
+// signalAndWait tolera la salida simultánea del servicio, pero no escala si no puede consultar su estado.
+func (s systemControl) signalAndWait(ctx context.Context, signal string, attempts int) (bool, error) {
+	_, signalErr := s.run(ctx, 3*time.Second, "systemctl", "kill", "--kill-whom=all", "--signal="+signal, "asterisk.service")
+	stopped, err := s.stopped(ctx, attempts)
+	if err != nil {
+		return false, err
+	}
+	if !stopped && signalErr != nil {
+		return false, fmt.Errorf("falló %s de asterisk.service: %w", signal, signalErr)
+	}
+	return stopped, nil
 }
 
 // restartAsterisk recupera solo asterisk.service; nunca busca ni mata procesos por nombre.
@@ -235,20 +248,22 @@ func (s systemControl) restartAsterisk(ctx context.Context, result *systemContro
 		if _, err := s.run(ctx, 3*time.Second, "systemctl", "stop", "--no-block", "asterisk.service"); err != nil {
 			return fmt.Errorf("no se pudo solicitar la parada para recuperar Asterisk: %w", err)
 		}
-		if !s.stopped(ctx, 1) {
-			if _, err := s.run(ctx, 3*time.Second, "systemctl", "kill", "--kill-whom=all", "--signal=SIGTERM", "asterisk.service"); err != nil {
-				if !s.stopped(ctx, 1) {
-					return fmt.Errorf("falló SIGTERM de asterisk.service: %w", err)
-				}
+		stopped, err := s.stopped(ctx, 1)
+		if err != nil {
+			return err
+		}
+		if !stopped {
+			stopped, err = s.signalAndWait(ctx, "SIGTERM", 3)
+			if err != nil {
+				return err
 			}
-			if !s.stopped(ctx, 3) {
-				if _, err := s.run(ctx, 3*time.Second, "systemctl", "kill", "--kill-whom=all", "--signal=SIGKILL", "asterisk.service"); err != nil {
-					if !s.stopped(ctx, 1) {
-						return fmt.Errorf("falló SIGKILL de asterisk.service: %w", err)
-					}
+			if !stopped {
+				stopped, err = s.signalAndWait(ctx, "SIGKILL", 3)
+				if err != nil {
+					return err
 				}
 				result.Details = append(result.Details, "Se requirió SIGKILL para los procesos de asterisk.service.")
-				if !s.stopped(ctx, 3) {
+				if !stopped {
 					return fmt.Errorf("Asterisk sigue en parada; no se inició una segunda instancia")
 				}
 			}
