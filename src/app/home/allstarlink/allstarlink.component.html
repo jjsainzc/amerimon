@@ -152,13 +152,26 @@
   } @else if (consultado() && !error() && grupos().length === 0) {
     <p class="allstarlink-estado">No hay servidores configurados para monitorear.</p>
   } @else {
-    <label class="allstarlink-busqueda">
-      <span>Buscar conexiones</span>
-      <span class="allstarlink-busqueda-lupa" aria-hidden="true">🔍</span>
-      <input type="search" [value]="filtroBusqueda()"
-        (input)="filtroBusqueda.set($any($event.target).value)"
-        placeholder="Nodo, indicativo, ubicación…" autocomplete="off">
-    </label>
+    <div class="allstarlink-filtros">
+      @if (mostrarSelectorServidor()) {
+        <label class="allstarlink-filtro-servidor">
+          <span>Mostrar servidor</span>
+          <select aria-label="Mostrar servidor" [value]="servidorSeleccionado()" (change)="servidorSeleccionado.set($any($event.target).value)">
+            <option value="todos">Todos</option>
+            @for (servidor of servidoresDisponibles(); track servidor) {
+              <option [value]="servidor">{{ servidor }}</option>
+            }
+          </select>
+        </label>
+      }
+      <label class="allstarlink-busqueda">
+        <span>Buscar conexiones</span>
+        <span class="allstarlink-busqueda-lupa" aria-hidden="true">🔍</span>
+        <input type="search" [value]="filtroBusqueda()"
+          (input)="filtroBusqueda.set($any($event.target).value)"
+          placeholder="Nodo, indicativo, ubicación…" autocomplete="off">
+      </label>
+    </div>
     <div class="allstarlink-orden-movil">
       <label>
         <span>Ordenar por</span>

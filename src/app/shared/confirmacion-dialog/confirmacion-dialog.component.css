@@ -93,19 +93,19 @@
   opacity: .72;
 }
 
-:host-context(html[data-tema="oscuro"]) .confirmacion-dialogo {
+:host .confirmacion-dialogo {
   color: #e3ebef;
   background: #1d2a34;
   border-color: #3b4d58;
 }
 
-:host-context(html[data-tema="oscuro"]) .confirmacion-contenido h2 { color: #f0f5f7; }
-:host-context(html[data-tema="oscuro"]) .confirmacion-contenido p { color: #bdc9d1; }
-:host-context(html[data-tema="oscuro"]) .confirmacion-icono { background: #442724; border-color: #73403a; color: #ffaaa0; }
-:host-context(html[data-tema="oscuro"]) .confirmacion-cancelar { color: #dce5eb; background: #30414b; border-color: #4a606c !important; }
-:host-context(html[data-tema="oscuro"]) .confirmacion-cancelar:hover { background: #3b505c; }
-:host-context(html[data-tema="oscuro"]) .confirmacion-confirmar { background: #c33a30; }
-:host-context(html[data-tema="oscuro"]) .confirmacion-confirmar:hover { background: #d34a40; }
+:host .confirmacion-contenido h2 { color: #f0f5f7; }
+:host .confirmacion-contenido p { color: #bdc9d1; }
+:host .confirmacion-icono { background: #442724; border-color: #73403a; color: #ffaaa0; }
+:host .confirmacion-cancelar { color: #dce5eb; background: #30414b; border-color: #4a606c !important; }
+:host .confirmacion-cancelar:hover { background: #3b505c; }
+:host .confirmacion-confirmar { background: #c33a30; }
+:host .confirmacion-confirmar:hover { background: #d34a40; }
 
 @keyframes confirmacion-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes confirmacion-enter { from { opacity: 0; transform: translateY(5px) scale(.98); } to { opacity: 1; transform: none; } }

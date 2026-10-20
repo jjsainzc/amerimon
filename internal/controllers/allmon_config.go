@@ -39,6 +39,7 @@ type allmonNodeOut struct {
 	PasswdSet bool   `json:"passwd_set"`
 }
 
+// allmonWritable indica si el archivo puede abrirse para escritura o todavía no existe.
 func allmonWritable(path string) bool {
 	f, err := os.OpenFile(path, os.O_WRONLY, 0)
 	if err == nil {
@@ -238,6 +239,7 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 	return prefix + missing.String() + text[lastKey:]
 }
 
+// validateAllmonNode comprueba los campos y la unicidad de un nodo antes de guardarlo.
 func validateAllmonNode(n allmonNodeIn, seen map[string]bool) error {
 	switch {
 	case !reAllmonNode.MatchString(n.Node):

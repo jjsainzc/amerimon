@@ -31,16 +31,22 @@ export class MarkdownViewerComponent implements OnChanges {
   protected readonly error = signal('');
   protected readonly html = signal<string | SafeHtml>('');
 
+  /** Recarga el documento al abrir el visor o cambiar su URL mientras está abierto. */
   ngOnChanges(changes: SimpleChanges): void {
     if ((changes['open']?.currentValue || (changes['markdownUrl'] && this.open))) {
       void this.loadMarkdown();
     }
   }
 
+  /** Solicita al padre cerrar el visor sin modificar su entrada open. */
   protected close(): void {
     this.closed.emit();
   }
 
+  /**
+   * Descarga y sanea Markdown, renderiza los diagramas Mermaid y publica la carga más reciente.
+   * Conserva como código los diagramas que fallen y muestra los errores de carga del documento.
+   */
   protected async loadMarkdown(): Promise<void> {
     const generation = ++this.loadGeneration;
     this.loading.set(true);
@@ -53,12 +59,11 @@ export class MarkdownViewerComponent implements OnChanges {
       content.innerHTML = DOMPurify.sanitize(await marked.parse(markdown), {
         USE_PROFILES: { html: true }
       });
-      const darkTheme = this.document.documentElement.getAttribute('data-tema') === 'oscuro';
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'strict',
         theme: 'base',
-        themeVariables: darkTheme ? {
+        themeVariables: {
           background: '#17242d',
           primaryColor: '#2b4a55',
           primaryTextColor: '#ffffff',
@@ -92,40 +97,6 @@ export class MarkdownViewerComponent implements OnChanges {
           activationBkgColor: '#315564',
           activationBorderColor: '#b5e5eb',
           sequenceNumberColor: '#f6fbfc'
-        } : {
-          background: '#ffffff',
-          primaryColor: '#dceff1',
-          primaryTextColor: '#102b33',
-          primaryBorderColor: '#1c6673',
-          nodeBkg: '#e4f2f3',
-          nodeBorder: '#075b69',
-          nodeTextColor: '#071a20',
-          edgeLabelBackground: '#ffffff',
-          secondaryColor: '#e7f0dc',
-          secondaryTextColor: '#203018',
-          secondaryBorderColor: '#4a682f',
-          tertiaryColor: '#fbe8bc',
-          tertiaryTextColor: '#30250e',
-          tertiaryBorderColor: '#8b6418',
-          lineColor: '#314b54',
-          textColor: '#10242b',
-          mainBkg: '#ffffff',
-          actorBkg: '#dceff1',
-          actorBorder: '#1c6673',
-          actorTextColor: '#102b33',
-          actorLineColor: '#314b54',
-          signalColor: '#314b54',
-          signalTextColor: '#10242b',
-          labelBoxBkgColor: '#f4f8f8',
-          labelBoxBorderColor: '#52717a',
-          labelTextColor: '#10242b',
-          loopTextColor: '#10242b',
-          noteBkgColor: '#fff1cc',
-          noteBorderColor: '#8b6418',
-          noteTextColor: '#30250e',
-          activationBkgColor: '#c9e1e5',
-          activationBorderColor: '#1c6673',
-          sequenceNumberColor: '#10242b'
         }
       });
       const diagrams = Array.from(content.querySelectorAll('pre > code.language-mermaid'));
@@ -145,7 +116,7 @@ export class MarkdownViewerComponent implements OnChanges {
               svgElement.style.height = 'auto';
             }
             for (const label of svgElement.querySelectorAll<HTMLElement>('.nodeLabel p, .edgeLabel p')) {
-              label.style.color = darkTheme ? '#f8fcff' : '#071a20';
+              label.style.color = '#f8fcff';
               label.style.fontSize = '18px';
               label.style.fontWeight = '700';
             }
@@ -165,6 +136,7 @@ export class MarkdownViewerComponent implements OnChanges {
     }
   }
 
+  /** Solicita el cierre con Escape si el visor está abierto. */
   @HostListener('document:keydown.escape')
   closeOnEscape(): void {
     if (this.open) this.close();

@@ -36,6 +36,7 @@ type ipAPIResponse struct {
 
 var geoClient = &http.Client{Timeout: 5 * time.Second}
 
+// lookupGeoIP consulta el servicio externo de geolocalización y devuelve sus datos o un error de transporte o respuesta.
 func lookupGeoIP(ip string) (*geoLocation, error) {
 	resp, err := geoClient.Get("http://ip-api.com/json/" + ip + "?lang=es")
 	if err != nil {

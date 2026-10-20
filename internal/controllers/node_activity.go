@@ -196,6 +196,7 @@ func GetAsteriskConnectionHistory(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"status": "success", "data": history})
 }
 
+// nullStringPointer convierte un sql.NullString válido en puntero y devuelve nil si contiene NULL.
 func nullStringPointer(value sql.NullString) *string {
 	if !value.Valid {
 		return nil
@@ -203,6 +204,7 @@ func nullStringPointer(value sql.NullString) *string {
 	return &value.String
 }
 
+// connectionHistoryCallsign devuelve el indicativo almacenado o, para identificadores no numéricos, el propio identificador.
 func connectionHistoryCallsign(remoteNode string, callsign sql.NullString) *string {
 	if callsign.Valid && callsign.String != "" {
 		return &callsign.String
@@ -213,6 +215,7 @@ func connectionHistoryCallsign(remoteNode string, callsign sql.NullString) *stri
 	return nil
 }
 
+// parseConnectionHistoryBound analiza una fecha o RFC3339 y devuelve el operador SQL adecuado o un error si el formato no es válido.
 func parseConnectionHistoryBound(value string, upperBound bool) (time.Time, string, error) {
 	if parsed, err := time.Parse("2006-01-02", value); err == nil {
 		parsed = parsed.UTC()
@@ -406,6 +409,7 @@ func pollAllStarLinkNodeActivity(echoLinkCache map[string]AstDBEntry) {
 	}
 }
 
+// recordAsteriskConnectionHistory actualiza, crea o cierra sesiones de conexión en una transacción y devuelve errores SQL.
 func recordAsteriskConnectionHistory(instance allmonInstance, connections []rptConnection, astdbEntries, privateEntries map[string]AstDBEntry, observedAt time.Time) error {
 	if config.App.DB == nil {
 		return nil
@@ -494,6 +498,7 @@ func recordAsteriskConnectionHistory(instance allmonInstance, connections []rptC
 	return tx.Commit()
 }
 
+// loadAsteriskHistoryNodeMetadata carga AstDB y la lista privada, registrando errores y devolviendo mapas vacíos cuando fallan.
 func loadAsteriskHistoryNodeMetadata() (map[string]AstDBEntry, map[string]AstDBEntry) {
 	astdbEntries := make(map[string]AstDBEntry)
 	if path := strings.TrimSpace(config.App.Sources.AstDBPath); path != "" {
@@ -505,10 +510,7 @@ func loadAsteriskHistoryNodeMetadata() (map[string]AstDBEntry, map[string]AstDBE
 		}
 	}
 
-	privatePath := strings.TrimSpace(config.App.Sources.PrivateNodesPath)
-	if privatePath == "" {
-		privatePath = "/var/www/html/supermon/privatenodes.txt"
-	}
+	privatePath := privateNodesFilePath()
 	privateEntries := make(map[string]AstDBEntry)
 	if _, err := os.Stat(privatePath); err == nil {
 		entries, readErr := readAstDBEntries(privatePath)
@@ -523,6 +525,7 @@ func loadAsteriskHistoryNodeMetadata() (map[string]AstDBEntry, map[string]AstDBE
 	return astdbEntries, privateEntries
 }
 
+// asteriskHistoryNodeInfo devuelve el indicativo y la descripción del nodo, con un texto alternativo si faltan datos.
 func asteriskHistoryNodeInfo(remoteNode string, astdbEntries, privateEntries map[string]AstDBEntry) (string, string) {
 	entry := lookupNodeInfo(remoteNode, astdbEntries, privateEntries)
 	callsign := entry.Callsign
@@ -536,6 +539,7 @@ func asteriskHistoryNodeInfo(remoteNode string, astdbEntries, privateEntries map
 	return callsign, information
 }
 
+// fallbackAsteriskNodeDescription genera una descripción según el tipo de conexión y el identificador remoto.
 func fallbackAsteriskNodeDescription(remoteNode string) string {
 	switch asteriskConnectionType(remoteNode) {
 	case "echolink":
@@ -547,6 +551,7 @@ func fallbackAsteriskNodeDescription(remoteNode string) string {
 	}
 }
 
+// asteriskConnectionType clasifica el identificador remoto como iax, iaxrpt o echolink.
 func asteriskConnectionType(remoteNode string) string {
 	if _, isEchoLink := echoLinkLookupNumber(remoteNode); isEchoLink {
 		return "echolink"
@@ -557,6 +562,7 @@ func asteriskConnectionType(remoteNode string) string {
 	return "iax"
 }
 
+// nullableString devuelve nil para texto vacío y el valor original para guardar NULL en SQL cuando corresponde.
 func nullableString(value string) any {
 	if value == "" {
 		return nil

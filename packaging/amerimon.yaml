@@ -1,7 +1,7 @@
 sources:
   astdb_path: /var/lib/asterisk/astdb.txt
   astdb_url: https://allmondb.allstarlink.org/allmondb.php
-  privatenodes_path: /var/www/html/supermon/privatenodes.txt
+  privatenodes_path: /var/lib/asterisk/privatenodes.txt
   # allmon.ini: se busca en /etc/allmon3 y /var/www/html/supermon; si no está, se usa el propio
   # (editable por el admin desde la web). allmon_ini_path fuerza una ruta concreta.
   allmon_ini_own_path: /etc/amerimon/allmon.ini

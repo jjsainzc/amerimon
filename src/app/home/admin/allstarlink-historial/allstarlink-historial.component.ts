@@ -45,6 +45,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
   readonly imprimiendo = signal(false);
   readonly pagina = signal(1);
   readonly itemsPorPagina = signal(25);
+  /** Filtra, agrupa y ordena el historial según la búsqueda y los criterios activos. */
   readonly conexionesFiltradas = computed(() => {
     const consulta = this.busqueda().trim().toLocaleLowerCase();
     const coincidencias = consulta
@@ -91,26 +92,33 @@ export class AllstarlinkHistorialComponent implements OnInit {
       return (Number.isNaN(comparacion) ? 0 : comparacion) * direccion || a.id - b.id;
     });
   });
+  /** Indica si los resultados visibles pertenecen a más de un nodo local. */
   readonly hayVariosNodosLocales = computed(() =>
     new Set(this.conexionesFiltradas().map(conexion => conexion.local_node)).size > 1
   );
+  /** Calcula el número de páginas disponibles para los resultados filtrados. */
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.conexionesFiltradas().length / this.itemsPorPagina())));
+  /** Devuelve la página actual, o todos los resultados durante la impresión. */
   readonly conexionesPaginadas = computed(() => {
     if (this.imprimiendo()) { return this.conexionesFiltradas(); }
     const inicio = (this.pagina() - 1) * this.itemsPorPagina();
     return this.conexionesFiltradas().slice(inicio, inicio + this.itemsPorPagina());
   });
+  /** Calcula la posición inicial del tramo mostrado, adaptada a impresión. */
   readonly desdeRegistro = computed(() => this.conexionesFiltradas().length
     ? this.imprimiendo() ? 1 : (this.pagina() - 1) * this.itemsPorPagina() + 1
     : 0);
+  /** Calcula la posición final del tramo mostrado o el total al imprimir. */
   readonly hastaRegistro = computed(() => this.imprimiendo()
     ? this.conexionesFiltradas().length
     : Math.min(this.pagina() * this.itemsPorPagina(), this.conexionesFiltradas().length));
 
+  /** Ejecuta la primera consulta del historial al iniciar el componente. */
   ngOnInit(): void {
     this.cargar();
   }
 
+  /** Valida filtros y fechas, consulta conexiones cerradas y actualiza la vista. */
   cargar(): void {
     this.filtroForm.markAllAsTouched();
     if (this.filtroForm.invalid) { return; }
@@ -154,6 +162,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
     });
   }
 
+  /** Restablece los filtros a sus valores iniciales y vuelve a consultar. */
   limpiar(): void {
     this.filtroForm.reset({
       local_node: '',
@@ -165,6 +174,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
     this.cargar();
   }
 
+  /** Genera el enlace a estadísticas para números válidos que no sean EchoLink. */
   urlEstadisticasNodo(nodo: string, tipoConexion?: string): string | null {
     const numero = nodo.trim();
     return tipoConexion?.toLowerCase() !== 'echolink' && /^\d{4,7}$/.test(numero)
@@ -172,11 +182,13 @@ export class AllstarlinkHistorialComponent implements OnInit {
       : null;
   }
 
+  /** Genera el enlace QRZ a partir de un indicativo normalizado. */
   urlQrz(callsign?: string): string | null {
     const indicativo = indicativoQrz(callsign);
     return indicativo ? `https://www.qrz.com/db/${encodeURIComponent(indicativo)}` : null;
   }
 
+  /** Traduce el tipo de conexión para su presentación en la tabla. */
   etiquetaTipoConexion(tipo?: string): string {
     switch (tipo?.trim().toLowerCase()) {
       case 'iax': return 'IAX';
@@ -186,6 +198,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
     }
   }
 
+  /** Devuelve la clase visual asociada al protocolo de conexión. */
   claseTipoConexion(tipo?: string): string {
     switch (tipo?.trim().toLowerCase()) {
       case 'iax': return 'modo-simplex';
@@ -195,6 +208,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
     }
   }
 
+  /** Formatea la duración transcurrida entre conexión y desconexión. */
   duracionConexion(conexion: AllstarlinkConnectionHistory): string {
     const duracion = this.duracionMs(conexion);
     if (duracion === null) { return '—'; }
@@ -214,25 +228,30 @@ export class AllstarlinkHistorialComponent implements OnInit {
     return partes.join(' ');
   }
 
+  /** Aplica el texto de búsqueda y regresa a la primera página. */
   buscar(valor: string): void {
     this.busqueda.set(valor);
     this.pagina.set(1);
   }
 
+  /** Actualiza el tamaño de página y reinicia la paginación. */
   cambiarItemsPorPagina(valor: string): void {
     this.itemsPorPagina.set(Number(valor));
     this.pagina.set(1);
   }
 
+  /** Expande los resultados para que la vista de impresión incluya todos. */
   prepararImpresion(): void {
     this.imprimiendo.set(true);
   }
 
+  /** Restaura la paginación normal cuando termina la impresión. */
   @HostListener('window:afterprint')
   restaurarVista(): void {
     this.imprimiendo.set(false);
   }
 
+  /** Cambia el campo de orden o invierte su dirección si ya estaba seleccionado. */
   ordenarPor(campo: CampoOrden): void {
     if (this.ordenCampo() === campo) {
       this.ordenDireccion.update(direccion => direccion === 'asc' ? 'desc' : 'asc');
@@ -243,24 +262,29 @@ export class AllstarlinkHistorialComponent implements OnInit {
     this.pagina.set(1);
   }
 
+  /** Devuelve el indicador textual de dirección para el encabezado activo. */
   indicadorOrden(campo: CampoOrden): string {
     if (this.ordenCampo() !== campo) { return ''; }
     return this.ordenDireccion() === 'asc' ? ' ▲' : ' ▼';
   }
 
+  /** Informa la dirección accesible del orden o que la columna no está ordenada. */
   atributoOrden(campo: CampoOrden): 'ascending' | 'descending' | 'none' {
     if (this.ordenCampo() !== campo) { return 'none'; }
     return this.ordenDireccion() === 'asc' ? 'ascending' : 'descending';
   }
 
+  /** Retrocede una página sin permitir índices inferiores a uno. */
   paginaAnterior(): void {
     this.pagina.update(actual => Math.max(1, actual - 1));
   }
 
+  /** Avanza una página sin exceder el total disponible. */
   paginaSiguiente(): void {
     this.pagina.update(actual => Math.min(this.totalPaginas(), actual + 1));
   }
 
+  /** Calcula la duración en milisegundos o null si faltan fechas válidas. */
   private duracionMs(conexion: AllstarlinkConnectionHistory): number | null {
     if (!conexion.disconnected_at) { return null; }
     const inicio = Date.parse(conexion.first_seen_at);
@@ -269,6 +293,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
     return Math.max(0, fin - inicio);
   }
 
+  /** Convierte errores HTTP frecuentes en mensajes comprensibles para la vista. */
   private mensajeError(err: HttpErrorResponse): string {
     if (err.status === 0) { return 'No se pudo conectar con el servidor.'; }
     if (err.status === 401) { return 'Tu sesión expiró. Vuelve a iniciar sesión.'; }

@@ -8,6 +8,7 @@ export class IsIpPipe implements PipeTransform {
   private readonly ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
   private readonly ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:))$/;
 
+  /** Acepta direcciones IPv4/IPv6 válidas salvo los rangos locales excluidos por este pipe. */
   transform(value: string | null | undefined): boolean {
     if (!value) return false;
 
@@ -34,6 +35,7 @@ export class IsIpPipe implements PipeTransform {
     return true;
   }
 
+  /** Detecta redes privadas, loopback, enlace local y la dirección 0.0.0.0 en una IPv4 válida. */
   private isPrivateIPv4(ip: string): boolean {
     const parts = ip.split('.').map(Number);
     const [a, b] = parts;
@@ -54,6 +56,7 @@ export class IsIpPipe implements PipeTransform {
     return false;
   }
 
+  /** Detecta loopback, direcciones de enlace local y direcciones locales únicas en una IPv6 válida. */
   private isPrivateIPv6(ip: string): boolean {
     const lowerIp = ip.toLowerCase();
 

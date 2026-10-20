@@ -14,6 +14,7 @@ export class PrintButtonComponent {
 
   private readonly document = inject(DOCUMENT);
 
+  /** Notifica la preparación del reporte y abre la impresión en el siguiente turno del navegador. */
   imprimir(): void {
     const windowRef = this.document.defaultView;
     if (this.disabled || !windowRef) { return; }

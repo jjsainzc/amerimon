@@ -5,6 +5,10 @@ import { LOCALE_ID, Pipe, PipeTransform, inject } from '@angular/core';
 export class UtcToLocalPipe implements PipeTransform {
   private readonly locale = inject(LOCALE_ID);
 
+  /**
+   * Formatea en hora local las fechas recibidas; interpreta como UTC los textos sin zona.
+   * Devuelve null para valores vacíos y conserva los textos que no se puedan interpretar.
+   */
   transform(value: string | number | Date | null | undefined, format = 'medium'): string | null {
     if (value == null || value === '') { return null; }
 

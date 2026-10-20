@@ -104,8 +104,6 @@
         <thead>
           <tr>
             <th scope="col">ID</th>
-            <th scope="col">Usuario</th>
-            <th scope="col">Indicativo</th>
             <th scope="col">IP de origen</th>
             <th scope="col">Inicio</th>
             @if (esAdmin()) { <th scope="col">Acciones</th> }
@@ -115,14 +113,6 @@
           @for (sesion of sesiones(); track sesion.listenliveid) {
             <tr>
               <td data-label="ID">{{ sesion.userid ?? '—' }}</td>
-              <td data-label="Usuario">{{ sesion.nombre || '—' }}</td>
-              <td data-label="Indicativo">
-                @if (urlQrz(sesion.callsign); as url) {
-                  <a class="monitor-qrz-link" [href]="url" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'Ver ' + sesion.callsign + ' en QRZ.com'">
-                    {{ sesion.callsign }} ↗
-                  </a>
-                } @else { {{ sesion.callsign || '—' }} }
-              </td>
               <td data-label="IP de origen">
                 @if (sesion.ip_origen && esAdmin()) {
                   <app-geoip-link [ip]="sesion.ip_origen" [label]="sesion.ip_origen" />

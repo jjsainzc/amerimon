@@ -17,6 +17,7 @@
     <nav class="enlaces" aria-label="Navegación principal">
       <a routerLink="/allstarlink" routerLinkActive="activo" (click)="cerrarMenu()">AllStarLink</a>
       <a routerLink="/listen-live" routerLinkActive="activo" (click)="cerrarMenu()">Listen Live</a>
+      <button type="button" (click)="abrirEnlaces()" aria-haspopup="dialog" [attr.aria-expanded]="enlacesAbiertos()">Enlaces externos</button>
     </nav>
 
     <div class="sesion">
@@ -26,6 +27,8 @@
         <a class="boton-enlace" routerLink="/admin/asterisk-logs" routerLinkActive="activo" (click)="cerrarMenu()">Registros Asterisk</a>
         <a class="boton-enlace" routerLink="/admin/favoritos" routerLinkActive="activo" (click)="cerrarMenu()">Favoritos</a>
         <a class="boton-enlace" routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">Nodos Allmon</a>
+        <a class="boton-enlace" routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">Nodos privados</a>
+        <a class="boton-enlace" routerLink="/admin/enlaces-externos" routerLinkActive="activo" (click)="cerrarMenu()">Administrar enlaces</a>
         <button type="button" class="boton-enlace" (click)="abrirEdicionCabecera()">Personalizar cabecera</button>
         <button type="button" class="boton-enlace" (click)="abrirCambio()">Cambiar contraseña</button>
         <button type="button" class="boton-enlace" (click)="salir()">Salir</button>
@@ -39,6 +42,56 @@
 <main class="main-content">
   <router-outlet />
 </main>
+
+<footer class="pie">
+  <p>&copy; {{ anioActual }} Amerimon <span class="pie-version">· Versión {{ ajustesCabecera().app_version || 'no disponible' }}</span></p>
+  <div class="pie-tecnologias" aria-label="Tecnologías utilizadas">
+    <span>Powered by</span>
+    <span class="pie-tecnologia">
+      <svg viewBox="0 0 250 250" width="22" height="22" aria-hidden="true">
+        <polygon points="125,30 31.9,63.2 46.1,186.3 125,230 203.9,186.3 218.1,63.2" fill="#DD0031" />
+        <polygon points="125,30 125,230 203.9,186.3 218.1,63.2" fill="#C3002F" />
+        <path d="M125,52.1 L66.8,182.6 h21.7 l11.7-29.2 h49.6 l11.7,29.2 h21.7 Z M108,136.2 l17-42.5 17,42.5 Z" fill="#FFFFFF" fill-rule="evenodd" />
+      </svg>
+      Angular Framework
+    </span>
+    <span class="pie-tecnologia">
+      <img class="pie-sqlite" src="assets/images/sqlite.svg" width="48" height="22" alt="" aria-hidden="true" />
+      SQLite3
+    </span>
+    <span class="pie-tecnologia">
+      <img src="assets/images/go-logo-blue.png" width="30" height="15" alt="" aria-hidden="true" />
+      Go Language
+    </span>
+  </div>
+</footer>
+
+@if (enlacesAbiertos()) {
+  <div class="fondo" (click)="enlacesAbiertos.set(false)">
+    <section class="dialogo enlaces-dialogo" role="dialog" aria-modal="true" aria-labelledby="enlaces-titulo" (click)="$event.stopPropagation()">
+      <button type="button" class="cerrar" aria-label="Cerrar" (click)="enlacesAbiertos.set(false)">&times;</button>
+      <h2 id="enlaces-titulo">Enlaces externos</h2>
+      @if (cargandoEnlaces()) {
+        <p role="status">Cargando enlaces…</p>
+      } @else if (errorEnlaces()) {
+        <p class="error" role="alert">{{ errorEnlaces() }}</p>
+      } @else {
+        <ul class="enlaces-lista">
+          @for (enlace of enlacesExternos(); track enlace.dashid) {
+            <li>
+              <a [href]="enlace.url" [target]="enlace.target" rel="noopener noreferrer" (click)="enlacesAbiertos.set(false)">
+                <strong>{{ enlace.descripcion || enlace.url }}</strong>
+                <small>{{ enlace.url }}</small>
+              </a>
+            </li>
+          } @empty {
+            <li>No hay enlaces externos activos.</li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+}
 
 @if (sistemaAbierto()) {
   <app-system-info-dialog (cerrar)="cerrarSistema()" />
@@ -68,6 +121,7 @@
   <div class="fondo">
     <form class="dialogo" role="dialog" aria-modal="true" (ngSubmit)="enviar()">
       <button type="button" class="cerrar" aria-label="Cerrar" (click)="cerrar()">&times;</button>
+      <img class="login-logo" src="assets/images/amerimon.png" alt="Amerimon" />
       <h2>{{ titulo() }}</h2>
 
       @if (modo() === 'login' || modo() === 'crear') {
@@ -90,6 +144,12 @@
         <label>
           Repetir contraseña
           <app-password-field name="repetir" [(ngModel)]="repetir" autocomplete="new-password" [required]="true" />
+        </label>
+      }
+      @if (modo() === 'login' || modo() === 'crear') {
+        <label class="recordar-sesion">
+          <input type="checkbox" name="recordarSesion" [(ngModel)]="recordarSesion" />
+          Recordar sesión en este dispositivo
         </label>
       }
 

@@ -26,6 +26,7 @@ interface AsteriskLogsResponse {
 export class AsteriskLogService {
   private readonly http = inject(HttpClient);
 
+  /** Consulta hasta 2000 registros de operaciones realizadas sobre Asterisk. */
   listar(): Observable<AsteriskLogsResponse> {
     return this.http.get<AsteriskLogsResponse>(`${environment.apiUrl}/asterisk/logs`, { params: { limit: 2000 } });
   }

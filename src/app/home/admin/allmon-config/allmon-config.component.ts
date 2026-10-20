@@ -27,10 +27,12 @@ export class AllmonConfigComponent implements OnInit {
   readonly error = signal('');
   readonly aviso = signal('');
 
+  /** Carga la configuración de nodos de Allmon al iniciar la pantalla. */
   ngOnInit(): void {
     this.cargar();
   }
 
+  /** Recupera nodos y metadatos del archivo para presentarlos en el editor. */
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
@@ -48,14 +50,17 @@ export class AllmonConfigComponent implements OnInit {
     });
   }
 
+  /** Añade una fila con valores iniciales para configurar un nodo Allmon. */
   agregar(): void {
     this.filas.update(f => [...f, { node: '', host: '127.0.0.1', port: '5038', user: '', passwd: '', passwdSet: false }]);
   }
 
+  /** Quita de la edición la fila seleccionada. */
   quitar(i: number): void {
     this.filas.update(f => f.filter((_, idx) => idx !== i));
   }
 
+  /** Persiste las filas sin el indicador interno de contraseña y recarga el estado. */
   guardar(): void {
     this.error.set('');
     this.aviso.set('');

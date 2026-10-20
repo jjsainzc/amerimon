@@ -99,6 +99,7 @@ type SystemTemperature struct {
 	Celsius float64 `json:"celsius"`
 }
 
+// GetSystemInfo recopila métricas del sistema y Asterisk disponibles y las devuelve como JSON.
 func GetSystemInfo(c echo.Context) error {
 	info := SystemInfo{
 		Storage:         make([]SystemStorage, 0),
@@ -178,6 +179,7 @@ func GetSystemInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, info)
 }
 
+// readAsteriskVersion consulta la versión por AMI y devuelve una cadena vacía si no puede obtenerla.
 func readAsteriskVersion() string {
 	ami := config.App.AMI
 	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
@@ -194,6 +196,7 @@ func readAsteriskVersion() string {
 	return ""
 }
 
+// readSystemTemperatures lee las zonas térmicas accesibles de sysfs y omite las que no puede interpretar.
 func readSystemTemperatures() []SystemTemperature {
 	zones, _ := filepath.Glob("/sys/class/thermal/thermal_zone*")
 	readings := make([]SystemTemperature, 0, len(zones))
@@ -214,6 +217,7 @@ func readSystemTemperatures() []SystemTemperature {
 	return readings
 }
 
+// readSystemVoltage obtiene el voltaje con vcgencmd en ARM o desde hwmon; devuelve vacío si no está disponible.
 func readSystemVoltage() string {
 	if runtime.GOARCH == "arm" || runtime.GOARCH == "arm64" {
 		output, err := exec.Command("vcgencmd", "measure_volts", "core").Output()
@@ -253,6 +257,7 @@ func readSystemVoltage() string {
 	return fmt.Sprintf("%.3fV", millivolts/1000)
 }
 
+// readTopProcesses muestrea el uso de CPU, ordena los procesos y devuelve como máximo los diez primeros.
 func readTopProcesses() []SystemProcess {
 	processes, err := process.Processes()
 	if err != nil {
@@ -278,6 +283,7 @@ func readTopProcesses() []SystemProcess {
 	return result
 }
 
+// formatGB convierte una cantidad de bytes a una cadena en gigabytes binarios con dos decimales.
 func formatGB(bytes uint64) string {
 	return fmt.Sprintf("%.2f GB", float64(bytes)/1024/1024/1024)
 }

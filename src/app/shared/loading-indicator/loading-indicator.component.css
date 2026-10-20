@@ -48,7 +48,7 @@
   to { transform: rotate(360deg); }
 }
 
-:host-context(html[data-tema="oscuro"]) .loading-indicator {
+:host .loading-indicator {
   border-color: #4d9a9e;
   border-left-color: #80d3d0;
   background: #203b40;

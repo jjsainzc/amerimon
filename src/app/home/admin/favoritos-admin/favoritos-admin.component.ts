@@ -35,6 +35,7 @@ export class FavoritosAdminComponent implements OnInit {
     descripcion: ['', [Validators.maxLength(120)]]
   });
 
+  /** Carga los favoritos y conecta el formulario con la sugerencia de astdb. */
   ngOnInit(): void {
     this.cargar();
     // Sugiere la descripción de astdb.txt al escribir el número del nodo.
@@ -50,6 +51,7 @@ export class FavoritosAdminComponent implements OnInit {
     ).subscribe(r => this.sugerida.set(r.descripcion ?? ''));
   }
 
+  /** Obtiene la lista de favoritos y comunica errores de consulta. */
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
@@ -65,6 +67,7 @@ export class FavoritosAdminComponent implements OnInit {
     });
   }
 
+  /** Prepara el formulario vacío para crear un favorito. */
   abrirNuevo(): void {
     this.editandoId.set(null);
     this.error.set('');
@@ -73,6 +76,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.formularioAbierto.set(true);
   }
 
+  /** Carga los datos del favorito seleccionado en el formulario. */
   abrirEditar(f: Favorito): void {
     this.editandoId.set(f.id);
     this.error.set('');
@@ -81,11 +85,13 @@ export class FavoritosAdminComponent implements OnInit {
     this.formularioAbierto.set(true);
   }
 
+  /** Cierra el formulario solo cuando no hay una operación de guardado. */
   cerrarFormulario(): void {
     if (this.guardando()) { return; }
     this.formularioAbierto.set(false);
   }
 
+  /** Valida y crea o actualiza el favorito según el modo de edición. */
   guardar(): void {
     this.form.markAllAsTouched();
     if (this.form.invalid || this.guardando()) { return; }
@@ -111,15 +117,18 @@ export class FavoritosAdminComponent implements OnInit {
     });
   }
 
+  /** Selecciona el favorito que se presentará para confirmación de borrado. */
   solicitarBorrado(f: Favorito): void {
     this.error.set('');
     this.pendienteBorrar.set(f);
   }
 
+  /** Descarta la solicitud de borrado pendiente. */
   cancelarBorrado(): void {
     this.pendienteBorrar.set(null);
   }
 
+  /** Elimina el favorito seleccionado y sincroniza la lista local. */
   confirmarBorrado(): void {
     const f = this.pendienteBorrar();
     if (!f) { return; }
@@ -133,6 +142,7 @@ export class FavoritosAdminComponent implements OnInit {
     });
   }
 
+  /** Extrae el mensaje del servidor o devuelve uno genérico para la interfaz. */
   private mensajeError(error: any): string {
     return error?.error?.message || 'No se pudo completar la operación.';
   }

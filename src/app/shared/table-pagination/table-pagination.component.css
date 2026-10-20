@@ -80,25 +80,25 @@
 
 .table-pagination-info { white-space: nowrap; }
 
-:host-context(html[data-tema="oscuro"]) .table-pagination-size,
-:host-context(html[data-tema="oscuro"]) .table-pagination-nav,
-:host-context(html[data-tema="oscuro"]) .table-pagination-count { color: #c5d2db; }
+:host .table-pagination-size,
+:host .table-pagination-nav,
+:host .table-pagination-count { color: #c5d2db; }
 
-:host-context(html[data-tema="oscuro"]) .table-pagination-size select {
+:host .table-pagination-size select {
   border-color: #455b68;
   background: #18232c;
   color: #e5edf2;
   color-scheme: dark;
 }
 
-:host-context(html[data-tema="oscuro"]) .table-pagination-search input {
+:host .table-pagination-search input {
   border-color: #455b68;
   background: #18232c;
   color: #e5edf2;
   color-scheme: dark;
 }
 
-:host-context(html[data-tema="oscuro"]) .table-pagination-search input:focus {
+:host .table-pagination-search input:focus {
   outline-color: #58b9d2;
 }
 

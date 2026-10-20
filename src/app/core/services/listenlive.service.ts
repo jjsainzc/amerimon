@@ -30,6 +30,7 @@ export class ListenLiveService {
   public audioLevelDb = signal(-60);
   public sessionRevision = signal(0);
 
+  /** Comprueba la conexión con Asterisk y distingue desconexión de indisponibilidad HTTP. */
   public async checkAsteriskConnection(): Promise<void> {
     this.asteriskStatus.set('checking');
     try {
@@ -42,6 +43,10 @@ export class ListenLiveService {
     }
   }
 
+  /**
+   * Detiene la escucha previa, registra la sesión e inicia audio de la extensión por WebSocket.
+   * Crea el contexto de audio antes del primer await para conservar el gesto del usuario.
+   */
   public async startListening(ext: string): Promise<void> {
     const previousStop = this.stopListening();
     this.error.set(null);
@@ -117,6 +122,7 @@ export class ListenLiveService {
     });
   }
 
+  /** Convierte PCM de 16 bits a audio mono de 8 kHz, actualiza el medidor y programa su reproducción. */
   private playChunk(arrayBuffer: ArrayBuffer) {
     if (!this.audioCtx || arrayBuffer.byteLength < 2) return;
 
@@ -150,6 +156,7 @@ export class ListenLiveService {
     this.nextStartTime += audioBuffer.duration;
   }
 
+  /** Libera el WebSocket y el audio, reinicia indicadores y cierra el registro de sesión activo. */
   public async stopListening(): Promise<void> {
     const sessionId = this.activeSessionId;
     this.activeSessionId = null;
@@ -173,6 +180,7 @@ export class ListenLiveService {
     }
   }
 
+  /** Genera un identificador con formato UUID v4, con alternativa si Web Crypto no está disponible. */
   private crearUUID(): string {
     const cryptoAPI = globalThis.crypto;
     if (typeof cryptoAPI?.randomUUID === 'function') {

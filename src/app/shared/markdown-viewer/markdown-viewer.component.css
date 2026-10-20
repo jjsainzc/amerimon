@@ -23,18 +23,18 @@
 .markdown-viewer-content ::ng-deep :not(pre) > code { padding: 0.1rem 0.25rem; border-radius: 3px; background: #edf3f4; }
 .markdown-viewer-content ::ng-deep a { color: #087e8b; text-underline-offset: 2px; }
 
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-dialog { border-color: #405461; background: #1d2a34; color: #dce5eb; }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-header { border-color: #405461; }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-header h2,
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep h1,
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep h2,
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep h3 { color: #e5edf2; }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep th,
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep :not(pre) > code { background: #263641; }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep th,
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep td { border-color: #405461; }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-content ::ng-deep a { color: #79c6cb; }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-eyebrow { color: #5ed3df; }
+:host .markdown-viewer-dialog { border-color: #405461; background: #1d2a34; color: #dce5eb; }
+:host .markdown-viewer-header { border-color: #405461; }
+:host .markdown-viewer-header h2,
+:host .markdown-viewer-content ::ng-deep h1,
+:host .markdown-viewer-content ::ng-deep h2,
+:host .markdown-viewer-content ::ng-deep h3 { color: #e5edf2; }
+:host .markdown-viewer-content ::ng-deep th,
+:host .markdown-viewer-content ::ng-deep :not(pre) > code { background: #263641; }
+:host .markdown-viewer-content ::ng-deep th,
+:host .markdown-viewer-content ::ng-deep td { border-color: #405461; }
+:host .markdown-viewer-content ::ng-deep a { color: #79c6cb; }
+:host .markdown-viewer-eyebrow { color: #5ed3df; }
 
 @media (max-width: 600px) {
   .markdown-viewer-overlay { inset: 8.5rem 0 0; padding: 2vh 2vw; }
@@ -47,4 +47,4 @@
 @media (max-width: 760px) {
   .markdown-viewer-diagram-note { display: block; margin: 0; padding: 0.65rem 1rem; border-left: 4px solid #8a5a00; background: #fff0c2; color: #332000; font-size: 0.84rem; font-weight: 650; }
 }
-:host-context(html[data-tema="oscuro"]) .markdown-viewer-diagram-note { border-left-color: #edc66a; background: #453b24; color: #fff3cf; }
+:host .markdown-viewer-diagram-note { border-left-color: #edc66a; background: #453b24; color: #fff3cf; }

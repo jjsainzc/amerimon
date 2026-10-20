@@ -59,6 +59,7 @@ func ExecuteAMICommand(host, port, username, secret, command string, timeout tim
 	return rawOutput, nil
 }
 
+// amiResponseError devuelve el mensaje de Asterisk cuando la respuesta AMI indica un error.
 func amiResponseError(raw string) error {
 	for _, line := range strings.Split(strings.ReplaceAll(raw, "\r\n", "\n"), "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "Response: Error") {

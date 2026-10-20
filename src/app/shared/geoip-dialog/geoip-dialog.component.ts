@@ -17,6 +17,7 @@ export class GeoIpDialogComponent {
 
   private readonly geoService = inject(GeoIpService);
 
+  /** Consulta cada nueva IP y cancela la petición anterior al cambiarla o destruir el diálogo. */
   constructor() {
     effect(onCleanup => {
       const ip = this.ip();
@@ -47,10 +48,12 @@ export class GeoIpDialogComponent {
     });
   }
 
+  /** Notifica al componente padre que debe cerrar el diálogo. */
   cerrar(): void {
     this.closed.emit();
   }
 
+  /** Cierra con Escape únicamente si hay una IP seleccionada. */
   @HostListener('document:keydown.escape')
   cerrarConEscape(): void {
     if (this.ip()) { this.cerrar(); }

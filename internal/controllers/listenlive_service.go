@@ -233,6 +233,7 @@ func hangupListenLiveCalls(source, uuid string) (int, error) {
 	return len(channels), fmt.Errorf("hangup solicitado para %v pero siguen activos tras 1s: %v", channels, remaining)
 }
 
+// listenLiveChannels extrae los canales EAGI del UUID y sus pares Local presentes en la salida concisa de Asterisk.
 func listenLiveChannels(output, uuid string) []string {
 	liveChannels := make(map[string]struct{})
 	lines := config.ParseAMIOutputToLines(output)
@@ -266,6 +267,7 @@ func listenLiveChannels(output, uuid string) []string {
 	return channels
 }
 
+// localChannelPeer devuelve el otro miembro ;1/;2 de un canal Local o una cadena vacía si no corresponde.
 func localChannelPeer(channel string) string {
 	if strings.HasSuffix(channel, ";1") {
 		return strings.TrimSuffix(channel, ";1") + ";2"
@@ -276,6 +278,7 @@ func localChannelPeer(channel string) string {
 	return ""
 }
 
+// listenLiveRemainingChannels filtra los canales esperados que siguen presentes en la salida de Asterisk.
 func listenLiveRemainingChannels(output string, expected []string) []string {
 	liveChannels := make(map[string]struct{})
 	for _, line := range config.ParseAMIOutputToLines(output) {
@@ -293,6 +296,7 @@ func listenLiveRemainingChannels(output string, expected []string) []string {
 	return remaining
 }
 
+// listenLiveChannelDiagnostics devuelve fragmentos de salida que coinciden con el UUID para facilitar el diagnóstico.
 func listenLiveChannelDiagnostics(output, uuid string) []string {
 	var candidates []string
 	for _, line := range config.ParseAMIOutputToLines(output) {
@@ -477,6 +481,7 @@ func UpdateListenLiveSession(mgr *config.AudioStreamManager) echo.HandlerFunc {
 	}
 }
 
+// updateListenLiveSession cierra una sesión autorizada y, si tiene UUID, también el audio y la llamada de Asterisk.
 func updateListenLiveSession(c echo.Context, mgr *config.AudioStreamManager) error {
 	claims, err := GetClaims(c)
 	if err != nil {
@@ -570,6 +575,7 @@ type listenLiveScanner interface {
 	Scan(dest ...any) error
 }
 
+// scanListenLive convierte una fila SQL en sesión, asigna como punteros los valores nullable y devuelve el error de Scan.
 func scanListenLive(scanner listenLiveScanner) (ListenLiveSession, error) {
 	var item ListenLiveSession
 	var userID sql.NullInt64
@@ -601,6 +607,7 @@ func scanListenLive(scanner listenLiveScanner) (ListenLiveSession, error) {
 	return item, err
 }
 
+// parseListenLiveID valida y devuelve el identificador positivo de la ruta o un error HTTP 400.
 func parseListenLiveID(c echo.Context) (int64, error) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id <= 0 {
@@ -609,10 +616,12 @@ func parseListenLiveID(c echo.Context) (int64, error) {
 	return id, nil
 }
 
+// listenLiveNotFound responde con HTTP 404 para una sesión inexistente o no accesible.
 func listenLiveNotFound(c echo.Context) error {
 	return c.JSON(http.StatusNotFound, echo.Map{"status": "error", "message": "Sesión no encontrada"})
 }
 
+// listenLiveDBError responde con HTTP 500 e incluye el error de base de datos recibido.
 func listenLiveDBError(c echo.Context, err error) error {
 	return c.JSON(http.StatusInternalServerError, echo.Map{"status": "error", "message": "Error de base de datos: " + err.Error()})
 }

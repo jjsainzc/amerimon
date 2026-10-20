@@ -12,6 +12,7 @@ import (
 var App Config
 
 type Config struct {
+	Version string `yaml:"-"`
 	DB      *sql.DB
 	UseDB   bool
 	Sources SourcesConfig `yaml:"sources"`
@@ -44,9 +45,10 @@ type AMIConfig struct {
 // Load lee el YAML (se expanden ${VAR}) y deja el resultado en App. Un archivo inexistente usa los valores por defecto.
 func Load(path string) error {
 	cfg := Config{
+		Version: "dev",
 		Sources: SourcesConfig{
 			AstDBPath:        "/var/lib/asterisk/astdb.txt",
-			PrivateNodesPath: "/var/www/html/supermon/privatenodes.txt",
+			PrivateNodesPath: "/var/lib/asterisk/privatenodes.txt",
 			AllmonINIOwnPath: "/etc/amerimon/allmon.ini",
 		},
 		AMI: AMIConfig{

@@ -3,7 +3,6 @@ import { ListenLiveService } from '../../core/services/listenlive.service';
 import { ListenLiveSessionsService } from '../../core/services/listenlive-sessions.service';
 import { ListenLiveSession } from '../../core/models/listenlive-session.model';
 import { AuthService } from '../../core/services/auth.service';
-import { indicativoQrz } from '../../core/validators/callsign.validator';
 import { LoadingIndicatorComponent } from '../../shared/loading-indicator/loading-indicator.component';
 import { MarkdownViewerComponent } from '../../shared/markdown-viewer/markdown-viewer.component';
 import { UtcToLocalPipe } from '../../core/pipes/utc-to-local.pipe';
@@ -34,35 +33,36 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
     void this.cargarSesiones();
   });
 
+  /** Comprueba la conexión y carga las sesiones activas al montar la vista. */
   ngOnInit(): void {
     void this.listenService.checkAsteriskConnection();
   }
 
+  /** Actualiza el reporte de sesiones y vuelve a comprobar Asterisk. */
   actualizarMonitor(): void {
     void this.cargarSesiones();
     void this.listenService.checkAsteriskConnection();
   }
 
+  /** Comprueba que la extensión contenga solo caracteres admitidos y mida hasta 32. */
   protected extValida(): boolean {
     return /^[0-9A-Za-z_]{1,32}$/.test(this.ext());
   }
 
-  protected urlQrz(callsign: string | null): string | null {
-    const indicativo = indicativoQrz(callsign);
-    return indicativo ? `https://www.qrz.com/db/${encodeURIComponent(indicativo)}` : null;
-  }
-
+  /** Inicia la escucha de la extensión actual si su formato es válido. */
   listen() {
     if (this.extValida()) {
       void this.iniciarEscucha(this.ext());
     }
   }
 
+  /** Selecciona la extensión especial del nodo y comienza a escucharla. */
   listenNodo() {
     this.ext.set('nodo');
     void this.iniciarEscucha('nodo');
   }
 
+  /** Detiene la escucha local y actualiza el listado de sesiones activas. */
   async stop(): Promise<void> {
     await this.listenService.stopListening();
     await this.cargarSesiones();
@@ -70,14 +70,17 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
 
   protected readonly sesionPendiente = signal<ListenLiveSession | null>(null);
 
+  /** Guarda la sesión elegida como desconexión pendiente. */
   protected pedirDesconexion(sesion: ListenLiveSession): void {
     this.sesionPendiente.set(sesion);
   }
 
+  /** Descarta la solicitud de desconexión de la sesión. */
   protected cancelarDesconexion(): void {
     this.sesionPendiente.set(null);
   }
 
+  /** Desconecta la sesión confirmada y vuelve a consultar las sesiones activas. */
   protected async confirmarDesconexion(): Promise<void> {
     const sesion = this.sesionPendiente();
     this.sesionPendiente.set(null);
@@ -92,6 +95,7 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
     await this.cargarSesiones();
   }
 
+  /** Obtiene las escuchas activas y excluye la sesión del usuario actual. */
   async cargarSesiones(): Promise<void> {
     this.cargandoSesiones.set(true);
     this.errorSesiones.set(null);
@@ -108,23 +112,28 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Abre el manual de ayuda de la pantalla. */
   protected abrirManual(): void {
     this.manualAbierto.set(true);
   }
 
+  /** Cierra el manual de ayuda. */
   protected cerrarManual(): void {
     this.manualAbierto.set(false);
   }
 
+  /** Cierra el manual cuando se pulsa Escape en el documento. */
   @HostListener('document:keydown.escape')
   cerrarManualConEscape(): void {
     this.cerrarManual();
   }
 
+  /** Detiene cualquier escucha al destruir el componente. */
   ngOnDestroy(): void {
     void this.listenService.stopListening();
   }
 
+  /** Inicia una escucha y actualiza el reporte para reflejarla. */
   private async iniciarEscucha(ext: string): Promise<void> {
     await this.listenService.startListening(ext);
     await this.cargarSesiones();

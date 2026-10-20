@@ -73,16 +73,19 @@ export class ScrollTopComponent implements OnInit, OnDestroy {
   private iframeWin: Window | null = null;
   private readonly iframeHandler = () => this.onIframeScroll();
 
+  /** Registra la captura de desplazamientos de la ventana y de contenedores internos. */
   ngOnInit(): void {
     // Fase de captura (true) para atrapar scroll de cualquier contenedor.
     document.addEventListener('scroll', this.handler, true);
   }
 
+  /** Retira los listeners del documento y del iframe para evitar referencias tras destruirse. */
   ngOnDestroy(): void {
     document.removeEventListener('scroll', this.handler, true);
     this.engancharIframe(null);
   }
 
+  /** Recuerda el contenedor desplazado y muestra el botón cuando supera 300 píxeles. */
   onScrollEvent(event: Event): void {
     const target = event.target;
     let y = 0;
@@ -98,6 +101,7 @@ export class ScrollTopComponent implements OnInit, OnDestroy {
     this.zone.run(() => this.visible.set(y > 300));
   }
 
+  /** Desplaza suavemente al inicio el iframe activo o el último contenedor y la ventana. */
   irArriba(): void {
     // Si estamos controlando un iframe, prioriza su scroll interno.
     if (this.iframeWin) {
@@ -139,6 +143,7 @@ export class ScrollTopComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Sincroniza la visibilidad del botón con la posición del iframe del mismo origen. */
   private onIframeScroll(): void {
     const win = this.iframeWin;
     if (!win) { return; }

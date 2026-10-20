@@ -38,6 +38,7 @@ El puerto `8086` debe estar libre al iniciar Amerimon. El proceso EAGI y la cone
 | `allstarlink_node_activity` | Última actividad observada entre nodos |
 | `asterisk_connection_history` | Historial de enlaces observados |
 | `favoritos` | Nodos favoritos de administración |
+| `enlaces_externos` | Enlaces publicados y administrados desde la web |
 | `app_settings` | Título y subtítulo de cabecera |
 | `asterisk_operation_logs` | Operaciones Asterisk, resultado y diagnóstico |
 
@@ -83,11 +84,16 @@ Después de que el mantenedor publique una versión, el índice APT puede tardar
 | `/etc/amerimon/amerimon.yaml` | AMI, rutas y fuentes de datos |
 | `/etc/amerimon/jwt.secret` | Clave JWT creada aleatoriamente, permisos `0600` |
 | `/etc/amerimon/allmon.ini` | Configuración propia de nodos si no existe otra activa |
+| `/var/lib/asterisk/privatenodes.txt` | Nodos privados administrados desde el panel web |
 | `/var/lib/amerimon/amerimon.db` | Base SQLite de producción |
 | `/lib/systemd/system/amerimon.service` | Unidad systemd |
 | `/usr/local/bin/astdb.sh` | Actualización de la base de nodos AstDB |
 
 Las configuraciones `amerimon.env` y `amerimon.yaml` se instalan como `config|noreplace`; una actualización conserva los archivos locales existentes.
+
+`sources.privatenodes_path` usa `/var/lib/asterisk/privatenodes.txt` de forma predeterminada. Al iniciar, Amerimon conserva el archivo ya existente en la ruta configurada; si está en otra ubicación y el predeterminado aún no existe, crea un enlace simbólico hacia él. Si se usa la ruta predeterminada y falta o está vacía, busca primero archivos con contenido en `/etc/allmon3/privatenodes.txt` y `/var/www/html/supermon/privatenodes.txt`, enlazándolos para mostrar y editar los nodos existentes sin duplicarlos. Nunca reemplaza un archivo con datos ni un enlace existente. Si no hay ningún archivo previo, crea el predeterminado. El administrador puede editar, agregar y borrar líneas desde **Nodos privados**; al guardar se conservan los permisos y el grupo del archivo compartido. El servicio de producción, ejecutado como root, conserva además su propietario; en desarrollo sin privilegios, el reemplazo puede pasar al usuario del proceso y se registra esta situación en el log. Cada registro usa `nodo|indicativo|descripción|ubicación`.
+
+Las actualizaciones no reemplazan `/etc/amerimon/allmon.ini`: el instalador lo crea solo si falta. El editor de nodos Allmon conserva las secciones que no administra y genera una copia `.amerimon.bak` antes de guardar.
 
 ## 5. Servicio systemd
 
@@ -253,7 +259,19 @@ sudo sh -c 'umask 077; head -c 48 /dev/urandom | base64 -w0 > /etc/amerimon/jwt.
 sudo systemctl restart amerimon
 ```
 
-El frontend mantiene el JWT en memoria; una recarga de página puede requerir iniciar sesión de nuevo.
+El diálogo de acceso muestra el logo de Amerimon y permite marcar **Recordar sesión en este dispositivo**. Sin marcarlo, el JWT permanece en memoria y se pierde al recargar; al marcarlo, se almacena en el navegador hasta cerrar sesión o recibir un rechazo del servidor. Nunca se guarda la contraseña. Usa esta opción solo en dispositivos de confianza.
+
+La interfaz utiliza únicamente el tema oscuro, incluidos los formularios y los diagramas del manual. Los títulos, etiquetas y textos deben mantener un contraste mínimo de 4,5:1 (3:1 para texto grande); las reglas oscuras globales conservan su prioridad frente a los estilos encapsulados de Angular. La impresión conserva su formato de papel.
+
+Si hay varios servidores, **Mostrar servidor** permite elegir un nodo local o **Todos**. El selector compacto aparece junto a **Buscar conexiones** en pantallas amplias; en móvil se apilan sin desbordar.
+
+El pie compacto muestra la versión Git de Amerimon y los créditos **Powered by Angular Framework, SQLite3 y Go Language**, con logos locales adaptados al tema oscuro. `make run` y `make dev-backend` inyectan `git describe --tags --always`; los paquetes reciben la versión del tag mediante GoReleaser. Un `go run` directo sin inyectar la versión muestra `dev`. No incluye enlaces legales ni contador de visitas y se oculta al imprimir.
+
+### Enlaces externos
+
+El botón general **Enlaces externos** está disponible para todos los visitantes y muestra únicamente registros activos. Desde **Administrar enlaces**, el administrador puede crear, editar y eliminar registros de `enlaces_externos`, con confirmación de borrado. Se conservan los campos `dashid`, `descripcion`, `url`, `target` e `is_active`; el esquema se adapta a SQLite mediante una migración nueva sin modificar los datos existentes. La descripción y URL admiten hasta 255 caracteres, se aceptan solo URL HTTP/HTTPS y los destinos `_blank` (nueva pestaña) o `_self` (misma pestaña).
+
+El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e **Indicativo**. Se conservan ID, IP de origen, inicio y las acciones autorizadas.
 
 | Ruta | Acceso | Función |
 | --- | --- | --- |
@@ -268,6 +286,8 @@ El frontend mantiene el JWT en memoria; una recarga de página puede requerir in
 | `/mon/system-info` | Administrador | Sistema, CPU, memoria, discos, red, temperatura, voltaje y Asterisk |
 | `/mon/site-settings` | GET público; PUT administrador | Título/subtítulo de cabecera |
 | `/mon/favoritos` | Administrador | Favoritos |
+| `/mon/enlaces-externos` | Público | Solo enlaces activos |
+| `/mon/admin/enlaces-externos`, `/mon/admin/enlaces-externos/:id` | Administrador | CRUD de enlaces externos |
 
 ## 9. Registro de operaciones Asterisk
 

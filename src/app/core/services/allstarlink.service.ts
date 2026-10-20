@@ -17,14 +17,17 @@ export class AllstarlinkService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/allstarlink/nodes`;
 
+  /** Consulta las conexiones actuales, los servidores locales y el nodo principal. */
   listarNodos(): Observable<AllstarlinkResponse> {
     return this.http.get<AllstarlinkResponse>(this.apiUrl);
   }
 
+  /** Obtiene la última actividad registrada para cada pareja de nodos local y remoto. */
   listarActividad(): Observable<AllstarlinkActivityResponse> {
     return this.http.get<AllstarlinkActivityResponse>(`${environment.apiUrl}/allstarlink/activity`);
   }
 
+  /** Consulta el historial enviando solo los filtros con valor definido y no vacío. */
   listarHistorialConexiones(filtros: AllstarlinkConnectionHistoryFilters = {}): Observable<AllstarlinkConnectionHistoryResponse> {
     const params = Object.fromEntries(
       Object.entries(filtros).filter(([, value]) => value !== undefined && value !== '')
@@ -35,10 +38,12 @@ export class AllstarlinkService {
     );
   }
 
+  /** Obtiene las operaciones Asterisk disponibles y sus requisitos de ejecución. */
   listarComandos(): Observable<SupermonCommandsResponse> {
     return this.http.get<SupermonCommandsResponse>(`${environment.apiUrl}/asterisk/commands`);
   }
 
+  /** Solicita una operación real sobre Asterisk y devuelve la salida del comando. */
   ejecutarComando(request: SupermonCommandRequest): Observable<SupermonCommandResponse> {
     return this.http.post<SupermonCommandResponse>(`${environment.apiUrl}/asterisk/commands`, request);
   }

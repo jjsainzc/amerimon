@@ -41,6 +41,7 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 
 	publica.GET("/astdb", controllers.GetAstDB)
 	publica.GET("/sm_lsnodes", controllers.HandleAllStarNodes)
+	publica.GET("/enlaces-externos", controllers.ListEnlacesExternos)
 
 	privada.POST("/asterisk", controllers.SendAsteriskCmd, jwt, admin)
 	privada.GET("/asterisk/commands", controllers.ListSupermonCommands, jwt, admin)
@@ -56,6 +57,12 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.GET("/geoip/:ip", controllers.GeoIP, jwt, admin)
 	privada.GET("/allmon/config", controllers.GetAllmonConfig, jwt, admin)
 	privada.PUT("/allmon/config", controllers.SaveAllmonConfig, jwt, admin)
+	privada.GET("/admin/enlaces-externos", controllers.ListEnlacesExternosAdmin, jwt, admin)
+	privada.POST("/admin/enlaces-externos", controllers.CreateEnlaceExterno, jwt, admin)
+	privada.PUT("/admin/enlaces-externos/:id", controllers.UpdateEnlaceExterno, jwt, admin)
+	privada.DELETE("/admin/enlaces-externos/:id", controllers.DeleteEnlaceExterno, jwt, admin)
+	privada.GET("/private-nodes", controllers.GetPrivateNodesConfig, jwt, admin)
+	privada.PUT("/private-nodes", controllers.SavePrivateNodesConfig, jwt, admin)
 
 	privada.GET("/favoritos", controllers.ListFavoritos, jwt, admin)
 	privada.GET("/favoritos/astdb/:numero", controllers.AstdbFavorito, jwt, admin)

@@ -34,6 +34,7 @@ func astdbTexto(e AstDBEntry) string {
 	return strings.Join(parts, " ")
 }
 
+// astdbEntries carga el archivo AstDB configurado y devuelve nil si la ruta falta o no puede leerse.
 func astdbEntries() map[string]AstDBEntry {
 	path := strings.TrimSpace(config.App.Sources.AstDBPath)
 	if path == "" {
@@ -46,6 +47,7 @@ func astdbEntries() map[string]AstDBEntry {
 	return entries
 }
 
+// leerFavorito enlaza, normaliza y valida el favorito solicitado; devuelve errores HTTP ante datos inválidos.
 func leerFavorito(c echo.Context) (favorito, error) {
 	var f favorito
 	if err := c.Bind(&f); err != nil {
@@ -61,6 +63,7 @@ func leerFavorito(c echo.Context) (favorito, error) {
 	return f, nil
 }
 
+// errFavorito traduce conflictos de unicidad a HTTP 409 y otros errores SQL a HTTP 500.
 func errFavorito(err error) error {
 	if se, ok := err.(*sqlite.Error); ok && se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
 		return apiError(http.StatusConflict, "Ese número ya está en favoritos")
@@ -104,6 +107,7 @@ func AstdbFavorito(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "descripcion": desc})
 }
 
+// CreateFavorito valida y agrega un favorito, y devuelve el registro creado con su identificador.
 func CreateFavorito(c echo.Context) error {
 	f, err := leerFavorito(c)
 	if err != nil {
@@ -118,6 +122,7 @@ func CreateFavorito(c echo.Context) error {
 	return c.JSON(http.StatusCreated, f)
 }
 
+// UpdateFavorito valida y actualiza el favorito indicado, o devuelve 404 si no existe.
 func UpdateFavorito(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -139,6 +144,7 @@ func UpdateFavorito(c echo.Context) error {
 	return c.JSON(http.StatusOK, f)
 }
 
+// DeleteFavorito elimina el favorito indicado y devuelve 404 si no existe.
 func DeleteFavorito(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

@@ -27,6 +27,16 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/allmon-config/allmon-config.component').then((m) => m.AllmonConfigComponent),
   },
   {
+    path: 'admin/private-nodes',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/private-nodes/private-nodes.component').then((m) => m.PrivateNodesComponent),
+  },
+  {
+    path: 'admin/enlaces-externos',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/enlaces-externos/enlaces-externos-admin.component').then(m => m.EnlacesExternosAdminComponent),
+  },
+  {
     path: 'admin/favoritos',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/favoritos-admin/favoritos-admin.component').then((m) => m.FavoritosAdminComponent),

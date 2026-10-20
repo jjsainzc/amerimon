@@ -21,7 +21,7 @@
 
 .historial-eyebrow {
   margin: 0 0 .25rem;
-  color: #a24720;
+  color: #e18a5c;
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .08em;
@@ -29,13 +29,13 @@
 
 .historial-cabecera h1 {
   margin: 0 0 .35rem;
-  color: #16324f;
+  color: #e5edf2;
   font-size: 1.55rem;
 }
 
 .historial-cabecera p:last-child {
   margin: 0;
-  color: #5a6b7a;
+  color: #a9bac5;
 }
 
 .historial-filtros {
@@ -44,15 +44,15 @@
   align-items: end;
   gap: .85rem;
   padding: 1rem;
-  border: 1px solid #d7e0e8;
+  border: 1px solid #405461;
   border-radius: 8px;
-  background: #fff;
+  background: #1d2a34;
 }
 
 .historial-filtros label {
   display: grid;
   gap: .3rem;
-  color: #39535e;
+  color: #c5d2db;
   font-size: .78rem;
   font-weight: 650;
 }
@@ -63,17 +63,17 @@
   width: 100%;
   min-height: 2.45rem;
   padding: .45rem .55rem;
-  border: 1px solid #bdcbd2;
+  border: 1px solid #455b68;
   border-radius: 5px;
-  background: #fff;
-  color: #18313e;
+  background: #1d2a34;
+  color: #e5edf2;
   font: inherit;
   font-weight: 400;
 }
 
 .historial-filtros input:focus,
 .historial-filtros select:focus {
-  outline: 2px solid #0077cc;
+  outline: 2px solid #5ed3df;
   outline-offset: 1px;
 }
 
@@ -94,60 +94,60 @@
 .historial-btn:disabled { opacity: .6; cursor: wait; }
 .historial-btn-principal { background: #a24720; color: #fff; }
 .historial-btn-principal:hover:not(:disabled) { background: #843916; }
-.historial-btn-secundario { border-color: #bdcbd2; background: #fff; color: #28424d; }
-.historial-btn-secundario:hover:not(:disabled) { background: #edf2f2; }
+.historial-btn-secundario { border-color: #455b68; background: #1d2a34; color: #dce5eb; }
+.historial-btn-secundario:hover:not(:disabled) { background: #263641; }
 
 .historial-error {
   margin: 1rem 0;
   padding: .7rem .85rem;
-  border: 1px solid #f5c6c3;
+  border: 1px solid #713b3b;
   border-radius: 5px;
-  background: #fdecea;
-  color: #a52820;
+  background: #392729;
+  color: #ffaaa4;
 }
 
 .historial-estado,
 .historial-vacio {
   padding: 1.2rem 0;
-  color: #5a6b7a;
+  color: #a9bac5;
 }
 
-.historial-resumen { display: flex; align-items: center; justify-content: space-between; gap: .75rem 1rem; flex-wrap: wrap; margin: 1rem 0 .65rem; color: #39535e; font-size: .88rem; }
-.historial-resumen strong { color: #16324f; }
+.historial-resumen { display: flex; align-items: center; justify-content: space-between; gap: .75rem 1rem; flex-wrap: wrap; margin: 1rem 0 .65rem; color: #c5d2db; font-size: .88rem; }
+.historial-resumen strong { color: #e5edf2; }
 .historial-busqueda { position: relative; display: block; flex: 1 1 280px; max-width: 420px; }
 .historial-conteo { margin-left: auto; text-align: right; }
 .historial-lupa { position: absolute; top: 50%; left: .75rem; transform: translateY(-50%); pointer-events: none; font-size: .9rem; line-height: 1; }
-.historial-busqueda input { box-sizing: border-box; width: 100%; min-height: 2.4rem; padding: .5rem .75rem .5rem 2.2rem; border: 1px solid #bdcbd2; border-radius: 5px; background: #fff; color: #18313e; font: inherit; }
-.historial-busqueda input:focus { outline: 2px solid #0077cc; outline-offset: 1px; }
-.historial-tabla-wrap { max-width: 100%; overflow-x: auto; border: 1px solid #d7e0e8; border-radius: 7px; background: #fff; }
+.historial-busqueda input { box-sizing: border-box; width: 100%; min-height: 2.4rem; padding: .5rem .75rem .5rem 2.2rem; border: 1px solid #455b68; border-radius: 5px; background: #1d2a34; color: #e5edf2; font: inherit; }
+.historial-busqueda input:focus { outline: 2px solid #5ed3df; outline-offset: 1px; }
+.historial-tabla-wrap { max-width: 100%; overflow-x: auto; border: 1px solid #405461; border-radius: 7px; background: #1d2a34; }
 .historial-cards { display: none; }
-.historial-card { min-width: 0; padding: .9rem; border: 1px solid #d7e0e8; border-radius: 6px; background: #fff; }
-.historial-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; color: #5a6b7a; font-size: .78rem; }
+.historial-card { min-width: 0; padding: .9rem; border: 1px solid #405461; border-radius: 6px; background: #1d2a34; }
+.historial-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; color: #a9bac5; font-size: .78rem; }
 .historial-card dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem .7rem; margin: .75rem 0 0; font-size: .84rem; }
-.historial-card dt { color: #5a6b7a; font-weight: 650; }
+.historial-card dt { color: #a9bac5; font-weight: 650; }
 .historial-card dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.historial-card a { color: #176b8a; text-decoration: underline; text-underline-offset: 2px; }
+.historial-card a { color: #9bdcff; text-decoration: underline; text-underline-offset: 2px; }
 .historial-grupo-movil { margin: .8rem 0 .45rem; font-size: .8rem; }
 .historial-tabla { min-width: 100%; width: max-content; font-size: .78rem; white-space: nowrap; }
 .historial-tabla th,
-.historial-tabla td { border-bottom: 1px solid #e3e9ed; }
-.historial-tabla th { background: #edf2f2; color: #39535e; font-size: .72rem; font-weight: 750; }
+.historial-tabla td { border-bottom: 1px solid #354b59; }
+.historial-tabla th { background: #263641; color: #c5d2db; font-size: .72rem; font-weight: 750; }
 .historial-ordenar { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 750; text-align: left; cursor: pointer; }
-.historial-ordenar:hover { color: #a24720; }
-.historial-ordenar:focus-visible { outline: 2px solid #0077cc; outline-offset: 3px; }
+.historial-ordenar:hover { color: #e18a5c; }
+.historial-ordenar:focus-visible { outline: 2px solid #5ed3df; outline-offset: 3px; }
 .historial-tabla tbody tr:last-child td { border-bottom: 0; }
-.historial-tabla .historial-grupo th { padding-block: .55rem; background: #e3ecec; color: #28424d; font-size: .78rem; }
-:host-context(html[data-tema="oscuro"]) .historial-tabla .historial-grupo th { background: #324550; color: #e5edf2; }
-.historial-grupo-etiqueta { margin-right: .55rem; color: #5a6b7a; font-size: .7rem; font-weight: 750; text-transform: uppercase; }
-.historial-nodo-local { display: inline-block; padding: .18rem .48rem; border: 1px solid #a6c3c0; border-radius: 4px; background: #e5f1ef; color: #184f4b; font-variant-numeric: tabular-nums; font-weight: 800; }
-.historial-tabla td small { display: block; margin-top: .2rem; color: #6b7c84; }
+.historial-tabla .historial-grupo th { padding-block: .55rem; background: #324550; color: #dce5eb; font-size: .78rem; }
+:host .historial-tabla .historial-grupo th { background: #324550; color: #e5edf2; }
+.historial-grupo-etiqueta { margin-right: .55rem; color: #a9bac5; font-size: .7rem; font-weight: 750; text-transform: uppercase; }
+.historial-nodo-local { display: inline-block; padding: .18rem .48rem; border: 1px solid #347c69; border-radius: 4px; background: #183c34; color: #9cddc2; font-variant-numeric: tabular-nums; font-weight: 800; }
+.historial-tabla td small { display: block; margin-top: .2rem; color: #a9bac5; }
 .historial-nodo { font-variant-numeric: tabular-nums; font-weight: 650; }
 .historial-descripcion { min-width: 10rem; white-space: normal; }
-.historial-tabla a { color: #176b8a; text-decoration: underline; text-underline-offset: 2px; }
-.historial-tabla a:hover { color: #a24720; }
-.historial-paginacion { display: flex; justify-content: center; align-items: center; gap: .65rem; flex-wrap: wrap; margin-top: 1rem; color: #5a6b7a; font-size: .85rem; }
+.historial-tabla a { color: #9bdcff; text-decoration: underline; text-underline-offset: 2px; }
+.historial-tabla a:hover { color: #e18a5c; }
+.historial-paginacion { display: flex; justify-content: center; align-items: center; gap: .65rem; flex-wrap: wrap; margin-top: 1rem; color: #a9bac5; font-size: .85rem; }
 .historial-paginacion label { display: flex; align-items: center; gap: .4rem; }
-.historial-paginacion select { min-height: 2.25rem; padding: .25rem .5rem; border: 1px solid #bdcbd2; border-radius: 5px; background: #fff; color: #18313e; font: inherit; }
+.historial-paginacion select { min-height: 2.25rem; padding: .25rem .5rem; border: 1px solid #455b68; border-radius: 5px; background: #1d2a34; color: #e5edf2; font: inherit; }
 .historial-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
 .allstarlink-tabla th.historial-nodo,

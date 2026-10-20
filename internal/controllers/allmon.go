@@ -12,6 +12,7 @@ import (
 
 var allmonSearchDirs = []string{"/etc/allmon3", "/var/www/html/supermon"}
 
+// allmonOwnPath devuelve la ruta propia configurada o la ruta predeterminada de Amerimon.
 func allmonOwnPath() string {
 	if p := strings.TrimSpace(config.App.Sources.AllmonINIOwnPath); p != "" {
 		return p
@@ -43,6 +44,7 @@ type allmonInstance struct {
 	Secret string
 }
 
+// readAllmonInstances analiza las secciones de nodos válidas de allmon.ini y devuelve errores de lectura.
 func readAllmonInstances(path string) ([]allmonInstance, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -114,6 +116,7 @@ func readAllmonInstances(path string) ([]allmonInstance, error) {
 	return instances, nil
 }
 
+// loadAllmonInstances carga las instancias configuradas y completa credenciales AMI compatibles; el booleano indica si allmon.ini está configurado.
 func loadAllmonInstances() ([]allmonInstance, bool, error) {
 	path := allmonINIPath()
 	if path == "" {
@@ -143,6 +146,7 @@ func loadAllmonInstances() ([]allmonInstance, bool, error) {
 	return instances, true, err
 }
 
+// findAllmonInstance busca un nodo local y devuelve si hay configuración Allmon y cualquier error de lectura.
 func findAllmonInstance(node string) (allmonInstance, bool, error) {
 	instances, configured, err := loadAllmonInstances()
 	if err != nil || !configured {

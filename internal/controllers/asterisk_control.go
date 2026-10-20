@@ -50,6 +50,7 @@ type supermonCommandDefinition struct {
 // @Success 200 {array} SupermonCommand
 // @Failure 401
 // @Failure 403
+// ListSupermonCommands devuelve las acciones activas de Supermon con sus plantillas de comando.
 // @Router /asterisk/commands [get]
 func ListSupermonCommands(c echo.Context) error {
 	definitions, err := loadSupermonCommands(c.Request().Context())

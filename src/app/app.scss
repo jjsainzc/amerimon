@@ -1,4 +1,32 @@
-:host { display: block; }
+:host { display: flex; flex-direction: column; min-height: 99vh; }
+
+.main-content { flex: 1; }
+.pie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .4rem 1rem;
+  margin: .5rem .75rem 0;
+  padding: .55rem .8rem;
+  border-top: 1px solid #405461;
+  color: #c5d2db;
+  font-size: .75rem;
+}
+.pie p { margin: 0; }
+.pie-version { font-variant-numeric: tabular-nums; }
+.pie-tecnologias { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .35rem .8rem; }
+.pie-tecnologia { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
+.pie-tecnologia img, .pie-tecnologia svg { flex-shrink: 0; object-fit: contain; }
+.pie-sqlite { padding: 2px; border-radius: 3px; background: #111a22; }
+.pie-tecnologia:has(.pie-sqlite) { color: #fff; }
+
+@media (max-width: 720px) {
+  .pie { justify-content: center; margin-inline: .5rem; padding-inline: .25rem; text-align: center; }
+}
+@media print {
+  .pie { display: none; }
+}
 
 .barra {
   position: sticky;
@@ -27,11 +55,11 @@
 .menu { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding-top: .65rem; border-top: 1px solid #344751; }
 .hamburguesa { display: none; }
 .enlaces { display: flex; flex-wrap: wrap; gap: .4rem; margin-right: auto; }
-.enlaces a { padding: .4rem .65rem; border-radius: 5px; color: #dce5eb; text-decoration: none; }
+.enlaces a, .enlaces button { padding: .4rem .65rem; border: 0; border-radius: 5px; background: transparent; color: #dce5eb; text-decoration: none; font: inherit; cursor: pointer; }
 .enlaces a.activo { background: #263d47; color: #79d3dd; }
 .sesion { display: flex; flex-wrap: wrap; gap: .4rem; }
 .sesion .boton-enlace { padding: .42rem .65rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; font-size: .82rem; text-decoration: none; cursor: pointer; }
-.sesion .boton-enlace:hover, .enlaces a:hover { background: #304651; }
+.sesion .boton-enlace:hover, .enlaces a:hover, .enlaces button:hover { background: #304651; }
 .sesion .boton-enlace.activo { color: #79d3dd; }
 
 @media (max-width: 720px) {
@@ -78,7 +106,7 @@
   }
   .menu.abierto { display: flex; }
   .menu .enlaces, .menu .sesion { flex-direction: column; align-items: stretch; width: 100%; }
-  .menu .enlaces a, .menu .sesion .boton-enlace { text-align: left; }
+  .menu .enlaces a, .menu .enlaces button, .menu .sesion .boton-enlace { text-align: left; }
 }
 
 .sesion button, .acciones button {
@@ -115,6 +143,7 @@
   color: #dce5eb;
 }
 .dialogo h2 { margin: 0; padding-right: 2rem; font-size: 1.1rem; }
+.login-logo { display: block; width: 5rem; height: 5rem; margin: 0 auto; object-fit: contain; }
 .dialogo .cerrar {
   position: absolute;
   top: .5rem;
@@ -143,3 +172,9 @@
 .acciones { display: flex; justify-content: flex-end; gap: .5rem; }
 .error { margin: 0; color: #ff8a80; }
 .ok { margin: 0; color: #81c784; }
+.dialogo .recordar-sesion { display: flex; align-items: center; gap: .5rem; }
+.enlaces-dialogo { width: min(92vw, 36rem); max-height: 85vh; overflow: auto; }
+.enlaces-lista { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.enlaces-lista a { display: grid; gap: .25rem; padding: .7rem; border: 1px solid #455b68; border-radius: 5px; color: #9bdcff; text-decoration: none; overflow-wrap: anywhere; }
+.enlaces-lista a:hover { background: #263d47; }
+.enlaces-lista small { color: #a9bac5; }

@@ -14,6 +14,7 @@ export class GeoIpLinkComponent {
   readonly title = input<string | null>(null);
   readonly abierto = signal(false);
 
+  /** Oculta el diálogo de geolocalización asociado al enlace. */
   cerrar(): void {
     this.abierto.set(false);
   }

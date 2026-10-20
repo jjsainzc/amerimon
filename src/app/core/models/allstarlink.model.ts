@@ -23,6 +23,7 @@ export interface AllstarlinkData {
   count: number;
   resultados: AllstarlinkNode[];
   tablas?: AllstarlinkTabla[];
+  nodo_principal?: string;
 }
 
 export interface AllstarlinkTabla {

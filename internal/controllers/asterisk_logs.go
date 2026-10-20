@@ -27,6 +27,7 @@ type AsteriskOperationLog struct {
 	DurationMS int64  `json:"duration_ms"`
 }
 
+// recordAsteriskOperation guarda la operación y su duración; limita los detalles y registra en log los fallos de persistencia.
 func recordAsteriskOperation(ctx context.Context, action, localNode, remoteNode, mode string, permanent bool, command, result, details string, startedAt time.Time) {
 	if config.App.DB == nil {
 		log.Printf("asterisk log: no se pudo guardar acción=%s local=%s remoto=%s: base de datos no disponible", action, localNode, remoteNode)
@@ -51,6 +52,7 @@ func recordAsteriskOperation(ctx context.Context, action, localNode, remoteNode,
 	}
 }
 
+// GetAsteriskOperationLogs devuelve las operaciones recientes de Asterisk y valida el límite solicitado.
 func GetAsteriskOperationLogs(c echo.Context) error {
 	if config.App.DB == nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]any{"status": "error", "message": "La base de datos no está disponible."})

@@ -15,10 +15,12 @@ import (
 
 const minPasswordLen = 8
 
+// apiError crea un error HTTP de Echo con el código y el mensaje indicados.
 func apiError(code int, msg string) error {
 	return echo.NewHTTPError(code, map[string]any{"status": "error", "message": msg})
 }
 
+// setAdminPassword genera el hash bcrypt y lo guarda; devuelve errores de hash o de base de datos.
 func setAdminPassword(db *sql.DB, password string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -85,6 +87,7 @@ func SetupAdminPassword(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"status": "ok", "token": tok})
 }
 
+// checkAdminPassword compara la contraseña con el hash almacenado y devuelve false si no puede validarla.
 func checkAdminPassword(db *sql.DB, password string) bool {
 	var hash string
 	if err := db.QueryRow(`SELECT password_hash FROM admin WHERE id = 1`).Scan(&hash); err != nil {

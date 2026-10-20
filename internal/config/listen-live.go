@@ -150,6 +150,7 @@ func (m *AudioStreamManager) CloseClients(uuid string) {
 	}
 }
 
+// AddAudioConnection registra la conexión TCP de audio asociada al UUID.
 func (m *AudioStreamManager) AddAudioConnection(uuid string, conn net.Conn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -159,6 +160,7 @@ func (m *AudioStreamManager) AddAudioConnection(uuid string, conn net.Conn) {
 	m.audioConns[uuid] = conn
 }
 
+// RemoveAudioConnection elimina la conexión registrada solo si coincide con conn.
 func (m *AudioStreamManager) RemoveAudioConnection(uuid string, conn net.Conn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -167,6 +169,7 @@ func (m *AudioStreamManager) RemoveAudioConnection(uuid string, conn net.Conn) {
 	}
 }
 
+// CloseAudioConnection quita y cierra la conexión TCP del UUID; devuelve false si no había ninguna.
 func (m *AudioStreamManager) CloseAudioConnection(uuid string) bool {
 	m.mu.Lock()
 	conn, exists := m.audioConns[uuid]

@@ -13,10 +13,12 @@ type SiteSettings struct {
 	Title           string `json:"title"`
 	Subtitle        string `json:"subtitle"`
 	AsteriskVersion string `json:"asterisk_version"`
+	AppVersion      string `json:"app_version"`
 }
 
+// GetSiteSettings devuelve el título y subtítulo guardados, junto con las versiones de la aplicación y Asterisk.
 func GetSiteSettings(c echo.Context) error {
-	settings := SiteSettings{Title: "Amerimon"}
+	settings := SiteSettings{Title: "Amerimon", AppVersion: config.App.Version}
 	if config.App.DB != nil {
 		_ = config.App.DB.QueryRowContext(c.Request().Context(), `SELECT value FROM app_settings WHERE key = 'header_title'`).Scan(&settings.Title)
 		_ = config.App.DB.QueryRowContext(c.Request().Context(), `SELECT value FROM app_settings WHERE key = 'header_subtitle'`).Scan(&settings.Subtitle)
@@ -28,6 +30,7 @@ func GetSiteSettings(c echo.Context) error {
 	return c.JSON(http.StatusOK, settings)
 }
 
+// SaveSiteSettings valida y persiste el título y subtítulo del sitio; responde con la configuración actualizada.
 func SaveSiteSettings(c echo.Context) error {
 	var settings SiteSettings
 	if err := c.Bind(&settings); err != nil {

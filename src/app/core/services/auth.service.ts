@@ -8,13 +8,17 @@ interface TokenResponse {
   token: string;
 }
 
-/** Un solo administrador. El token vive solo en memoria: al recargar se vuelve al modo público. */
+const rememberedTokenKey = 'amerimon.admin.token';
+
+/** Un solo administrador; la sesión solo se persiste si el usuario lo solicita. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
-  private readonly tokenSignal = signal<string | null>(null);
+  private readonly tokenSignal = signal<string | null>(localStorage.getItem(rememberedTokenKey));
 
+  /** Indica si hay un token cargado; su validez efectiva se comprueba en el backend. */
   readonly isAuthenticated = computed(() => !!this.tokenSignal());
+  /** Habilita la UI administrativa cuando el payload del token contiene el rol A. */
   readonly esAdmin = computed(() => (this.leerClaim<string>('role') ?? '').toUpperCase() === 'A');
 
   /** true si el admin ya definió su contraseña. */
@@ -23,30 +27,46 @@ export class AuthService {
   }
 
   /** Define la primera contraseña (solo si no existe) y abre sesión. */
-  configurar(user: string, password: string): Observable<TokenResponse> {
+  configurar(user: string, password: string, recordar = false): Observable<TokenResponse> {
     return this.http
       .post<TokenResponse>(`${environment.apiUrl}/auth/setup`, { user, new: password })
-      .pipe(tap((resp) => this.tokenSignal.set(resp.token)));
+      .pipe(tap((resp) => this.iniciarSesion(resp.token, recordar)));
   }
 
-  login(user: string, password: string): Observable<TokenResponse> {
+  /** Autentica al administrador y conserva el token si se solicita recordar la sesión. */
+  login(user: string, password: string, recordar = false): Observable<TokenResponse> {
     return this.http
       .post<TokenResponse>(`${environment.apiUrl}/auth/login`, { user, password })
-      .pipe(tap((resp) => this.tokenSignal.set(resp.token)));
+      .pipe(tap((resp) => this.iniciarSesion(resp.token, recordar)));
   }
 
+  /** Solicita cambiar la contraseña verificando primero la contraseña actual. */
   cambiarPassword(current: string, nueva: string): Observable<{ status: string }> {
     return this.http.post<{ status: string }>(`${environment.apiUrl}/auth/password`, { current, new: nueva });
   }
 
+  /** Elimina el token tanto del almacenamiento persistente como del estado de la UI. */
   logout(): void {
+    localStorage.removeItem(rememberedTokenKey);
     this.tokenSignal.set(null);
   }
 
+  /** Actualiza la sesión en memoria y sincroniza su persistencia según la opción elegida. */
+  private iniciarSesion(token: string, recordar: boolean): void {
+    if (recordar) {
+      localStorage.setItem(rememberedTokenKey, token);
+    } else {
+      localStorage.removeItem(rememberedTokenKey);
+    }
+    this.tokenSignal.set(token);
+  }
+
+  /** Devuelve el token actual para autenticar peticiones HTTP y conexiones de audio. */
   getToken(): string | null {
     return this.tokenSignal();
   }
 
+  /** Lee el identificador de usuario del token; devuelve null si no está disponible. */
   getCurrentUserId(): number | null {
     return this.leerClaim<number>('userid');
   }

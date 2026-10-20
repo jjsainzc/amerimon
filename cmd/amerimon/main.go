@@ -27,6 +27,7 @@ var (
 	date    = "unknown"
 )
 
+// env devuelve el valor no vacío de una variable de entorno o, si no existe, def.
 func env(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -34,6 +35,7 @@ func env(key, def string) string {
 	return def
 }
 
+// main configura la aplicación, inicia el servidor HTTP y coordina su apagado ordenado.
 func main() {
 	addr := flag.String("addr", env("AMERIMON_ADDR", "127.0.0.1:8082"), "listen address")
 	dbPath := flag.String("db", env("AMERIMON_DB", "amerimon.db"), "sqlite database path")
@@ -59,6 +61,10 @@ func main() {
 
 	if err := config.Load(*cfgPath); err != nil {
 		log.Fatalf("config: %v", err)
+	}
+	config.App.Version = version
+	if err := controllers.EnsurePrivateNodesFile(); err != nil {
+		log.Fatalf("private nodes: %v", err)
 	}
 	if len(controllers.JWTSecret()) == 0 {
 		log.Printf("secreto JWT no encontrado: las rutas privadas rechazarán todos los tokens")

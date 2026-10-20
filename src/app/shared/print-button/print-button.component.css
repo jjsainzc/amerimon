@@ -21,7 +21,7 @@
 .print-button:disabled { opacity: 0.55; cursor: not-allowed; }
 .print-button:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
 
-:host-context(html[data-tema="oscuro"]) .print-button {
+:host .print-button {
   border-color: #5ed3df;
   background: #16414b;
   color: #e5f2f3;

@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"amerimon/internal/config"
 	"strconv"
 	"strings"
 	"time"
+
+	"amerimon/internal/config"
 
 	"github.com/labstack/echo/v4"
 )
@@ -75,6 +76,18 @@ func GetAllStarLinkNodes(c echo.Context) error {
 			"message": "El parámetro local_node debe ser numérico",
 		})
 	}
+	rptConfigPath := config.App.AMI.RPTConfigPath
+	if rptConfigPath == "" {
+		rptConfigPath = "/etc/asterisk/rpt.conf"
+	}
+	primaryNode, err := readPrimaryRPTNode(rptConfigPath)
+	if err != nil {
+		log.Printf("allstarlink: no se pudo leer el nodo principal de rpt.conf: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]any{
+			"status":  "error",
+			"message": "No se pudo obtener el nodo principal de Asterisk",
+		})
+	}
 	amiInstances, allmonConfigured, err := loadAllmonInstances()
 	if err != nil {
 		log.Printf("allstarlink: no se pudo leer allmon.ini: %v", err)
@@ -110,10 +123,6 @@ func GetAllStarLinkNodes(c echo.Context) error {
 		if localNode != "" {
 			localNodes = []string{localNode}
 		} else {
-			rptConfigPath := config.App.AMI.RPTConfigPath
-			if rptConfigPath == "" {
-				rptConfigPath = "/etc/asterisk/rpt.conf"
-			}
 			localNodes, err = readLocalRPTNodes(rptConfigPath)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -146,10 +155,7 @@ func GetAllStarLinkNodes(c echo.Context) error {
 			astdbEntries = make(map[string]AstDBEntry)
 		}
 	}
-	privateNodesPath := config.App.Sources.PrivateNodesPath
-	if privateNodesPath == "" {
-		privateNodesPath = "/var/www/html/supermon/privatenodes.txt"
-	}
+	privateNodesPath := privateNodesFilePath()
 	privateEntries := make(map[string]AstDBEntry)
 	if _, err := os.Stat(privateNodesPath); err == nil {
 		privateEntries, err = readAstDBEntries(privateNodesPath)
@@ -294,9 +300,10 @@ func GetAllStarLinkNodes(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "success",
 		"data": map[string]any{
-			"count":      len(resultados),
-			"resultados": resultados,
-			"tablas":     tablas,
+			"count":          len(resultados),
+			"resultados":     resultados,
+			"tablas":         tablas,
+			"nodo_principal": primaryNode,
 		},
 	})
 }
@@ -306,6 +313,7 @@ func isMissingAMICommand(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "No such command")
 }
 
+// allStarLinkNodeInformation compone el texto mostrado para nodos EchoLink, IAXRpt o entradas de AstDB.
 func allStarLinkNodeInformation(node string, info AstDBEntry) string {
 	if _, isEchoLink := echoLinkLookupNumber(node); isEchoLink {
 		information := "EchoLink " + node
@@ -533,6 +541,39 @@ func readLocalRPTNodes(path string) ([]string, error) {
 		return nil, err
 	}
 	return nodes, nil
+}
+
+// readPrimaryRPTNode busca en rpt.conf el nodo principal de Asterisk y devuelve errores de apertura o lectura.
+func readPrimaryRPTNode(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if comment := strings.IndexAny(line, ";#"); comment >= 0 {
+			line = strings.TrimSpace(line[:comment])
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		node := strings.TrimSpace(key)
+		if !isNumericNode(node) {
+			continue
+		}
+		expected := "radio@127.0.0.1/" + node + ",NONE"
+		if strings.EqualFold(strings.TrimSpace(value), expected) {
+			return node, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", nil
 }
 
 type rptConnection struct {

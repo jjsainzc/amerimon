@@ -19,10 +19,12 @@ export class SystemInfoDialogComponent {
   readonly cargando = signal(false);
   readonly error = signal('');
 
+  /** Solicita las métricas iniciales al abrir el diálogo. */
   constructor() {
     this.cargar();
   }
 
+  /** Actualiza las métricas del sistema y expone cualquier error de consulta en el diálogo. */
   cargar(): void {
     this.cargando.set(true);
     this.error.set('');
@@ -38,11 +40,13 @@ export class SystemInfoDialogComponent {
     });
   }
 
+  /** Convierte una lectura textual en un porcentaje entre 0 y 100; usa cero si no es numérica. */
   porcentaje(valor: string): number {
     const parsed = Number.parseFloat(valor);
     return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
   }
 
+  /** Emite el cierre con Escape y evita que la tecla alcance otros diálogos. */
   cerrarConEscape(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.stopPropagation();

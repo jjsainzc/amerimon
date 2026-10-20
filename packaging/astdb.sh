@@ -4,7 +4,23 @@
 DIR="${ASTDB_DIR:-/var/www/html/supermon/}"
 [ -d "$DIR" ] || DIR="/var/lib/asterisk/"
 DB="${DIR}astdb.txt"
-PRIVATEFILE="${DIR}privatenodes.txt"
+PRIVATEFILE="/var/lib/asterisk/privatenodes.txt"
+if [ -r /etc/amerimon/amerimon.yaml ]; then
+    CONFIGURED_PRIVATEFILE=$(awk -F: '
+        /^[[:space:]]*privatenodes_path[[:space:]]*:/ {
+            sub(/^[^:]*:[[:space:]]*/, "")
+            gsub(/^["\047]|["\047]$/, "")
+            print
+            exit
+        }
+    ' /etc/amerimon/amerimon.yaml)
+    if [ -n "$CONFIGURED_PRIVATEFILE" ]; then
+        PRIVATEFILE="$CONFIGURED_PRIVATEFILE"
+    fi
+fi
+if [ ! -f "$PRIVATEFILE" ] && [ -f "${DIR}privatenodes.txt" ]; then
+    PRIVATEFILE="${DIR}privatenodes.txt"
+fi
 
 RETRIES=0
 PCONTENTS=""

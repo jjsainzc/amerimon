@@ -20,6 +20,7 @@ export class FavoritosPopupComponent {
   readonly cargando = signal(false);
   readonly error = signal('');
 
+  /** Recarga los favoritos cada vez que se abre el selector y muestra los errores de consulta. */
   constructor() {
     effect(() => {
       if (!this.abierto()) { return; }

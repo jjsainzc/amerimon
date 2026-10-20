@@ -35,14 +35,17 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly actividades = signal<AllstarlinkActivity[]>([]);
   readonly conexionesPendientes = signal<AllstarlinkNode[]>([]);
   readonly filtroBusqueda = signal('');
+  readonly servidorSeleccionado = signal('todos');
   readonly campoOrden = signal<CampoOrden>('actividad');
   readonly direccionOrden = signal<'asc' | 'desc'>('desc');
-  readonly nodoPrincipal = computed(() =>
-    this.grupos().length === 1 ? this.grupos()[0].nodoLocal : '616262'
-  );
-  readonly lsnodesUrl = computed<SafeResourceUrl>(() => this.sanitizer.bypassSecurityTrustResourceUrl(
-    `${environment.apiUrl}/sm_lsnodes?format=html&node=${encodeURIComponent(this.nodoPrincipal())}`
-  ));
+  readonly nodoPrincipal = signal('');
+  /** Construye la URL segura del panel lsnodes o usa una página vacía sin nodo. */
+  readonly lsnodesUrl = computed<SafeResourceUrl>(() => {
+    const nodo = this.nodoPrincipal();
+    return this.sanitizer.bypassSecurityTrustResourceUrl(nodo
+      ? `${environment.apiUrl}/sm_lsnodes?format=html&node=${encodeURIComponent(nodo)}`
+      : 'about:blank');
+  });
   readonly lsnodesAbierto = signal(false);
   readonly tablasLocales = signal<AllstarlinkTabla[]>([]);
   readonly cargando = signal(false);
@@ -59,6 +62,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly nodoRemotoConexion = signal('');
   readonly favoritosAbierto = signal(false);
 
+  /** Selecciona el nodo favorito como destino de una conexión y cierra el selector. */
   elegirFavorito(numero: string): void {
     this.nodoRemotoConexion.set(numero);
     this.favoritosAbierto.set(false);
@@ -81,15 +85,18 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private temporizadorRecargaDesconexion?: ReturnType<typeof setTimeout>;
   private recargaPendiente = false;
   private readonly desconexionesEnVerificacion = new Map<string, number>();
+  /** Resuelve la operación administrativa elegida, si sigue disponible. */
   readonly comandoSeleccionado = computed(() =>
     this.comandos().find(comando => comando.id === this.accionSeleccionada()) ?? null
   );
+  /** Determina si la operación elegida necesita confirmación explícita. */
   readonly requiereConfirmacion = computed(() => {
     const accion = this.accionSeleccionada();
     return !['core_version', 'core_uptime', 'node_status', 'link_status', 'iax_channels',
       'iax_netstats', 'iax_peers', 'iax_registry', 'rpt_channels', 'rpt_variables',
       'rpt_registrations'].includes(accion);
   });
+  /** Agrupa las conexiones visibles por nodo local e incorpora las solicitudes pendientes. */
   readonly grupos = computed<AllstarlinkGrupo[]>(() => {
     const porNodoLocal = new Map<string, AllstarlinkNode[]>();
     const conexionesVisibles = [...this.nodos()];
@@ -132,6 +139,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       };
     }).sort((a, b) => a.nodoLocal.localeCompare(b.nodoLocal, undefined, { numeric: true }));
   });
+  /** Conserva la marca temporal más reciente por combinación de nodos local y remoto. */
   readonly actividadPorNodo = computed(() => {
     const actividadPorNodo = new Map<string, number>();
     for (const actividad of this.actividades()) {
@@ -143,42 +151,51 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
     return actividadPorNodo;
   });
+  /** Filtra nodos por texto y servidor, y los ordena según actividad o campo elegido. */
   readonly gruposFiltrados = computed(() => {
     const termino = this.normalizarTexto(this.filtroBusqueda().trim());
     const actividadPorNodo = this.actividadPorNodo();
-    return this.grupos().map(grupo => {
-      const nodos = termino
-        ? grupo.nodos.filter(nodo => [
-          grupo.nodoLocal,
-          nodo.protocolo,
-          nodo.categoria,
-          nodo.nodo,
-          nodo.callsign,
-          nodo.informacion,
-          nodo.descripcion,
-          nodo.contacto,
-          nodo.ubicacion,
-          nodo.enlace,
-          nodo.direccion,
-          nodo.conectado,
-          nodo.modo
-        ].some(valor => this.normalizarTexto(valor ?? '').includes(termino)))
-        : grupo.nodos;
-      const campo = this.campoOrden();
-      const direccion = this.direccionOrden() === 'asc' ? 1 : -1;
-      return {
-        ...grupo,
-        nodos: [...nodos].sort((a, b) => {
-          const actividadA = actividadPorNodo.get(`${a.nodo_local.trim()}:${a.nodo.trim()}`);
-          const actividadB = actividadPorNodo.get(`${b.nodo_local.trim()}:${b.nodo.trim()}`);
-          const comparacion = campo === 'actividad'
-            ? this.compararActividad(actividadA, actividadB, direccion)
-            : this.valorOrden(a, campo).localeCompare(this.valorOrden(b, campo), undefined, { numeric: true, sensitivity: 'base' }) * direccion;
-          return comparacion || this.compararActividad(actividadA, actividadB, -1);
-        })
-      };
-    }).filter(grupo => !termino || grupo.nodos.length > 0);
+    const servidorSeleccionado = this.servidorSeleccionado();
+    return this.grupos()
+      .filter(grupo => servidorSeleccionado === 'todos' || grupo.nodoLocal === servidorSeleccionado)
+      .map(grupo => {
+        const nodos = termino
+          ? grupo.nodos.filter(nodo => [
+            grupo.nodoLocal,
+            nodo.protocolo,
+            nodo.categoria,
+            nodo.nodo,
+            nodo.callsign,
+            nodo.informacion,
+            nodo.descripcion,
+            nodo.contacto,
+            nodo.ubicacion,
+            nodo.enlace,
+            nodo.direccion,
+            nodo.conectado,
+            nodo.modo
+          ].some(valor => this.normalizarTexto(valor ?? '').includes(termino)))
+          : grupo.nodos;
+        const campo = this.campoOrden();
+        const direccion = this.direccionOrden() === 'asc' ? 1 : -1;
+        return {
+          ...grupo,
+          nodos: [...nodos].sort((a, b) => {
+            const actividadA = actividadPorNodo.get(`${a.nodo_local.trim()}:${a.nodo.trim()}`);
+            const actividadB = actividadPorNodo.get(`${b.nodo_local.trim()}:${b.nodo.trim()}`);
+            const comparacion = campo === 'actividad'
+              ? this.compararActividad(actividadA, actividadB, direccion)
+              : this.valorOrden(a, campo).localeCompare(this.valorOrden(b, campo), undefined, { numeric: true, sensitivity: 'base' }) * direccion;
+            return comparacion || this.compararActividad(actividadA, actividadB, -1);
+          })
+        };
+      }).filter(grupo => !termino || grupo.nodos.length > 0);
   });
+  /** Obtiene los nombres de servidor disponibles a partir de los grupos. */
+  readonly servidoresDisponibles = computed(() => this.grupos().map(grupo => grupo.nodoLocal));
+  /** Indica si hay más de un servidor para mostrar el selector. */
+  readonly mostrarSelectorServidor = computed(() => this.servidoresDisponibles().length > 1);
+  /** Reúne y ordena los nodos locales numéricos conocidos por las tablas y conexiones. */
   readonly nodosLocales = computed(() => Array.from(new Set(
     [
       ...this.tablasLocales().map(tabla => tabla.nodo_local?.trim()),
@@ -186,52 +203,62 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     ].filter((nodo): nodo is string => !!nodo && /^\d+$/.test(nodo))
   )).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })));
 
+  /** Carga los datos iniciales y programa su actualización periódica. */
   ngOnInit(): void {
     this.cargar();
     this.programarActualizacion();
   }
 
   // Los comandos de administración se piden cuando hay sesión de admin, incluso si inicia después.
+  /** Solicita las operaciones administrativas cuando la sesión tiene permisos de admin. */
   private readonly cargaComandosAdmin = effect(() => {
     if (this.esAdmin()) { untracked(() => this.cargarComandos()); }
   });
 
+  /** Cancela los temporizadores al destruir la vista. */
   ngOnDestroy(): void {
     if (this.temporizador) { clearInterval(this.temporizador); }
     if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
   }
 
+  /** Actualiza el intervalo de sondeo; un valor no numérico desactiva el temporizador. */
   cambiarIntervalo(valor: string): void {
     const intervalo = Number(valor);
     this.intervaloMs.set(Number.isFinite(intervalo) ? intervalo : 0);
     this.programarActualizacion();
   }
 
+  /** Quita diacríticos y normaliza el texto para búsquedas sin distinción de acentos. */
   private normalizarTexto(valor: string): string {
     return valor.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
   }
 
+  /** Valida la forma admitida para identificar un nodo remoto. */
   private esNodoRemotoValido(valor: string): boolean {
     return /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(valor);
   }
 
+  /** Devuelve estadísticas externas para nodos numéricos públicos compatibles. */
   urlEstadisticasNodo(nodo: AllstarlinkNode): string | null {
     const numero = nodo.nodo?.trim();
     if (!numero || !/^\d{4,7}$/.test(numero) || this.categoriaNodo(nodo) === 'echolink') { return null; }
     return `https://stats.allstarlink.org/stats/${numero}`;
   }
 
+  /** Genera un enlace QRZ cuando el indicativo puede normalizarse. */
   urlQrz(callsign?: string): string | null {
     const indicativo = indicativoQrz(callsign);
     return indicativo ? `https://www.qrz.com/db/${encodeURIComponent(indicativo)}` : null;
   }
 
+  /** Elige el destino externo adecuado según la categoría del nodo. */
   urlNodo(nodo: AllstarlinkNode): string | null {
     const categoria = this.categoriaNodo(nodo);
     if (categoria === 'sip' || categoria === 'nodo_privado') { return null; }
     return categoria === 'iaxrpt' ? this.urlQrz(nodo.nodo) : this.urlEstadisticasNodo(nodo);
   }
 
+  /** Obtiene el texto comparable de un nodo para el campo de orden solicitado. */
   private valorOrden(nodo: AllstarlinkNode, campo: CampoOrden): string {
     switch (campo) {
       case 'protocolo': return this.etiquetaProtocolo(nodo);
@@ -241,6 +268,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Compara fechas de actividad y coloca las ausentes después de las disponibles. */
   private compararActividad(a: number | undefined, b: number | undefined, direccion: 1 | -1): number {
     if (a === b) { return 0; }
     if (a === undefined) { return 1; }
@@ -248,6 +276,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     return (a - b) * direccion;
   }
 
+  /** Formatea en hora local la última actividad registrada para el nodo. */
   ultimaActividad(nodo: AllstarlinkNode): string {
     const fecha = this.actividadPorNodo().get(`${nodo.nodo_local.trim()}:${nodo.nodo.trim()}`);
     if (fecha === undefined) { return '—'; }
@@ -256,6 +285,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     return `${fechaLocal.getFullYear()}-${dosDigitos(fechaLocal.getMonth() + 1)}-${dosDigitos(fechaLocal.getDate())} ${dosDigitos(fechaLocal.getHours())}:${dosDigitos(fechaLocal.getMinutes())}:${dosDigitos(fechaLocal.getSeconds())}`;
   }
 
+  /** Selecciona el campo de orden o invierte la dirección del campo actual. */
   ordenarPor(campo: CampoOrden): void {
     if (this.campoOrden() === campo) {
       this.direccionOrden.update(direccion => direccion === 'asc' ? 'desc' : 'asc');
@@ -265,22 +295,27 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     this.direccionOrden.set(campo === 'actividad' ? 'desc' : 'asc');
   }
 
+  /** Invierte la dirección de orden activa. */
   alternarDireccionOrden(): void {
     this.direccionOrden.update(direccion => direccion === 'asc' ? 'desc' : 'asc');
   }
 
+  /** Alterna la visibilidad del panel de administración. */
   alternarPanelAdmin(): void {
     this.panelAdminAbierto.update(abierto => !abierto);
   }
 
+  /** Abre el panel lsnodes únicamente para usuarios administradores. */
   abrirLsnodes(): void {
     if (this.esAdmin()) { this.lsnodesAbierto.set(true); }
   }
 
+  /** Cierra el panel lsnodes. */
   cerrarLsnodes(): void {
     this.lsnodesAbierto.set(false);
   }
 
+  /** Cambia la operación administrativa y limpia su resultado anterior. */
   cambiarAccion(valor: string): void {
     this.accionSeleccionada.set(valor);
     this.permanente.set(false);
@@ -288,6 +323,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     this.errorEjecucion.set('');
   }
 
+  /** Recupera las operaciones disponibles para administración y selecciona la primera. */
   cargarComandos(): void {
     if (!this.esAdmin() || this.cargandoComandos()) { return; }
     this.cargandoComandos.set(true);
@@ -313,6 +349,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Valida, confirma y ejecuta la operación administrativa seleccionada. */
   ejecutarComando(confirmado = false): void {
     const comando = this.comandoSeleccionado();
     const localNode = this.nodoLocal().trim();
@@ -362,6 +399,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Solicita una conexión temporal o permanente tras validar y confirmar sus parámetros. */
   conectarNodo(confirmado = false): void {
     const local = this.nodoLocal().trim();
     const remoto = this.nodoRemotoConexion().trim();
@@ -423,6 +461,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Solicita la desconexión de un nodo, espera confirmación y verifica el resultado. */
   desconectar(nodoLocal: string, nodoRemoto: string, confirmado = false): void {
     const local = nodoLocal.trim();
     const remoto = nodoRemoto.trim();
@@ -482,28 +521,34 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Descarta el resultado emergente de la última operación. */
   cerrarPopup(): void {
     this.resultadoPopup.set(null);
   }
 
+  /** Cancela el diálogo de confirmación sin ejecutar su acción. */
   cancelarConfirmacion(): void {
     this.confirmacionPendiente.set(null);
   }
 
+  /** Ejecuta la acción asociada a la confirmación y cierra el diálogo. */
   confirmarAccion(): void {
     const confirmacion = this.confirmacionPendiente();
     this.confirmacionPendiente.set(null);
     confirmacion?.confirmar();
   }
 
+  /** Guarda en el estado la pregunta y la acción que requieren confirmación. */
   private solicitarConfirmacion(titulo: string, mensaje: string, confirmar: () => void): void {
     this.confirmacionPendiente.set({ titulo, mensaje, confirmar });
   }
 
+  /** Publica el detalle de resultado que se presentará en el diálogo emergente. */
   private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false): void {
     this.resultadoPopup.set({ titulo, comando, lineas, error });
   }
 
+  /** Asigna la clase visual correspondiente al modo de conexión. */
   claseModo(modo?: string): string {
     switch (modo?.trim().toLowerCase()) {
       case 'transceive': return 'modo-transceive';
@@ -515,6 +560,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Abrevia los modos conocidos para la presentación compacta. */
   etiquetaModo(modo?: string): string {
     switch (modo?.trim().toLowerCase()) {
       case 'transceive': return 'T';
@@ -524,10 +570,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Oculta el estado establecido y conserva otros estados de enlace visibles. */
   etiquetaEnlace(enlace?: string): string {
     return enlace?.trim().toLowerCase() === 'established' ? '—' : enlace || '—';
   }
 
+  /** Inserta o reemplaza la conexión local como pendiente hasta confirmarla en el sondeo. */
   private agregarConexionPendiente(local: string, remoto: string, modo: string, permanente: boolean): void {
     const categoria = remoto.length === 4
       ? 'nodo_privado'
@@ -550,12 +598,14 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     ]);
   }
 
+  /** Retira de la lista local una conexión pendiente identificada por sus extremos. */
   private quitarConexionPendiente(local: string, remoto: string): void {
     this.conexionesPendientes.update(actuales =>
       actuales.filter(item => item.nodo_local !== local || item.nodo !== remoto)
     );
   }
 
+  /** Quita solicitudes pendientes que ya aparecen establecidas en los datos del servidor. */
   private reconciliarConexionesPendientes(nodos: AllstarlinkNode[]): void {
     const establecidos = new Set(nodos
       .filter(nodo => nodo.enlace?.trim().toLowerCase() === 'established')
@@ -565,6 +615,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Determina la categoría de un nodo usando su tipo, protocolo e información disponible. */
   categoriaNodo(nodo: AllstarlinkNode): string {
     const categoria = nodo.categoria?.trim().toLowerCase();
     const protocolo = nodo.protocolo?.trim().toLowerCase();
@@ -578,6 +629,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     return nodo.nodo?.startsWith('3') && nodo.nodo.length >= 5 ? 'echolink' : 'iax';
   }
 
+  /** Traduce la categoría detectada al nombre de protocolo mostrado en la tabla. */
   etiquetaProtocolo(nodo: AllstarlinkNode): string {
     switch (this.categoriaNodo(nodo)) {
       case 'iaxrpt': return 'IAXRPT';
@@ -588,6 +640,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Devuelve la clase visual asociada a la categoría del nodo. */
   claseCategoria(nodo: AllstarlinkNode): string {
     switch (this.categoriaNodo(nodo)) {
       case 'iaxrpt': return 'modo-iaxrpt';
@@ -598,6 +651,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Consulta actividad y nodos, sincroniza conexiones pendientes y actualiza errores. */
   cargar(forzar = false): void {
     if (this.cargando()) {
       if (forzar) { this.recargaPendiente = true; }
@@ -618,8 +672,13 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.consultado.set(true);
         if (respuesta?.status === 'success') {
           const nodos = respuesta.data?.resultados ?? [];
+          this.nodoPrincipal.set(respuesta.data?.nodo_principal?.trim() ?? '');
           this.tablasLocales.set(respuesta.data?.tablas ?? []);
           this.nodos.set(nodos);
+          if (this.servidorSeleccionado() !== 'todos' &&
+              !this.servidoresDisponibles().includes(this.servidorSeleccionado())) {
+            this.servidorSeleccionado.set('todos');
+          }
           this.reconciliarConexionesPendientes(nodos);
           this.revisarDesconexionesEnVerificacion(nodos);
           if (!this.nodoLocal()) {
@@ -645,6 +704,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Programa una nueva consulta y sustituye cualquier recarga diferida anterior. */
   private programarRecargaConexiones(retardoMs = 1500): void {
     if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
     this.temporizadorRecargaDesconexion = setTimeout(() => {
@@ -653,12 +713,14 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }, retardoMs);
   }
 
+  /** Mantiene sondeos periódicos mientras haya conexiones permanentes pendientes. */
   private programarSondeoPermanente(): void {
     if (this.conexionesPendientes().some(nodo => nodo.permanente)) {
       this.programarRecargaConexiones(5000);
     }
   }
 
+  /** Comprueba la desconexión solicitada y reintenta la consulta hasta un límite. */
   private revisarDesconexionesEnVerificacion(nodos?: AllstarlinkNode[]): void {
     if (this.desconexionesEnVerificacion.size === 0) { return; }
     let requiereOtraConsulta = false;
@@ -684,6 +746,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     if (requiereOtraConsulta) { this.programarRecargaConexiones(1500); }
   }
 
+  /** Finaliza la consulta activa y procesa una recarga que se hubiera aplazado. */
   private finalizarCarga(): void {
     this.cargando.set(false);
     if (this.recargaPendiente) {
@@ -692,6 +755,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** Reinicia el temporizador de actualización con el intervalo configurado. */
   private programarActualizacion(): void {
     if (this.temporizador) { clearInterval(this.temporizador); }
     const intervalo = this.intervaloMs();

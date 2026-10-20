@@ -215,64 +215,64 @@
   50% { opacity: 0.3; }
 }
 
-:host-context(html[data-tema="oscuro"]) .monitor-card {
+:host .monitor-card {
   background: #1d2a34;
   color: #dce5eb;
   border: 1px solid #405461;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
-:host-context(html[data-tema="oscuro"]) .monitor-card h3 { color: #e5edf2; }
+:host .monitor-card h3 { color: #e5edf2; }
 
 .monitor-btn-como-funciona { border: 1px solid #b8ced2; background: #eaf2f3; color: #24515c; }
-:host-context(html[data-tema="oscuro"]) .monitor-btn-como-funciona { border-color: #526974; background: #263641; color: #dce5eb; }
-:host-context(html[data-tema="oscuro"]) .monitor-eyebrow { color: #5ed3df; }
-:host-context(html[data-tema="oscuro"]) .monitor-campo { color: #c5d2db; }
-:host-context(html[data-tema="oscuro"]) .monitor-campo input {
+:host .monitor-eyebrow { color: #5ed3df; }
+:host .monitor-campo { color: #c5d2db; }
+:host .monitor-campo input {
   background: #14202a;
   border-color: #455b68;
   color: #e5edf2;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-btn { background: #0b7f8c; }
-:host-context(html[data-tema="oscuro"]) .monitor-btn-detener { background: #d64535; }
-:host-context(html[data-tema="oscuro"]) .monitor-btn-nodo {
+:host .monitor-btn { background: #0b7f8c; }
+:host .monitor-btn-como-funciona { border-color: #526974; background: #263641; color: #dce5eb; }
+:host .monitor-btn-detener { background: #d64535; }
+:host .monitor-btn-nodo {
   background: #263641;
   border-color: #5ed3df;
   color: #9bdcff;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-estado {
+:host .monitor-estado {
   background: #14202a;
   color: #e5edf2;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-medidor {
+:host .monitor-medidor {
   background: #14202a;
   border-color: #455b68;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-medidor-cabecera { color: #c5d2db; }
-:host-context(html[data-tema="oscuro"]) .monitor-medidor-cabecera strong { color: #e5edf2; }
-:host-context(html[data-tema="oscuro"]) .monitor-medidor-pista { background: #354b59; }
-:host-context(html[data-tema="oscuro"]) .monitor-medidor-escala { color: #a9bac5; }
-:host-context(html[data-tema="oscuro"]) .monitor-error { color: #ff8a80; }
-:host-context(html[data-tema="oscuro"]) .monitor-sesiones { color: #dce5eb; }
-:host-context(html[data-tema="oscuro"]) .monitor-sesiones-cabecera h3 { color: #e5edf2; }
-:host-context(html[data-tema="oscuro"]) .monitor-sesiones-cabecera p,
-:host-context(html[data-tema="oscuro"]) .monitor-vacio { color: #a9bac5; }
-:host-context(html[data-tema="oscuro"]) .monitor-actualizar {
+:host .monitor-medidor-cabecera { color: #c5d2db; }
+:host .monitor-medidor-cabecera strong { color: #e5edf2; }
+:host .monitor-medidor-pista { background: #354b59; }
+:host .monitor-medidor-escala { color: #a9bac5; }
+:host .monitor-error { color: #ff8a80; }
+:host .monitor-sesiones { color: #dce5eb; }
+:host .monitor-sesiones-cabecera h3 { color: #e5edf2; }
+:host .monitor-sesiones-cabecera p,
+:host .monitor-vacio { color: #a9bac5; }
+:host .monitor-actualizar {
   background: #263641;
   border-color: #5ed3df;
   color: #9bdcff;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-tabla-contenedor {
+:host .monitor-tabla-contenedor {
   background: #1d2a34;
   border-color: #405461;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-tabla th {
+:host .monitor-tabla th {
   background: #263641;
   color: #c5d2db;
 }
-:host-context(html[data-tema="oscuro"]) .monitor-tabla th,
-:host-context(html[data-tema="oscuro"]) .monitor-tabla td { border-bottom-color: #354b59; }
-:host-context(html[data-tema="oscuro"]) .monitor-tabla td { color: #dce5eb; }
-:host-context(html[data-tema="oscuro"]) .monitor-qrz-link { color: #9bdcff; }
+:host .monitor-tabla th,
+:host .monitor-tabla td { border-bottom-color: #354b59; }
+:host .monitor-tabla td { color: #dce5eb; }
+:host .monitor-qrz-link { color: #9bdcff; }
 @media (max-width: 560px) {
   .monitor-sesiones { padding: 0 0.75rem; }
   .monitor-sesiones-cabecera { align-items: flex-start; }
@@ -312,10 +312,10 @@
     font-size: 0.72rem;
     font-weight: 700;
   }
-  :host-context(html[data-tema="oscuro"]) .monitor-tabla tbody tr {
+  :host .monitor-tabla tbody tr {
     border-color: #405461;
     background: #1d2a34;
   }
-  :host-context(html[data-tema="oscuro"]) .monitor-tabla td { border-bottom-color: #354b59; }
-  :host-context(html[data-tema="oscuro"]) .monitor-tabla td::before { color: #a9bac5; }
+  :host .monitor-tabla td { border-bottom-color: #354b59; }
+  :host .monitor-tabla td::before { color: #a9bac5; }
 }

@@ -235,6 +235,7 @@ p.header2 { font-size:.7em; font-family: Verdana, Arial, sans-serif; margin:0; t
 	return c.HTML(http.StatusOK, html)
 }
 
+// executeAllStarAMICommand ejecuta un comando por AMI y devuelve sus líneas unidas; registra errores y devuelve vacío si falla.
 func executeAllStarAMICommand(command string) string {
 	ami := config.App.AMI
 	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
@@ -250,6 +251,7 @@ func executeAllStarAMICommand(command string) string {
 	return strings.Join(config.ParseAMIOutputToLines(raw), "\n")
 }
 
+// fetchPublicIP consulta icanhazip.com y devuelve la IP pública o una cadena vacía si la consulta falla.
 func fetchPublicIP() string {
 	client := http.Client{Timeout: 5 * time.Second}
 	response, err := client.Get("https://icanhazip.com")
@@ -269,6 +271,7 @@ func fetchPublicIP() string {
 	return strings.TrimSpace(string(body))
 }
 
+// parseAllStarLStats convierte la salida de rpt lstats en filas de conexión y omite las líneas no reconocidas.
 func parseAllStarLStats(raw string) []LStatRow {
 	var rows []LStatRow
 	for _, line := range strings.Split(raw, "\n") {
@@ -299,6 +302,7 @@ func parseAllStarLStats(raw string) []LStatRow {
 	return rows
 }
 
+// parseAllStarStats extrae pares clave-valor de la salida de rpt stats.
 func parseAllStarStats(raw string) []StatItem {
 	items := make([]StatItem, 0)
 	for index, line := range strings.Split(raw, "\n") {
@@ -318,6 +322,7 @@ func parseAllStarStats(raw string) []StatItem {
 	return items
 }
 
+// parseAllStarConnectedNodes interpreta la salida de rpt nodes y marca los nodos presentes en directNodes.
 func parseAllStarConnectedNodes(raw string, directNodes map[string]struct{}) []NodeRow {
 	nodes := make([]NodeRow, 0)
 	lines := strings.Split(raw, "\n")
@@ -350,6 +355,7 @@ func parseAllStarConnectedNodes(raw string, directNodes map[string]struct{}) []N
 	return nodes
 }
 
+// enrichAllStarConnectedNodes completa cada nodo conectado con datos de EchoLink o AstDB.
 func enrichAllStarConnectedNodes(nodes []NodeRow, astdbEntries map[string]AstDBEntry) []NodeRow {
 	for index := range nodes {
 		node := &nodes[index]
@@ -370,6 +376,7 @@ func enrichAllStarConnectedNodes(nodes []NodeRow, astdbEntries map[string]AstDBE
 	return nodes
 }
 
+// allStarConnectedNodeColor elige el color de presentación según el tipo de nodo.
 func allStarConnectedNodeColor(node NodeRow) string {
 	if node.Node == "User" {
 		return "lightgray"
@@ -380,6 +387,7 @@ func allStarConnectedNodeColor(node NodeRow) string {
 	return "yellow"
 }
 
+// applyAllStarNodeInfo copia los datos de AstDB en la fila o asigna los textos de ausencia de información.
 func applyAllStarNodeInfo(node *NodeRow, info AstDBEntry) {
 	if info.Callsign == "" {
 		node.Callsign = "No-Info"
@@ -392,6 +400,7 @@ func applyAllStarNodeInfo(node *NodeRow, info AstDBEntry) {
 	node.Location = info.Ubicacion
 }
 
+// parseRegistryRows convierte las filas de salida de los registros IAX/RPT y descarta encabezados y separadores.
 func parseRegistryRows(raw string) []RegistryRow {
 	rows := make([]RegistryRow, 0)
 	for _, line := range strings.Split(raw, "\n") {
@@ -407,6 +416,7 @@ func parseRegistryRows(raw string) []RegistryRow {
 	return rows
 }
 
+// containsRegistryHeader indica si los primeros campos corresponden a un encabezado del registro.
 func containsRegistryHeader(fields []string) bool {
 	for index, field := range fields {
 		if index >= 5 {
@@ -420,6 +430,7 @@ func containsRegistryHeader(fields []string) bool {
 	return false
 }
 
+// isRegistrySeparator indica si todos los campos de la fila contienen únicamente guiones o signos más.
 func isRegistrySeparator(fields []string) bool {
 	for _, field := range fields {
 		if strings.Trim(field, "-+") != "" {
@@ -429,6 +440,7 @@ func isRegistrySeparator(fields []string) bool {
 	return true
 }
 
+// renderRegistryTable genera una tabla HTML y escapa el título y los valores para mostrarlos como texto.
 func renderRegistryTable(title string, rows []RegistryRow) string {
 	var table strings.Builder
 	table.WriteString("<table class=\"nodes\" cellspacing=\"0\" cellpadding=\"0\" width=\"100%\" bgcolor=\"#F0E68C\">")
@@ -444,6 +456,7 @@ func renderRegistryTable(title string, rows []RegistryRow) string {
 	return table.String()
 }
 
+// allDigits indica si value no está vacío y contiene exclusivamente dígitos decimales.
 func allDigits(value string) bool {
 	if value == "" {
 		return false

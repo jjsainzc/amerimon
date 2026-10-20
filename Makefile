@@ -77,7 +77,7 @@ push-repo:
 DEVRUN = AMERIMON_JWT_SECRET=dev-secret \
 	AMI_USER=$$(grep -E '^\s*\[.+\]' /etc/asterisk/manager.conf | grep -v '\[general\]' | head -n 1 | tr -d '[] ') \
 	AMI_SECRET=$$(grep -E '^\s*secret\s*=' /etc/asterisk/manager.conf | head -n 1 | cut -d= -f2 | tr -d ' ') \
-	go run ./cmd/amerimon -config packaging/amerimon.yaml -addr 127.0.0.1:$(PORT) -db /tmp/amerimon-dev.db
+	go run -ldflags "-X main.version=$$(git describe --tags --always)" ./cmd/amerimon -config packaging/amerimon.yaml -addr 127.0.0.1:$(PORT) -db /tmp/amerimon-dev.db
 
 # Backend en :$(PORT); ng serve (:4200) lo usa como proxy para /mon.
 dev-backend:

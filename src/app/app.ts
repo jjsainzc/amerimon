@@ -5,6 +5,8 @@ import { AuthService } from './core/services/auth.service';
 import { SiteSettings, SiteSettingsService } from './core/services/site-settings.service';
 import { SystemInfoDialogComponent } from './shared/system-info-dialog/system-info-dialog.component';
 import { PasswordFieldComponent } from './shared/password-field/password-field.component';
+import { EnlaceExterno } from './core/models/enlace-externo.model';
+import { EnlacesExternosService } from './core/services/enlaces-externos.service';
 
 type Modo = 'login' | 'crear' | 'cambiar';
 type ErrorHttp = { error?: { message?: string } };
@@ -18,11 +20,15 @@ type ErrorHttp = { error?: { message?: string } };
 export class App implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly siteSettingsService = inject(SiteSettingsService);
+  private readonly enlacesService = inject(EnlacesExternosService);
 
   protected readonly esAdmin = this.auth.esAdmin;
   protected readonly headerOculto = signal(false);
+  protected readonly anioActual = new Date().getFullYear();
   protected readonly ajustesCabecera = signal<SiteSettings>({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
+  /** Devuelve el título configurado o el nombre predeterminado del sitio. */
   protected readonly tituloAplicacion = computed(() => this.ajustesCabecera().title.trim() || 'Amerimon');
+  /** Combina el subtítulo y la versión de Asterisk, con texto alternativo si faltan. */
   protected readonly subtituloAplicacion = computed(() => {
     const settings = this.ajustesCabecera();
     const subtitle = settings.subtitle.trim();
@@ -41,27 +47,36 @@ export class App implements OnInit {
   protected readonly error = signal('');
   protected readonly aviso = signal('');
   protected readonly enviando = signal(false);
+  protected readonly enlacesAbiertos = signal(false);
+  protected readonly enlacesExternos = signal<EnlaceExterno[]>([]);
+  protected readonly cargandoEnlaces = signal(false);
+  protected readonly errorEnlaces = signal('');
 
   protected usuario = '';
+  protected recordarSesion = false;
   protected password = '';
   protected nueva = '';
   protected repetir = '';
   private ultimaPosicionScroll = 0;
 
+  /** Carga al iniciar la aplicación la configuración visible de la cabecera. */
   ngOnInit(): void {
     this.cargarAjustesCabecera();
   }
 
+  /** Presenta el texto de título adecuado al modo actual del diálogo de acceso. */
   protected readonly titulo = computed(() =>
     this.modo() === 'crear' ? 'Definir contraseña de administrador'
       : this.modo() === 'cambiar' ? 'Cambiar contraseña'
       : 'Acceso de administrador'
   );
 
+  /** Alterna la visibilidad del menú principal. */
   protected alternarMenu(): void {
     this.menuAbierto.update(v => !v);
   }
 
+  /** Oculta la cabecera al desplazarse hacia abajo y la muestra al subir. */
   @HostListener('window:scroll')
   protected controlarHeader(): void {
     const posicion = window.scrollY;
@@ -69,11 +84,32 @@ export class App implements OnInit {
     this.ultimaPosicionScroll = posicion;
   }
 
+  /** Cierra el menú y el panel de enlaces al pulsar Escape. */
   @HostListener('document:keydown.escape')
   protected cerrarMenu(): void {
     this.menuAbierto.set(false);
+    this.enlacesAbiertos.set(false);
   }
 
+  /** Abre los enlaces externos y carga los destinos activos desde el servicio. */
+  protected abrirEnlaces(): void {
+    this.cerrarMenu();
+    this.enlacesAbiertos.set(true);
+    this.cargandoEnlaces.set(true);
+    this.errorEnlaces.set('');
+    this.enlacesService.listarActivos().subscribe({
+      next: enlaces => {
+        this.enlacesExternos.set(enlaces);
+        this.cargandoEnlaces.set(false);
+      },
+      error: (error: ErrorHttp) => {
+        this.cargandoEnlaces.set(false);
+        this.errorEnlaces.set(error.error?.message ?? 'No se pudieron cargar los enlaces externos.');
+      }
+    });
+  }
+
+  /** Abre el acceso administrativo y decide si corresponde iniciar sesión o configurar. */
   protected abrirLogin(): void {
     this.menuAbierto.set(false);
     this.limpiar();
@@ -85,6 +121,7 @@ export class App implements OnInit {
     });
   }
 
+  /** Abre el diálogo para cambiar la contraseña de la sesión actual. */
   protected abrirCambio(): void {
     this.menuAbierto.set(false);
     this.limpiar();
@@ -92,15 +129,18 @@ export class App implements OnInit {
     this.dialogoAbierto.set(true);
   }
 
+  /** Muestra el diálogo con información del sistema. */
   protected abrirSistema(): void {
     this.menuAbierto.set(false);
     this.sistemaAbierto.set(true);
   }
 
+  /** Oculta el diálogo de información del sistema. */
   protected cerrarSistema(): void {
     this.sistemaAbierto.set(false);
   }
 
+  /** Copia los ajustes actuales a los campos de edición de la cabecera. */
   protected abrirEdicionCabecera(): void {
     this.menuAbierto.set(false);
     this.tituloCabecera = this.ajustesCabecera().title;
@@ -109,6 +149,7 @@ export class App implements OnInit {
     this.edicionCabeceraAbierta.set(true);
   }
 
+  /** Guarda los textos de cabecera y actualiza la vista con la respuesta recibida. */
   protected guardarCabecera(): void {
     this.errorCabecera.set('');
     this.guardandoCabecera.set(true);
@@ -125,16 +166,19 @@ export class App implements OnInit {
     });
   }
 
+  /** Cierra el diálogo de acceso y limpia los campos sensibles. */
   protected cerrar(): void {
     this.dialogoAbierto.set(false);
     this.limpiar();
   }
 
+  /** Cierra el menú e inicia el cierre de sesión. */
   protected salir(): void {
     this.menuAbierto.set(false);
     this.auth.logout();
   }
 
+  /** Valida las contraseñas y ejecuta el flujo de autenticación seleccionado. */
   protected enviar(): void {
     this.error.set('');
     this.aviso.set('');
@@ -156,9 +200,9 @@ export class App implements OnInit {
     };
 
     if (modo === 'login') {
-      this.auth.login(this.usuario, this.password).subscribe({ next: () => this.cerrar(), error: alFallar });
+      this.auth.login(this.usuario, this.password, this.recordarSesion).subscribe({ next: () => this.cerrar(), error: alFallar });
     } else if (modo === 'crear') {
-      this.auth.configurar(this.usuario, this.nueva).subscribe({ next: () => this.cerrar(), error: alFallar });
+      this.auth.configurar(this.usuario, this.nueva, this.recordarSesion).subscribe({ next: () => this.cerrar(), error: alFallar });
     } else {
       this.auth.cambiarPassword(this.password, this.nueva).subscribe({
         next: () => this.cerrar(),
@@ -167,13 +211,16 @@ export class App implements OnInit {
     }
   }
 
+  /** Vacía credenciales y reinicia los mensajes y el estado de envío. */
   private limpiar(): void {
     this.usuario = this.password = this.nueva = this.repetir = '';
+    this.recordarSesion = false;
     this.error.set('');
     this.aviso.set('');
     this.enviando.set(false);
   }
 
+  /** Recupera los ajustes de cabecera; conserva los valores actuales si falla. */
   private cargarAjustesCabecera(): void {
     this.siteSettingsService.obtener().subscribe({
       next: settings => this.ajustesCabecera.set(settings),
