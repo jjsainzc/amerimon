@@ -82,6 +82,9 @@ export class AsteriskLogsComponent {
       case 'configuration_error': return 'Configuración';
       case 'invalid_request': return 'Solicitud inválida';
       case 'database_error': return 'Error de base de datos';
+      case 'requested': return 'Solicitado';
+      case 'scheduled': return 'Programado';
+      case 'system_error': return 'Error del sistema';
       default: return result;
     }
   }

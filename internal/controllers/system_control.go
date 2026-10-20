@@ -1,0 +1,212 @@
+package controllers
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os/exec"
+	"strings"
+	"sync"
+	"time"
+
+	"amerimon/internal/config"
+
+	"github.com/labstack/echo/v4"
+)
+
+var systemControlLock sync.Mutex
+
+type systemControlResult struct {
+	Action    string   `json:"action"`
+	Recovered bool     `json:"recovered"`
+	Scheduled bool     `json:"scheduled"`
+	Details   []string `json:"details"`
+	Warnings  string   `json:"warnings"`
+}
+
+type systemControl struct {
+	run   func(context.Context, time.Duration, string, ...string) (string, error)
+	ami   func() error
+	pause func(time.Duration)
+}
+
+// runSystemCommand ejecuta únicamente comandos y argumentos definidos por el servidor, con plazo limitado.
+func runSystemCommand(ctx context.Context, timeout time.Duration, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
+	text := strings.TrimSpace(string(output))
+	if err != nil {
+		return text, fmt.Errorf("%s %s: %w: %s", name, strings.Join(args, " "), err, text)
+	}
+	return text, nil
+}
+
+// checkControlAMI exige una respuesta AMI de uptime, no solo que el puerto acepte conexiones.
+func checkControlAMI() error {
+	ami := config.App.AMI
+	response, err := config.ExecuteAMICommand(ami.Host, ami.Port, ami.User, ami.Secret, "core show uptime", 2*time.Second)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(response, "Response: Error") ||
+		(!strings.Contains(response, "Response: Success") && !strings.Contains(response, "Response: Follows")) {
+		return fmt.Errorf("AMI no confirmó uptime: %s", strings.Join(config.ParseAMIOutputToLines(response), " "))
+	}
+	return nil
+}
+
+// ControlSystem restringe mantenimiento al administrador y no acepta comandos ni unidades arbitrarios.
+func ControlSystem(c echo.Context) error {
+	return (systemControl{run: runSystemCommand, ami: checkControlAMI, pause: time.Sleep}).handle(c)
+}
+
+// handle confirma, serializa y registra cada operación; un apagado solo se informa como programado.
+func (s systemControl) handle(c echo.Context) error {
+	claims, err := GetClaims(c)
+	if err != nil {
+		return err
+	}
+	if claims.Role != "A" {
+		return echo.NewHTTPError(http.StatusForbidden, "Se requieren privilegios de administrador")
+	}
+	var request struct {
+		Action       string `json:"action"`
+		Confirmation string `json:"confirmation"`
+	}
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "message": "Solicitud inválida"})
+	}
+	confirmations := map[string]string{
+		"asterisk_restart": "REINICIAR ASTERISK",
+		"linux_reboot":     "REINICIAR LINUX",
+		"linux_poweroff":   "APAGAR LINUX",
+	}
+	expected, ok := confirmations[request.Action]
+	if !ok || request.Confirmation != expected {
+		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "message": "Acción o confirmación inválida"})
+	}
+	if !systemControlLock.TryLock() {
+		return c.JSON(http.StatusConflict, echo.Map{"status": "error", "message": "Ya hay una operación de mantenimiento en curso"})
+	}
+	defer systemControlLock.Unlock()
+	started := time.Now()
+	// Una desconexión del navegador no debe dejar una recuperación a medias.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request().Context()), 55*time.Second)
+	defer cancel()
+	result := systemControlResult{Action: request.Action, Details: []string{}}
+	log.Printf("system control: solicitado acción=%s administrador=%d ip=%s", request.Action, claims.UserID, c.RealIP())
+	recordAsteriskOperation(ctx, request.Action, "", "", "", false, request.Action, "requested", "Mantenimiento solicitado por administrador", started)
+	status := http.StatusOK
+	message := ""
+	if request.Action == "asterisk_restart" {
+		err = s.restartAsterisk(ctx, &result)
+		message = "Asterisk reiniciado; servicio activo y AMI operativo."
+		warnings, journalErr := s.run(ctx, 3*time.Second, "journalctl", "-u", "asterisk.service", "--since", started.Format(time.RFC3339), "-p", "err", "-n", "40", "--no-pager", "-o", "short-iso")
+		if journalErr != nil {
+			result.Warnings = "No se pudieron consultar los errores del arranque: " + journalErr.Error()
+		} else if warnings != "" && warnings != "-- No entries --" {
+			result.Warnings = warnings
+		}
+	} else {
+		flag := "-r"
+		message = "Reinicio de Linux programado dentro de un minuto. Se perderá la conexión."
+		if request.Action == "linux_poweroff" {
+			flag = "-P"
+			message = "Apagado de Linux programado dentro de un minuto. Para volver a encenderlo puede requerirse acceso físico."
+		}
+		_, err = s.run(ctx, 5*time.Second, "shutdown", flag, "+1", "Mantenimiento solicitado desde Amerimon")
+		result.Scheduled = err == nil
+		status = http.StatusAccepted
+	}
+	outcome := "success"
+	if result.Scheduled {
+		outcome = "scheduled"
+	}
+	if err != nil {
+		status, outcome, message = http.StatusBadGateway, "system_error", err.Error()
+	}
+	log.Printf("system control: acción=%s resultado=%s mensaje=%s detalles=%v advertencias=%s", request.Action, outcome, message, result.Details, result.Warnings)
+	recordAsteriskOperation(ctx, request.Action, "", "", "", false, request.Action, outcome,
+		message+"\n"+strings.Join(result.Details, "\n")+"\n"+result.Warnings, started)
+	responseStatus := "success"
+	if err != nil {
+		responseStatus = "error"
+	}
+	return c.JSON(status, echo.Map{"status": responseStatus, "message": message, "data": result})
+}
+
+// stopped espera a que systemd haya terminado el trabajo de parada antes de intentar start.
+func (s systemControl) stopped(ctx context.Context, attempts int) bool {
+	for i := 0; i < attempts; i++ {
+		state, err := s.run(ctx, 2*time.Second, "systemctl", "show", "asterisk.service", "--property=ActiveState", "--value")
+		if err != nil {
+			return false
+		}
+		if state == "inactive" || state == "failed" {
+			return true
+		}
+		s.pause(time.Second)
+	}
+	return false
+}
+
+// restartAsterisk recupera solo asterisk.service; nunca busca ni mata procesos por nombre.
+func (s systemControl) restartAsterisk(ctx context.Context, result *systemControlResult) error {
+	_, restartErr := s.run(ctx, 20*time.Second, "systemctl", "restart", "asterisk.service")
+	if restartErr == nil {
+		state, err := s.run(ctx, 2*time.Second, "systemctl", "is-active", "asterisk.service")
+		if err != nil || state != "active" {
+			restartErr = fmt.Errorf("restart terminó pero el servicio no está activo: %s (%v)", state, err)
+		}
+	}
+	if restartErr != nil {
+		result.Details = append(result.Details, "Restart falló: "+restartErr.Error())
+		if _, err := s.run(ctx, 3*time.Second, "systemctl", "stop", "--no-block", "asterisk.service"); err != nil {
+			return fmt.Errorf("no se pudo solicitar la parada para recuperar Asterisk: %w", err)
+		}
+		if !s.stopped(ctx, 1) {
+			if _, err := s.run(ctx, 3*time.Second, "systemctl", "kill", "--kill-whom=all", "--signal=SIGTERM", "asterisk.service"); err != nil {
+				if !s.stopped(ctx, 1) {
+					return fmt.Errorf("falló SIGTERM de asterisk.service: %w", err)
+				}
+			}
+			if !s.stopped(ctx, 3) {
+				if _, err := s.run(ctx, 3*time.Second, "systemctl", "kill", "--kill-whom=all", "--signal=SIGKILL", "asterisk.service"); err != nil {
+					if !s.stopped(ctx, 1) {
+						return fmt.Errorf("falló SIGKILL de asterisk.service: %w", err)
+					}
+				}
+				result.Details = append(result.Details, "Se requirió SIGKILL para los procesos de asterisk.service.")
+				if !s.stopped(ctx, 3) {
+					return fmt.Errorf("Asterisk sigue en parada; no se inició una segunda instancia")
+				}
+			}
+		}
+		if _, err := s.run(ctx, 3*time.Second, "systemctl", "reset-failed", "asterisk.service"); err != nil {
+			return err
+		}
+		if _, err := s.run(ctx, 15*time.Second, "systemctl", "start", "asterisk.service"); err != nil {
+			return fmt.Errorf("falló el inicio tras la recuperación: %w", err)
+		}
+		result.Recovered = true
+	}
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if ctx.Err() != nil {
+			return fmt.Errorf("se agotó el plazo de verificación: %w", ctx.Err())
+		}
+		state, err := s.run(ctx, 2*time.Second, "systemctl", "is-active", "asterisk.service")
+		if err == nil && state == "active" {
+			if lastErr = s.ami(); lastErr == nil {
+				result.Details = append(result.Details, "Servicio activo y consulta AMI de uptime correcta.")
+				return nil
+			}
+		} else {
+			lastErr = fmt.Errorf("servicio Asterisk no activo: %s (%v)", state, err)
+		}
+		s.pause(time.Second)
+	}
+	return fmt.Errorf("no se confirmó Asterisk operativo: %w", lastErr)
+}

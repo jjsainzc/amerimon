@@ -38,6 +38,7 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.POST("/auth/password", controllers.ChangeAdminPassword, jwt, admin)
 	privada.PUT("/site-settings", controllers.SaveSiteSettings, jwt, admin)
 	privada.GET("/system-info", controllers.GetSystemInfo, jwt, admin)
+	privada.POST("/system/control", controllers.ControlSystem, jwt, admin)
 
 	publica.GET("/astdb", controllers.GetAstDB)
 	publica.GET("/sm_lsnodes", controllers.HandleAllStarNodes)

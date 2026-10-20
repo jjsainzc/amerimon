@@ -16,6 +16,39 @@
     @if (error()) { <p class="sys-error" role="alert">{{ error() }}</p> }
     @if (cargando() && !informacion()) { <p class="sys-cargando" role="status">Consultando información del servidor…</p> }
 
+    <section class="sys-mantenimiento" aria-labelledby="sys-mantenimiento-titulo">
+      <h3 id="sys-mantenimiento-titulo">Mantenimiento del servidor</h3>
+      <p>Estas acciones interrumpen llamadas, enlaces y escuchas activas. Reiniciar o apagar Linux también desconecta esta web.</p>
+      <div class="sys-control-botones">
+        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('asterisk_restart')">Reiniciar Asterisk</button>
+        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_reboot')">Reiniciar Linux</button>
+        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_poweroff')">Apagar Linux</button>
+      </div>
+      @if (accion(); as action) {
+        <div class="sys-confirmacion">
+          <p>Se interrumpirán todas las comunicaciones del servidor.</p>
+          @if (action !== 'asterisk_restart') {
+            <p>La acción se programará dentro de un minuto. Apagar Linux puede requerir acceso físico para volver a encenderlo.</p>
+          }
+          <label for="sys-confirmacion">Escribe <strong>{{ textoConfirmacion(action) }}</strong> para confirmar:</label>
+          <input #confirmationInput id="sys-confirmacion" type="text" autocomplete="off" [value]="confirmacion()" (input)="confirmacion.set(confirmationInput.value)" [disabled]="ejecutando()">
+          <div class="sys-control-botones">
+            <button type="button" class="sys-peligro" [disabled]="ejecutando() || confirmacion() !== textoConfirmacion(action)" (click)="ejecutar()">{{ ejecutando() ? 'Ejecutando y verificando…' : 'Confirmar acción' }}</button>
+            <button type="button" class="sys-actualizar" [disabled]="ejecutando()" (click)="accion.set(null)">Cancelar</button>
+          </div>
+        </div>
+      }
+      @if (ejecutando()) { <p role="status">Mantenimiento en curso. La verificación puede tardar aproximadamente un minuto.</p> }
+      @if (errorControl()) { <p class="sys-error" role="alert">{{ errorControl() }}</p> }
+      @if (resultado(); as result) {
+        @if (result.status === 'success') { <p class="sys-resultado" role="status">{{ result.message }}</p> }
+        @for (detail of result.data.details; track $index) { <p class="sys-control-detalle">{{ detail }}</p> }
+        @if (result.data.warnings) {
+          <div class="sys-advertencia" role="alert"><strong>Advertencias del diagnóstico</strong><pre>{{ result.data.warnings }}</pre></div>
+        }
+      }
+    </section>
+
     @if (informacion(); as info) {
       <div class="sys-tarjetas">
         <article class="sys-tarjeta sys-tarjeta-destacada">

@@ -23,6 +23,19 @@
 .sys-tarjeta-procesos { grid-column: span 2; }
 .sys-error { margin: 0; padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
 .sys-cargando { margin: 0; padding: 1rem; color: #a9bac5; text-align: center; }
+.sys-mantenimiento { display: grid; gap: .65rem; padding: .8rem; border: 1px solid #80524a; border-radius: 6px; background: #2b2528; }
+.sys-mantenimiento h3, .sys-mantenimiento p { margin: 0; }
+.sys-mantenimiento h3 { color: #ffd7c9; font-size: .95rem; }
+.sys-mantenimiento p, .sys-mantenimiento label { color: #e5d8d5; font-size: .82rem; }
+.sys-control-botones { display: flex; flex-wrap: wrap; gap: .5rem; }
+.sys-peligro { padding: .5rem .75rem; border: 1px solid #b57568; border-radius: 5px; background: #58352f; color: #fff0e9; font: inherit; font-size: .82rem; cursor: pointer; }
+.sys-peligro:disabled { opacity: .6; cursor: not-allowed; }
+.sys-confirmacion { display: grid; gap: .65rem; padding-top: .65rem; border-top: 1px solid #80524a; }
+.sys-confirmacion input { box-sizing: border-box; width: 100%; padding: .55rem; border: 1px solid #9c7168; border-radius: 4px; background: #14232c; color: #fff; font: inherit; }
+.sys-mantenimiento .sys-resultado { color: #a1e2d8; }
+.sys-control-detalle, .sys-advertencia pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sys-advertencia { padding: .65rem; border: 1px solid #9b8147; background: #342f20; color: #ffe0a0; font-size: .82rem; }
+.sys-advertencia pre { margin: .5rem 0 0; font-size: .75rem; }
 
 @media (max-width: 520px) {
   .sys-overlay { align-items: end; padding: 0; }

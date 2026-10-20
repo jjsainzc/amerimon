@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, output, signal } from '@angular/core';
 import { SystemInfo } from '../../core/models/system-info.model';
-import { SystemInfoService } from '../../core/services/system-info.service';
+import { SystemAction, SystemControlResponse, SystemInfoService } from '../../core/services/system-info.service';
 
 @Component({
   selector: 'app-system-info-dialog',
@@ -18,6 +18,55 @@ export class SystemInfoDialogComponent {
   readonly informacion = signal<SystemInfo | null>(null);
   readonly cargando = signal(false);
   readonly error = signal('');
+  readonly accion = signal<SystemAction | null>(null);
+  readonly confirmacion = signal('');
+  readonly ejecutando = signal(false);
+  readonly programado = signal(false);
+  readonly resultado = signal<SystemControlResponse | null>(null);
+  readonly errorControl = signal('');
+
+  /** Devuelve el texto que el administrador debe escribir antes de enviar una operación destructiva. */
+  textoConfirmacion(action: SystemAction | null): string {
+    switch (action) {
+      case 'asterisk_restart': return 'REINICIAR ASTERISK';
+      case 'linux_reboot': return 'REINICIAR LINUX';
+      case 'linux_poweroff': return 'APAGAR LINUX';
+      default: return '';
+    }
+  }
+
+  /** Abre la confirmación sin ejecutar aún ningún comando. */
+  preparar(action: SystemAction): void {
+    if (this.ejecutando() || this.programado()) { return; }
+    this.accion.set(action);
+    this.confirmacion.set('');
+    this.resultado.set(null);
+    this.errorControl.set('');
+  }
+
+  /** Ejecuta solo una acción confirmada y conserva los diagnósticos tanto de éxito como de fallo. */
+  ejecutar(): void {
+    const action = this.accion();
+    if (!action || this.ejecutando() || this.programado() || this.confirmacion() !== this.textoConfirmacion(action)) { return; }
+    this.ejecutando.set(true);
+    this.errorControl.set('');
+    this.service.controlar(action, this.confirmacion()).subscribe({
+      next: result => {
+        this.resultado.set(result);
+        this.programado.set(result.data.scheduled);
+        this.ejecutando.set(false);
+        this.accion.set(null);
+        this.confirmacion.set('');
+      },
+      error: (err: HttpErrorResponse) => {
+        this.ejecutando.set(false);
+        this.errorControl.set(err.error?.message ?? 'No se recibió confirmación del servidor. Comprueba su estado antes de repetir la acción.');
+        if (err.error?.data) {
+          this.resultado.set(err.error);
+        }
+      },
+    });
+  }
 
   /** Solicita las métricas iniciales al abrir el diálogo. */
   constructor() {
