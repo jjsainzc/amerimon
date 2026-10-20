@@ -243,6 +243,8 @@ func HandleLiveListenWS(mgr *AudioStreamManager) echo.HandlerFunc {
 		defer ws.Close()
 
 		mgr.AddClient(callUUID, ws)
+		log.Printf("[ListenLive] WebSocket conectado uuid=%s", callUUID)
+		defer log.Printf("[ListenLive] WebSocket cerrado uuid=%s", callUUID)
 		defer mgr.RemoveClient(callUUID, ws)
 		if err := ws.SetReadDeadline(time.Now().Add(websocketPongWait)); err != nil {
 			return err
@@ -273,6 +275,7 @@ func HandleLiveListenWS(mgr *AudioStreamManager) echo.HandlerFunc {
 		for {
 			_, _, err := ws.ReadMessage()
 			if err != nil {
+				log.Printf("[ListenLive] WebSocket lectura terminada uuid=%s error=%v", callUUID, err)
 				break
 			}
 		}
@@ -343,6 +346,7 @@ func HandleEAGIConnection(conn net.Conn, mgr *AudioStreamManager) {
 		return
 	}
 	callUUID := string(uuidBuf)
+	log.Printf("[EAGI] TCP conectado uuid=%s origen=%s", callUUID, conn.RemoteAddr())
 	mgr.AddAudioConnection(callUUID, conn)
 	defer mgr.RemoveAudioConnection(callUUID, conn)
 	defer mgr.CloseClients(callUUID)
@@ -350,6 +354,10 @@ func HandleEAGIConnection(conn net.Conn, mgr *AudioStreamManager) {
 
 	// Buffer de 320 bytes (20ms PCM SLIN16 @ 8kHz)
 	buffer := make([]byte, 320)
+	var frames, bytesReceived int64
+	defer func() {
+		log.Printf("[EAGI] resumen uuid=%s frames=%d bytes=%d", callUUID, frames, bytesReceived)
+	}()
 	start, seen := time.Now(), false
 	for {
 		n, err := io.ReadFull(conn, buffer)
@@ -357,9 +365,15 @@ func HandleEAGIConnection(conn net.Conn, mgr *AudioStreamManager) {
 			log.Printf("[EAGI] TCP audio read stopped uuid=%s error=%v", callUUID, err)
 			break
 		}
+		frames++
+		bytesReceived += int64(n)
+		if frames == 1 {
+			log.Printf("[EAGI] primer audio recibido uuid=%s bytes=%d", callUUID, n)
+		}
 		if mgr.Broadcast(callUUID, buffer[:n]) > 0 {
 			seen = true
 		} else if seen || time.Since(start) > 15*time.Second {
+			log.Printf("[EAGI] cerrando sin oyentes uuid=%s frames=%d", callUUID, frames)
 			// Sin oyentes: al cerrar conn el script/EAGI termina y Asterisk cuelga el espionaje.
 			return
 		}

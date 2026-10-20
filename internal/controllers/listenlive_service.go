@@ -66,6 +66,7 @@ func ListenLiveAsteriskStatus(c echo.Context) error {
 // @Failure 401
 // @Router /listen-live/start [post]
 func StartListenLive(c echo.Context) error {
+	startedAt := time.Now()
 	var req listenLiveRequest
 	if err := c.Bind(&req); err != nil || !reExt.MatchString(req.Ext) || !reUUID.MatchString(req.UUID) || req.ListenLiveID < 0 {
 		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "message": "ext o uuid inválidos"})
@@ -74,7 +75,10 @@ func StartListenLive(c echo.Context) error {
 	ami := config.App.AMI
 	// /n evita la optimización del canal Local, que rompería el camino ChanSpy -> EAGI.
 	channel := fmt.Sprintf("Local/%s@listen-live-spy/n", req.Ext)
+	log.Printf("[ListenLive] inicio solicitado extensión=%s uuid=%s sesión=%d", req.Ext, req.UUID, req.ListenLiveID)
 	if err := config.ExecuteAMIOriginate(ami.Host, ami.Port, ami.User, ami.Secret, channel, "listen-live-eagi", req.UUID, 5*time.Second); err != nil {
+		log.Printf("[ListenLive] inicio fallido extensión=%s uuid=%s: %v", req.Ext, req.UUID, err)
+		recordAsteriskOperation(c.Request().Context(), "listen_start", req.Ext, "", "", false, channel, "ami_error", err.Error(), startedAt)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"status": "error", "message": err.Error()})
 	}
 	if config.App.UseDB && config.App.DB != nil {
@@ -90,9 +94,12 @@ func StartListenLive(c echo.Context) error {
 			args = []any{req.UUID, claims.UserID, c.RealIP()}
 		}
 		if _, err := config.App.DB.ExecContext(c.Request().Context(), query, args...); err != nil {
+			recordAsteriskOperation(c.Request().Context(), "listen_start", req.Ext, "", "", false, channel, "database_error", err.Error(), startedAt)
 			return listenLiveDBError(c, err)
 		}
 	}
+	log.Printf("[ListenLive] Originate aceptado extensión=%s uuid=%s", req.Ext, req.UUID)
+	recordAsteriskOperation(c.Request().Context(), "listen_start", req.Ext, "", "", false, channel, "success", "Originate aceptado; recepción de audio pendiente", startedAt)
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "data": nil, "message": "escucha iniciada"})
 }
 
@@ -118,6 +125,7 @@ var reChannelName = regexp.MustCompile(`^[0-9A-Za-z_/@;.\-]{1,128}$`)
 // @Router /listen-live/stop [post]
 func StopListenLive(mgr *config.AudioStreamManager) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		startedAt := time.Now()
 		var req stopListenLiveRequest
 		if err := c.Bind(&req); err != nil || req.ListenLiveID < 0 || (req.UUID != "" && !reUUID.MatchString(req.UUID)) {
 			return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "message": "uuid o listenliveid inválidos"})
@@ -183,8 +191,10 @@ func StopListenLive(mgr *config.AudioStreamManager) echo.HandlerFunc {
 		}
 
 		if hangupErr != nil {
+			recordAsteriskOperation(c.Request().Context(), "listen_stop", "", "", "", false, "Hangup "+req.UUID, "ami_error", hangupErr.Error(), startedAt)
 			return c.JSON(http.StatusBadGateway, echo.Map{"status": "error", "message": "WebSocket cerrado, pero falló el hangup: " + hangupErr.Error()})
 		}
+		recordAsteriskOperation(c.Request().Context(), "listen_stop", "", "", "", false, "Hangup "+req.UUID, "success", fmt.Sprintf("Canales colgados: %d", hungUp), startedAt)
 		return c.JSON(http.StatusOK, echo.Map{"status": "success", "data": echo.Map{"channels_hungup": hungUp}, "message": "escucha terminada"})
 	}
 }
@@ -483,6 +493,7 @@ func UpdateListenLiveSession(mgr *config.AudioStreamManager) echo.HandlerFunc {
 
 // updateListenLiveSession cierra una sesión autorizada y, si tiene UUID, también el audio y la llamada de Asterisk.
 func updateListenLiveSession(c echo.Context, mgr *config.AudioStreamManager) error {
+	startedAt := time.Now()
 	claims, err := GetClaims(c)
 	if err != nil {
 		return err
@@ -524,10 +535,13 @@ func updateListenLiveSession(c echo.Context, mgr *config.AudioStreamManager) err
 		} else {
 			log.Printf("[ListenLive] no EAGI TCP connection registered source=session-patch uuid=%s", uuid.String)
 		}
-		if count, err := hangupListenLiveCalls("session-patch", uuid.String); err != nil {
+		count, err := hangupListenLiveCalls("session-patch", uuid.String)
+		if err != nil {
 			log.Printf("[ListenLive] stop failed source=session-patch uuid=%s channels_hungup=%d error=%v", uuid.String, count, err)
+			recordAsteriskOperation(c.Request().Context(), "listen_stop", "", "", "", false, "Hangup "+uuid.String, "ami_error", err.Error(), startedAt)
 			return c.JSON(http.StatusBadGateway, echo.Map{"status": "error", "message": "sesión cerrada, pero falló el hangup: " + err.Error()})
 		}
+		recordAsteriskOperation(c.Request().Context(), "listen_stop", "", "", "", false, "Hangup "+uuid.String, "success", fmt.Sprintf("Canales colgados: %d", count), startedAt)
 	}
 	return GetListenLiveSession(c)
 }

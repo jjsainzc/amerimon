@@ -132,18 +132,23 @@ func ExecuteAMIOriginate(host, port, username, secret, channel, context, exten s
 	if _, err := conn.Write([]byte(login)); err != nil {
 		return fmt.Errorf("error enviando login: %w", err)
 	}
-	if err := discardUntilBlank(reader); err != nil {
+	loginResponse, err := readAMIMessage(reader)
+	if err != nil {
 		return fmt.Errorf("error en respuesta de login: %w", err)
 	}
+	if !strings.Contains(loginResponse, "Response: Success") {
+		return fmt.Errorf("login AMI rechazado: %s", strings.Join(ParseAMIOutputToLines(loginResponse), " "))
+	}
 
-	orig := fmt.Sprintf("Action: Originate\r\nChannel: %s\r\nContext: %s\r\nExten: %s\r\nPriority: 1\r\nAsync: true\r\n\r\n", channel, context, exten)
+	actionID := fmt.Sprintf("listen-live-%d", time.Now().UnixNano())
+	orig := fmt.Sprintf("Action: Originate\r\nActionID: %s\r\nChannel: %s\r\nContext: %s\r\nExten: %s\r\nPriority: 1\r\nAsync: true\r\n\r\n", actionID, channel, context, exten)
 	if _, err := conn.Write([]byte(orig)); err != nil {
 		return fmt.Errorf("error enviando originate: %w", err)
 	}
 
-	raw, err := readFullResponse(reader)
+	raw, err := readAMIActionResponse(reader, actionID)
 	if err != nil {
-		return fmt.Errorf("error leyendo respuesta: %w", err)
+		return fmt.Errorf("error leyendo respuesta de Originate: %w", err)
 	}
 	_, _ = conn.Write([]byte("Action: Logoff\r\n\r\n"))
 

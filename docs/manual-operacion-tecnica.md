@@ -301,7 +301,29 @@ sudo journalctl -u amerimon -f | grep 'asterisk:'
 
 No se guardan `AMI_SECRET`, contraseñas ni tokens. El endpoint y la página de registros están restringidos al administrador. La lista ofrece hasta 2000 eventos; no hay purga automática en la aplicación, así que la base debe incluirse en la política de respaldo/retención.
 
-Este historial cubre las acciones del panel de comandos/conexiones; no es una captura de todos los eventos internos ni reemplaza los logs de Asterisk.
+Este historial cubre las acciones del panel de comandos/conexiones y los intentos de inicio/parada de Listen Live (`listen_start`, `listen_stop`), incluidos los errores AMI. Un inicio correcto indica que AMI aceptó `Originate`, no que ya llegue audio. No reemplaza los logs de Asterisk.
+
+### Diagnóstico de Listen Live en Raspberry Pi (Debian 12 y 13)
+
+Después de instalar el paquete, abre **Registros Asterisk** para consultar los intentos de escucha. Para seguir el recorrido completo, ejecuta por SSH antes de pulsar **LISTEN LIVE**:
+
+```bash
+sudo journalctl -u amerimon -f -o short-iso
+```
+
+Se registran la solicitud de inicio, la aceptación o rechazo AMI, la conexión WebSocket, la conexión EAGI, el primer bloque de audio y el total de bloques/bytes al terminar. El UUID permite correlacionar las etapas sin registrar credenciales ni contenido de audio. Si aparece `EOF`, el mensaje identifica si se cerró la conexión durante el banner, login u `Originate`; un login rechazado se muestra como tal, sin intentar originar después.
+
+Para recoger evidencia de una prueba fallida y copiarla desde la Raspberry:
+
+```bash
+sudo journalctl -u amerimon --since "15 minutes ago" -o short-iso --no-pager > /tmp/amerimon-diagnostico.log
+sudo journalctl -u asterisk --since "15 minutes ago" -o short-iso --no-pager > /tmp/asterisk-diagnostico.log
+uname -m
+dpkg-query -W amerimon asterisk
+sudo ss -ltnp '( sport = :8082 or sport = :8086 )'
+```
+
+Si Asterisk escribe en archivo en lugar del journal, consulta también `/var/log/asterisk/messages.log`. Los mensajes de arranque muestran la versión instalada. No compartas `amerimon.env`, `jwt.secret` ni `manager.conf`, ya que contienen credenciales.
 
 ## 10. Información del sistema
 

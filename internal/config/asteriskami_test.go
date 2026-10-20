@@ -1,0 +1,90 @@
+package config
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestExecuteAMIOriginate(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		login    string
+		response string
+		wantErr  string
+	}{
+		{"accepted", "Success", "Success", ""},
+		{"rejected-login", "Error", "", "login AMI rechazado"},
+		{"rejected-originate", "Success", "Error", "originate rechazado"},
+		{"closed-connection", "Success", "", "error leyendo respuesta de Originate: EOF"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			done := make(chan error, 1)
+			go func() {
+				conn, err := listener.Accept()
+				if err != nil {
+					done <- err
+					return
+				}
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
+				reader := bufio.NewReader(conn)
+				fmt.Fprint(conn, "Asterisk Call Manager/11.0.0\r\n")
+				if _, err := readAMIMessage(reader); err != nil {
+					done <- err
+					return
+				}
+				fmt.Fprintf(conn, "Response: %s\r\nMessage: Login result\r\n\r\n", tc.login)
+				if tc.login != "Success" {
+					// El cliente debe cerrar sin enviar Originate tras un login rechazado.
+					message, err := reader.ReadString('\n')
+					if err == nil || message != "" {
+						done <- fmt.Errorf("Originate enviado tras login rechazado: %q", message)
+						return
+					}
+					done <- nil
+					return
+				}
+				message, err := readAMIMessage(reader)
+				if err != nil {
+					done <- err
+					return
+				}
+				actionID := ""
+				for _, line := range strings.Split(message, "\n") {
+					if value, ok := strings.CutPrefix(strings.TrimSpace(line), "ActionID: "); ok {
+						actionID = value
+					}
+				}
+				if actionID == "" || !strings.Contains(message, "Action: Originate") {
+					done <- fmt.Errorf("Originate sin ActionID: %q", message)
+					return
+				}
+				if tc.response != "" {
+					fmt.Fprint(conn, "Event: Unrelated\r\nActionID: other\r\n\r\n")
+					fmt.Fprintf(conn, "Response: %s\r\nActionID: %s\r\nMessage: Originate result\r\n\r\n", tc.response, actionID)
+				}
+				done <- nil
+			}()
+			host, port, _ := net.SplitHostPort(listener.Addr().String())
+			err = ExecuteAMIOriginate(host, port, "test-user", "test-secret", "Local/nodo@listen-live-spy/n", "listen-live-eagi", "test", 2*time.Second)
+			if tc.wantErr == "" && err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("expected %q, got %v", tc.wantErr, err)
+			}
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

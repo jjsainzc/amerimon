@@ -81,6 +81,7 @@ export class AsteriskLogsComponent {
       case 'not_confirmed': return 'Sin confirmar';
       case 'configuration_error': return 'Configuración';
       case 'invalid_request': return 'Solicitud inválida';
+      case 'database_error': return 'Error de base de datos';
       default: return result;
     }
   }
