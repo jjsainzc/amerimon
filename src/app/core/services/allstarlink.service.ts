@@ -17,9 +17,16 @@ export class AllstarlinkService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/allstarlink/nodes`;
 
-  /** Consulta las conexiones actuales, los servidores locales y el nodo principal. */
-  listarNodos(): Observable<AllstarlinkResponse> {
-    return this.http.get<AllstarlinkResponse>(this.apiUrl);
+  /** Consulta las conexiones de un servidor o el listado completo. */
+  listarNodos(localNode?: string): Observable<AllstarlinkResponse> {
+    return this.http.get<AllstarlinkResponse>(this.apiUrl, {
+      params: localNode ? { local_node: localNode } : {}
+    });
+  }
+
+  /** Descubre los servidores configurados sin abrir conexiones AMI. */
+  listarServidores(): Observable<AllstarlinkResponse> {
+    return this.http.get<AllstarlinkResponse>(this.apiUrl, { params: { discovery: 'true' } });
   }
 
   /** Obtiene la última actividad registrada para cada pareja de nodos local y remoto. */

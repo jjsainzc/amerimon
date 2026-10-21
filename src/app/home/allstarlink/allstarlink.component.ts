@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { timeout } from 'rxjs';
+import { Subscription, timeout } from 'rxjs';
 import {
   AllstarlinkActivity,
   AllstarlinkGrupo,
@@ -30,6 +31,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private readonly service = inject(AllstarlinkService);
   private readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly nodos = signal<AllstarlinkNode[]>([]);
   readonly actividades = signal<AllstarlinkActivity[]>([]);
@@ -51,6 +53,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly cargando = signal(false);
   readonly consultado = signal(false);
   readonly error = signal('');
+  readonly erroresServidor = signal<Record<string, string>>({});
   readonly intervaloMs = signal(15_000);
   readonly esAdmin = this.auth.esAdmin;
   readonly panelAdminAbierto = signal(false);
@@ -84,6 +87,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private temporizador?: ReturnType<typeof setInterval>;
   private temporizadorRecargaDesconexion?: ReturnType<typeof setTimeout>;
   private recargaPendiente = false;
+  private readonly consultasServidor = new Map<string, Subscription>();
+  private readonly reintentosServidor = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly recargasServidor = new Set<string>();
   private readonly desconexionesEnVerificacion = new Map<string, number>();
   /** Resuelve la operación administrativa elegida, si sigue disponible. */
   readonly comandoSeleccionado = computed(() =>
@@ -219,6 +225,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.temporizador) { clearInterval(this.temporizador); }
     if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
+    for (const temporizador of this.reintentosServidor.values()) { clearTimeout(temporizador); }
+    for (const consulta of this.consultasServidor.values()) { consulta.unsubscribe(); }
   }
 
   /** Actualiza el intervalo de sondeo; un valor no numérico desactiva el temporizador. */
@@ -651,15 +659,14 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Consulta actividad y nodos, sincroniza conexiones pendientes y actualiza errores. */
+  /** Descubre los servidores y consulta cada uno sin esperar a los demás. */
   cargar(forzar = false): void {
     if (this.cargando()) {
       if (forzar) { this.recargaPendiente = true; }
       return;
     }
     this.cargando.set(true);
-    this.error.set('');
-    this.service.listarActividad().pipe(timeout({ each: 10_000 })).subscribe({
+    this.service.listarActividad().pipe(timeout({ each: 10_000 }), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: respuesta => {
         if (respuesta?.status === 'success') {
           this.actividades.set(respuesta.data ?? []);
@@ -667,23 +674,41 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       },
       error: () => undefined
     });
-    this.service.listarNodos().pipe(timeout({ each: 10_000 })).subscribe({
+    this.service.listarServidores().pipe(timeout({ each: 10_000 }), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: respuesta => {
         this.consultado.set(true);
         if (respuesta?.status === 'success') {
-          const nodos = respuesta.data?.resultados ?? [];
           this.nodoPrincipal.set(respuesta.data?.nodo_principal?.trim() ?? '');
-          this.tablasLocales.set(respuesta.data?.tablas ?? []);
-          this.nodos.set(nodos);
+          const tablas = respuesta.data?.tablas ?? [];
+          const servidores = new Set(tablas.map(tabla => tabla.nodo_local));
+          for (const [local, consulta] of this.consultasServidor) {
+            if (!servidores.has(local)) {
+              consulta.unsubscribe();
+              this.consultasServidor.delete(local);
+              this.recargasServidor.delete(local);
+            }
+          }
+          for (const [local, temporizador] of this.reintentosServidor) {
+            if (!servidores.has(local)) {
+              clearTimeout(temporizador);
+              this.reintentosServidor.delete(local);
+            }
+          }
+          this.erroresServidor.update(errores => Object.fromEntries(
+            Object.entries(errores).filter(([local]) => servidores.has(local))
+          ));
+          const anteriores = new Map(this.tablasLocales().map(tabla => [tabla.nodo_local, tabla]));
+          this.tablasLocales.set(tablas.map(tabla => anteriores.get(tabla.nodo_local) ?? tabla));
+          this.nodos.update(nodos => nodos.filter(nodo => servidores.has(nodo.nodo_local)));
           if (this.servidorSeleccionado() !== 'todos' &&
               !this.servidoresDisponibles().includes(this.servidorSeleccionado())) {
             this.servidorSeleccionado.set('todos');
           }
-          this.reconciliarConexionesPendientes(nodos);
-          this.revisarDesconexionesEnVerificacion(nodos);
           if (!this.nodoLocal()) {
-            this.nodoLocal.set(this.nodosLocales()[0] ?? '');
+            this.nodoLocal.set(this.nodoPrincipal() || this.nodosLocales()[0] || '');
           }
+          this.error.set(this.erroresServidor()[this.nodoPrincipal()] ?? '');
+          for (const tabla of tablas) { this.consultarServidor(tabla.nodo_local, forzar); }
         } else {
           this.error.set(respuesta?.message || 'No se pudo cargar el listado de nodos.');
         }
@@ -704,6 +729,69 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
+  private consultarServidor(local: string, forzar = false): void {
+    if (this.consultasServidor.has(local)) {
+      if (forzar) { this.recargasServidor.add(local); }
+      return;
+    }
+    const reintento = this.reintentosServidor.get(local);
+    if (reintento) {
+      clearTimeout(reintento);
+      this.reintentosServidor.delete(local);
+    }
+    const consulta = this.service.listarNodos(local).pipe(
+      timeout({ each: 30_000 }), takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: respuesta => {
+        const tabla = respuesta.data?.tablas?.find(tabla => tabla.nodo_local === local);
+        if (respuesta.status !== 'success' || !tabla?.servidor_conectado) {
+          this.falloServidor(local, respuesta.message || `No se pudo conectar con el servidor del nodo ${local}.`);
+          return;
+        }
+        this.erroresServidor.update(errores => {
+          const siguientes = { ...errores };
+          delete siguientes[local];
+          return siguientes;
+        });
+        if (local === this.nodoPrincipal()) { this.error.set(''); }
+        this.tablasLocales.update(tablas => tablas.map(actual => actual.nodo_local === local ? tabla : actual));
+        this.nodos.update(nodos => [
+          ...nodos.filter(nodo => nodo.nodo_local !== local),
+          ...(respuesta.data?.resultados ?? []).filter(nodo => nodo.nodo_local === local)
+        ]);
+        this.reconciliarConexionesPendientes(this.nodos());
+        this.revisarDesconexionesEnVerificacion(this.nodos(), local);
+      },
+      error: err => {
+        this.falloServidor(local, err?.name === 'TimeoutError'
+          ? `El servidor del nodo ${local} no respondió a tiempo.`
+          : err?.error?.message || `No se pudo conectar con el servidor del nodo ${local}.`);
+        this.finalizarConsultaServidor(local);
+      },
+      complete: () => this.finalizarConsultaServidor(local)
+    });
+    this.consultasServidor.set(local, consulta);
+  }
+
+  private falloServidor(local: string, mensaje: string): void {
+    this.erroresServidor.update(errores => ({ ...errores, [local]: mensaje }));
+    if (local === this.nodoPrincipal()) { this.error.set(mensaje); }
+    this.tablasLocales.update(tablas => tablas.map(tabla =>
+      tabla.nodo_local === local ? { ...tabla, servidor_conectado: false } : tabla
+    ));
+    this.nodos.update(nodos => nodos.filter(nodo => nodo.nodo_local !== local));
+    this.revisarDesconexionesEnVerificacion(undefined, local);
+    this.reintentosServidor.set(local, setTimeout(() => {
+      this.reintentosServidor.delete(local);
+      this.consultarServidor(local);
+    }, 5000));
+  }
+
+  private finalizarConsultaServidor(local: string): void {
+    this.consultasServidor.delete(local);
+    if (this.recargasServidor.delete(local)) { this.consultarServidor(local); }
+  }
+
   /** Programa una nueva consulta y sustituye cualquier recarga diferida anterior. */
   private programarRecargaConexiones(retardoMs = 1500): void {
     if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
@@ -721,11 +809,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   }
 
   /** Comprueba la desconexión solicitada y reintenta la consulta hasta un límite. */
-  private revisarDesconexionesEnVerificacion(nodos?: AllstarlinkNode[]): void {
+  private revisarDesconexionesEnVerificacion(nodos?: AllstarlinkNode[], nodoLocal?: string): void {
     if (this.desconexionesEnVerificacion.size === 0) { return; }
     let requiereOtraConsulta = false;
     for (const [clave, intentos] of this.desconexionesEnVerificacion) {
       const [local, ...partesRemoto] = clave.split('-');
+      if (nodoLocal && local !== nodoLocal) { continue; }
       const remoto = partesRemoto.join('-');
       const sigueConectado = !nodos || nodos.some(nodo =>
         nodo.nodo_local === local && nodo.nodo === remoto && nodo.protocolo?.trim().toLowerCase() !== 'sip'

@@ -236,7 +236,7 @@
               @if (grupo.nodos.length === 0) {
                 <tr>
                   <td [class.allstarlink-error]="!grupo.servidorConectado" [attr.colspan]="esAdmin() ? 11 : 10">
-                    {{ grupo.servidorConectado ? 'No hay nodos conectados' : 'Sin conexión' }}
+                    {{ grupo.servidorConectado ? 'No hay nodos conectados' : erroresServidor()[grupo.nodoLocal] ? erroresServidor()[grupo.nodoLocal] + ' Reintentando en segundo plano…' : 'Conectando en segundo plano…' }}
                   </td>
                 </tr>
               }
