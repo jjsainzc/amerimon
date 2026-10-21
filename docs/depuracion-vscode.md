@@ -87,6 +87,8 @@ No guardes credenciales reales en los archivos de configuración versionados ni 
 
 ### Dirección del servidor AMI
 
+Para configurar nombres en la red, consulta [Usar hostname en la LAN en lugar de una IP](hostname-lan.md).
+
 El campo `ami.host` del YAML y el campo `host` de los servidores remotos en Allmon admiten IP o hostname, sin `http://` y con el puerto configurado por separado. Por ejemplo: `127.0.0.1`, `192.168.1.50`, `::1` o `asterisk.example.net`.
 
 El backend resuelve cada hostname antes de conectar mediante el resolvedor del sistema donde corre Go (DNS o `/etc/hosts`). Si obtiene varias direcciones, intenta las siguientes si falla la conexión, compartiendo el timeout entre la resolución y los intentos TCP. Las IP literales se usan directamente. Los fallos de resolución incluyen el hostname en el error del backend.
