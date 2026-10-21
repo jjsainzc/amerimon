@@ -37,7 +37,7 @@ nfpms:
     license: Proprietary
     section: web
     priority: optional
-    # astdb.sh usa curl y audio_eagi.sh usa nc.
+    # curl: astdb; getent + NSS/Avahi: nombres .local; nc: audio EAGI.
     dependencies:
       - curl
       - libc-bin
