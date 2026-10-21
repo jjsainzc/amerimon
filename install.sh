@@ -9,7 +9,7 @@ else
 	SUDO=(sudo)
 fi
 
-for tool in npm go systemctl; do
+for tool in npm go systemctl getent; do
 	command -v "$tool" >/dev/null 2>&1 || { echo "No se encontró $tool." >&2; exit 1; }
 done
 

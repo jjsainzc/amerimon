@@ -81,7 +81,11 @@ hosts: files myhostname mdns4_minimal [NOTFOUND=return] dns
 
 Es un ejemplo, no una línea para reemplazar a ciegas: conserva los módulos propios de tu distribución. Si el sistema usa `systemd-resolved`, mDNS puede gestionarse mediante ese servicio en lugar de Avahi/NSS.
 
-El resolvedor de Go puede variar según cómo se compiló el binario. Si `getent` funciona pero Amerimon sigue mostrando un error de resolución, comprueba el error del backend y si el binario dispone de soporte para el resolvedor del sistema (cgo/NSS). No basta con que Windows o una herramienta de Avahi resuelvan el nombre.
+Amerimon usa `getent ahosts` para los nombres terminados en `.local`, también en los binarios estáticos compilados con `CGO_ENABLED=0`. Así consulta NSS/Avahi sin depender de cgo ni enviar esos nombres al DNS público. Los demás hostnames siguen usando el resolvedor de Go y las IP se usan directamente.
+
+El paquete Debian declara las dependencias `libc-bin`, `libnss-mdns` y `avahi-daemon`. Si instalas con `install.sh`, prepara esos componentes mediante los comandos anteriores: el script comprueba que exista `getent`, pero no instala ni configura Avahi/NSS.
+
+Si el servicio todavía registra `lookup ...local on 1.1.1.1:53`, está ejecutando una versión anterior a esta corrección. Recompila e instala con `bash install.sh` y comprueba los logs del servicio reiniciado. Cambiar el navegador o acceder desde fuera de la LAN no cambia el resolvedor del backend.
 
 ### 3. Comprobar red y puerto AMI
 

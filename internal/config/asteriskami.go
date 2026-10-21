@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"os/exec"
 	"strings"
 	"time"
 )
@@ -30,7 +31,7 @@ func dialAMI(host, port string, timeout time.Duration) (net.Conn, error) {
 		return dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), port))
 	}
 
-	addresses, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	addresses, err := resolveAMIHost(ctx, host)
 	if err != nil {
 		return nil, fmt.Errorf("resolver host AMI %q: %w", host, err)
 	}
@@ -53,6 +54,40 @@ func dialAMI(host, port string, timeout time.Duration) (net.Conn, error) {
 		}
 	}
 	return nil, fmt.Errorf("conectar host AMI %q: %w", host, errors.Join(failures...))
+}
+
+func resolveAMIHost(ctx context.Context, host string) ([]net.IPAddr, error) {
+	if !strings.HasSuffix(strings.ToLower(strings.TrimSuffix(host, ".")), ".local") {
+		return net.DefaultResolver.LookupIPAddr(ctx, host)
+	}
+	// Los binarios sin cgo no consultan NSS/Avahi; getent sí usa el resolvedor del sistema.
+	output, err := exec.CommandContext(ctx, "getent", "ahosts", host).Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return nil, fmt.Errorf("getent ahosts: %w; comprueba avahi-daemon y libnss-mdns", err)
+	}
+	var addresses []net.IPAddr
+	seen := make(map[netip.Addr]bool)
+	for _, line := range strings.Split(string(output), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		ip, err := netip.ParseAddr(fields[0])
+		if err != nil {
+			return nil, fmt.Errorf("getent devolvió una dirección inválida: %q", fields[0])
+		}
+		if !seen[ip] {
+			seen[ip] = true
+			addresses = append(addresses, net.IPAddr{IP: net.IP(ip.AsSlice()), Zone: ip.Zone()})
+		}
+	}
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("getent no devolvió direcciones IP para %q", host)
+	}
+	return addresses, nil
 }
 
 // ExecuteAMICommand se conecta a Asterisk AMI, ejecuta un comando CLI y devuelve su salida.

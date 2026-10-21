@@ -6,10 +6,91 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestResolveAMILocalHost(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		script  string
+		wantErr string
+	}{
+		{"addresses", "printf '127.0.0.1 STREAM node.local\\n127.0.0.1 DGRAM\\n::1 STREAM\\n'", ""},
+		{"missing", "exit 2", "comprueba avahi-daemon y libnss-mdns"},
+		{"empty", "exit 0", "no devolvió direcciones"},
+		{"invalid", "printf 'invalid STREAM\\n'", "dirección inválida"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			script := "#!/bin/sh\n[ \"$1\" = ahosts ] && [ \"$2\" = node.LOCAL. ] || exit 3\n" + tc.script + "\n"
+			if err := os.WriteFile(filepath.Join(dir, "getent"), []byte(script), 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", dir)
+			addresses, err := resolveAMIHost(context.Background(), "node.LOCAL.")
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(addresses) != 2 || addresses[0].String() != "127.0.0.1" || addresses[1].String() != "::1" {
+				t.Fatalf("unexpected addresses: %v", addresses)
+			}
+		})
+	}
+}
+
+func TestResolveAMILocalHostTimeout(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := resolveAMIHost(ctx, "node.local")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled lookup, got %v", err)
+	}
+}
+
+func TestDialAMILocalHost(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "getent"), []byte("#!/bin/sh\nprintf '127.0.0.1 STREAM node.local\\n'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := dialAMI("node.local", port, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn.Close()
+}
+
+func TestDialAMILocalIntegration(t *testing.T) {
+	host := os.Getenv("AMERIMON_TEST_MDNS_HOST")
+	if host == "" {
+		t.Skip("set AMERIMON_TEST_MDNS_HOST to test a real LAN AMI server")
+	}
+	conn, err := dialAMI(host, "5038", 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	t.Logf("AMI connection via mDNS: %s -> %s", host, conn.RemoteAddr())
+}
 
 func TestDialAMI(t *testing.T) {
 	for _, host := range []string{"127.0.0.1", "localhost", " localhost "} {

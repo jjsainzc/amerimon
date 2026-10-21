@@ -40,6 +40,9 @@ nfpms:
     # astdb.sh usa curl y audio_eagi.sh usa nc.
     dependencies:
       - curl
+      - libc-bin
+      - libnss-mdns
+      - avahi-daemon
       - netcat-openbsd | netcat-traditional | ncat
     contents:
       - src: packaging/amerimon.service

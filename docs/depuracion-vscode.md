@@ -91,7 +91,7 @@ Para configurar nombres en la red, consulta [Usar hostname en la LAN en lugar de
 
 El campo `ami.host` del YAML y el campo `host` de los servidores remotos en Allmon admiten IP o hostname, sin `http://` y con el puerto configurado por separado. Por ejemplo: `127.0.0.1`, `192.168.1.50`, `::1` o `asterisk.example.net`.
 
-El backend resuelve cada hostname antes de conectar mediante el resolvedor del sistema donde corre Go (DNS o `/etc/hosts`). Si obtiene varias direcciones, intenta las siguientes si falla la conexión, compartiendo el timeout entre la resolución y los intentos TCP. Las IP literales se usan directamente. Los fallos de resolución incluyen el hostname en el error del backend.
+El backend resuelve cada hostname antes de conectar. Para nombres `.local` usa `getent ahosts` y el soporte NSS/Avahi del sistema, incluso en binarios sin cgo; para los demás usa el resolvedor de Go. Si obtiene varias direcciones, intenta las siguientes si falla la conexión, compartiendo el timeout entre la resolución y los intentos TCP. Las IP literales se usan directamente. Los fallos de resolución incluyen el hostname en el error del backend.
 
 Para depurar ese paso, coloca un breakpoint en `dialAMI` dentro de [asteriskami.go](../internal/config/asteriskami.go). Inspecciona `host`, `addresses` y, tras conectar, `conn.RemoteAddr()` para ver la IP utilizada.
 
