@@ -7,7 +7,24 @@
       "type": "chrome",
       "request": "launch",
       "preLaunchTask": "npm: start",
-      "url": "http://localhost:4200/"
+      "url": "http://localhost:4200/",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Backend Go",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/amerimon",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "-config", "packaging/amerimon.yaml",
+        "-addr", "127.0.0.1:8082",
+        "-db", "/tmp/amerimon-dev.db"
+      ],
+      "env": {
+        "AMERIMON_JWT_SECRET": "dev-secret"
+      }
     },
     {
       "name": "ng test",
@@ -15,6 +32,13 @@
       "request": "launch",
       "preLaunchTask": "npm: test",
       "url": "http://localhost:9876/debug.html"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Angular + Go",
+      "configurations": ["Backend Go", "ng serve"],
+      "stopAll": true
     }
   ]
 }
