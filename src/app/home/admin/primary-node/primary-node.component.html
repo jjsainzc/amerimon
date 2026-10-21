@@ -1,0 +1,132 @@
+<section class="primary-node">
+  <app-admin-volver />
+  <h3>Configuración del nodo principal</h3>
+  <p>Equivalente a las opciones 1, 2, 3 y 7 de node-setup. Solo modifica el nodo principal local.</p>
+  <p>Los cambios se guardan con respaldo. Para aplicar número, contraseña e indicativo,
+    reinicia Asterisk manualmente desde <strong>Sistema</strong>. El reinicio interrumpe las conexiones activas.</p>
+  @if (cargando()) { <p role="status">Cargando configuración…</p> }
+  @if (ruta()) { <p>Configuración: <code>{{ ruta() }}</code></p> }
+  <form #configForm="ngForm" (ngSubmit)="confirmando.set(true)">
+    <fieldset [disabled]="cargando() || guardando() || !actual()">
+      <label>Número del nodo
+        <input name="numero" [(ngModel)]="numero" required pattern="[2-9][0-9]{3,5}" maxlength="6" inputmode="numeric" />
+      </label>
+      <small>El nodo principal del monitor debe ser público: 4 a 6 dígitos sin comenzar por 0 o 1.</small>
+      <label>Contraseña del nodo AllStarLink
+        <app-password-field name="password" [(ngModel)]="password" autocomplete="new-password" />
+      </label>
+      <small>{{ passwordConfigurada() ? 'Hay una contraseña configurada.' : 'No hay contraseña configurada.' }}
+        Usa el botón del ojo para mostrar u ocultar la contraseña actual. Déjala sin cambios o vacía para conservarla.
+        Una nueva contraseña debe tener de 6 a 128 letras, números, _ o -.</small>
+      <label>Indicativo del nodo
+        <input name="indicativo" [(ngModel)]="indicativo" required pattern="[A-Za-z0-9\x2F\x2D]{3,64}" maxlength="64" autocomplete="off" />
+      </label>
+      <small>Se utiliza para la identificación de Asterisk (idrecording).</small>
+      <div class="acciones">
+        <button type="button" (click)="cargar()" [disabled]="guardando()">Recargar configuración</button>
+        <button type="submit" [disabled]="configForm.invalid || guardando() || guardandoAcceso()">Guardar configuración</button>
+      </div>
+    </fieldset>
+  </form>
+  @if (confirmando()) {
+    <section class="confirmacion" role="group" aria-label="Confirmar configuración">
+      <p>Se guardará la configuración del nodo {{ actual() }} como {{ numero }}.
+        No se reiniciará Asterisk automáticamente.</p>
+      <button type="button" (click)="guardar()" [disabled]="configForm.invalid || guardando() || guardandoAcceso()">Confirmar guardado</button>
+      <button type="button" (click)="confirmando.set(false)">Cancelar</button>
+    </section>
+  }
+  @if (guardando()) { <p role="status">Guardando configuración…</p> }
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (aviso()) { <p class="ok" role="status">{{ aviso() }}</p> }
+
+  <h3>Lista de acceso del nodo {{ nodoAcceso() || actual() }}</h3>
+  <p>Los cambios de acceso se aplican inmediatamente en AstDB, sin reiniciar.
+    Sin entradas, el acceso está abierto. La lista de permitidos restringe quién puede conectar;
+    la de bloqueados rechaza los nodos o indicativos indicados.</p>
+  <p>Al cambiar el número del nodo se trasladan sus listas al nuevo número. Si usas Allmon3, reinícialo manualmente tras el cambio.</p>
+  <div class="acciones">
+    <button type="button" (click)="cargarAcceso()" [disabled]="cargandoAcceso() || guardandoAcceso() || guardando()">Recargar lista</button>
+    <button type="button" (click)="exportarAcceso()"
+      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || leyendoArchivo() || !nodoAcceso()">Exportar listas</button>
+    <button type="button" (click)="archivoListas.click()"
+      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || leyendoArchivo() || !nodoAcceso()">Importar listas</button>
+    <input #archivoListas type="file" accept=".json,application/json" hidden (change)="seleccionarImportacion($event)" />
+    <button type="button" (click)="solicitarVaciado('allowlist')"
+      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">Vaciar permitidos</button>
+    <button type="button" (click)="solicitarVaciado('denylist')"
+      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">Vaciar denegados</button>
+  </div>
+  @if (leyendoArchivo()) { <p role="status">Leyendo archivo JSON…</p> }
+  @if (importacionPendiente(); as pendiente) {
+    <section class="confirmacion" role="group" aria-label="Confirmar importación de listas">
+      <p>Se combinarán {{ pendiente.documento.entries.length }} entradas del archivo del nodo {{ pendiente.documento.node }}
+        con las listas del nodo {{ pendiente.nodo }}. Se conservarán las entradas existentes y se actualizarán los motivos de las coincidentes.</p>
+      <p>Los cambios de acceso se aplicarán inmediatamente, sin reiniciar Asterisk.</p>
+      <button type="button" (click)="importarAcceso()"
+        [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || leyendoArchivo()">Confirmar importación</button>
+      <button type="button" (click)="importacionPendiente.set(null)">Cancelar</button>
+    </section>
+  }
+  @if (vaciadoPendiente(); as pendiente) {
+    <section class="confirmacion" role="group" aria-label="Confirmar vaciado de lista">
+      <p>Se borrarán todas las entradas de {{ pendiente.tipo === 'allowlist' ? 'permitidos' : 'denegados' }}
+        del nodo {{ pendiente.nodo }}. La otra lista se conservará. Esta acción es inmediata y no se puede deshacer.</p>
+      @if (pendiente.tipo === 'allowlist') {
+        <p>Al vaciar permitidos se elimina la restricción a los nodos autorizados; la lista de denegados seguirá aplicándose.</p>
+      }
+      <button type="button" (click)="vaciarAcceso()" [disabled]="cargandoAcceso() || guardandoAcceso() || guardando()">Confirmar vaciado</button>
+      <button type="button" (click)="vaciadoPendiente.set(null)">Cancelar</button>
+    </section>
+  }
+  @if (cargandoAcceso()) { <p role="status">Consultando listas de acceso…</p> }
+  @if (errorAcceso()) { <p class="error" role="alert">{{ errorAcceso() }}</p> }
+  @if (avisoAcceso()) { <p class="ok" role="status">{{ avisoAcceso() }}</p> }
+  <div class="acceso-tabla-scroll">
+    <table class="acceso-tabla" aria-label="Lista de acceso del nodo principal">
+      <thead>
+        <tr>
+          <th scope="col">Lista</th>
+          <th scope="col">Nodo / indicativo</th>
+          <th scope="col">Motivo</th>
+          <th scope="col" class="acceso-accion">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (entry of entradas(); track entry.type + ':' + entry.node) {
+          <tr>
+            <td data-label="Lista">{{ entry.type === 'allowlist' ? 'Permitido' : 'Bloqueado' }}</td>
+            <th scope="row" data-label="Nodo / indicativo">{{ entry.node }}</th>
+            <td class="acceso-motivo" data-label="Motivo">{{ entry.reason }}</td>
+            <td class="acceso-accion">
+              <button type="button" (click)="cambiarAcceso(entry, true)"
+                [disabled]="guardandoAcceso() || guardando() || cargandoAcceso()"
+                [attr.aria-label]="'Eliminar ' + entry.node + ' de ' + (entry.type === 'allowlist' ? 'permitidos' : 'bloqueados')">Borrar</button>
+            </td>
+          </tr>
+        } @empty {
+          @if (!cargandoAcceso() && !errorAcceso()) {
+            <tr><td colspan="4">No hay restricciones configuradas.</td></tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+  <form #accessForm="ngForm" (ngSubmit)="cambiarAcceso({ type: tipo, node: remoto, reason: motivo })">
+    <fieldset [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">
+      <label>Lista
+        <select name="tipo" [(ngModel)]="tipo">
+          <option value="allowlist">Permitidos</option>
+          <option value="denylist">Bloqueados</option>
+        </select>
+      </label>
+      <label>Nodo o indicativo remoto
+        <input name="remoto" [(ngModel)]="remoto" required pattern="([0-9]{1,7}|[A-Za-z0-9\x2F\x2D]{3,64})" maxlength="64" autocomplete="off" />
+      </label>
+      <label>Motivo (opcional)
+        <input name="motivo" [(ngModel)]="motivo" maxlength="200" autocomplete="off" />
+      </label>
+      <button type="submit" [disabled]="accessForm.invalid || guardandoAcceso()">Agregar o actualizar entrada</button>
+    </fieldset>
+  </form>
+</section>

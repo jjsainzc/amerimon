@@ -2,11 +2,100 @@ package controllers
 
 import (
 	"amerimon/internal/config"
+	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/labstack/echo/v4"
 )
+
+func TestAllStarLinkDiscoveryDoesNotConnectToAMI(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	var connections atomic.Int32
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			connections.Add(1)
+			conn.Close()
+		}
+	}()
+	host, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	rptPath := filepath.Join(dir, "rpt.conf")
+	allmonPath := filepath.Join(dir, "allmon.ini")
+	if err := os.WriteFile(rptPath, []byte("[616265]\n[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(allmonPath, []byte(fmt.Sprintf(
+		"[700001]\nsystem=Nodes\nhost=192.0.2.10\nport=%s\nuser=remote\npasswd=test-secret\n", port)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	previous := config.App
+	defer func() { config.App = previous }()
+	config.App.AMI.RPTConfigPath = rptPath
+	config.App.AMI.Host, config.App.AMI.Port = host, port
+	config.App.AMI.User, config.App.AMI.Secret = "test-user", "test-secret"
+	config.App.Sources.AllmonINIPath = allmonPath
+	config.App.Sources.PrivateNodesPath = filepath.Join(dir, "privatenodes.txt")
+
+	for _, query := range []string{"discovery=true", "discovery=true&local_node=700001"} {
+		req := httptest.NewRequest(http.MethodGet, "/allstarlink/nodes?"+query, nil)
+		rec := httptest.NewRecorder()
+		start := time.Now()
+		if err := GetAllStarLinkNodes(echo.New().NewContext(req, rec)); err != nil {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(start); elapsed >= 500*time.Millisecond {
+			t.Fatalf("discovery waited for AMI: %v", elapsed)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("discovery returned %d: %s", rec.Code, rec.Body.String())
+		}
+		var response struct {
+			Status string `json:"status"`
+			Data   struct {
+				Primary string                  `json:"nodo_principal"`
+				Tables  []AllStarLinkLocalTable `json:"tablas"`
+				Rows    []AllStarLinkNode       `json:"resultados"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		expectedTables := 2
+		if strings.Contains(query, "local_node") {
+			expectedTables = 1
+		}
+		if response.Status != "success" || response.Data.Primary != "616265" ||
+			len(response.Data.Tables) != expectedTables || len(response.Data.Rows) != 0 {
+			t.Fatalf("unexpected discovery response: %s", rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), "test-secret") || strings.Contains(rec.Body.String(), "test-user") {
+			t.Fatal("discovery exposed AMI credentials")
+		}
+	}
+	if connections.Load() != 0 {
+		t.Fatalf("discovery opened %d AMI connections", connections.Load())
+	}
+}
 
 func TestLocalAllmonInstancesUseRPTConfiguration(t *testing.T) {
 	dir := t.TempDir()

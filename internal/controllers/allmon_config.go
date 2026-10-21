@@ -70,6 +70,10 @@ func GetAllmonConfig(c echo.Context) error {
 
 // SaveAllmonConfig actualiza solo las stanzas de nodos del allmon.ini en uso; el resto del archivo no se toca.
 func SaveAllmonConfig(c echo.Context) error {
+	if !systemControlLock.TryLock() {
+		return apiError(http.StatusConflict, "Hay otra operación de configuración o mantenimiento en curso")
+	}
+	defer systemControlLock.Unlock()
 	var req struct {
 		Nodes []allmonNodeIn `json:"nodes"`
 	}

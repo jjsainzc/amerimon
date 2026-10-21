@@ -27,6 +27,11 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/allmon-config/allmon-config.component').then((m) => m.AllmonConfigComponent),
   },
   {
+    path: 'admin/primary-node',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/primary-node/primary-node.component').then((m) => m.PrimaryNodeComponent),
+  },
+  {
     path: 'admin/private-nodes',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/private-nodes/private-nodes.component').then((m) => m.PrivateNodesComponent),

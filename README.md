@@ -2,6 +2,8 @@
 
 Interfaz web para consultar AllStarLink, administrar nodos Allmon y escuchar el nodo principal de Asterisk.
 
+El monitor consulta cada servidor del grupo de forma independiente. Si un servidor no responde, reintenta su conexión en segundo plano cada 5 segundos sin bloquear los demás, incluso con la actualización automática desactivada. El aviso superior de conexión corresponde únicamente al nodo principal; los errores de otros servidores aparecen en su propio grupo. Los errores al obtener la configuración del monitor se muestran como errores generales.
+
 ## Instalación
 
 Paquetes Debian disponibles para `arm64` y `amd64`:

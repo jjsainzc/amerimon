@@ -149,6 +149,19 @@ func GetAllStarLinkNodes(c echo.Context) error {
 		}
 	}
 
+	// Permite descubrir los servidores sin esperar ninguna conexión AMI.
+	if c.QueryParam("discovery") == "true" {
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "success",
+			"data": map[string]any{
+				"count":          0,
+				"resultados":     []AllStarLinkNode{},
+				"tablas":         buildAllStarLinkLocalTables(amiInstances, nil, nil),
+				"nodo_principal": primaryNode,
+			},
+		})
+	}
+
 	astdbPath := config.App.Sources.AstDBPath
 	astdbEntries := make(map[string]AstDBEntry)
 	if astdbPath != "" {
