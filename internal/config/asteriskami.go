@@ -2,16 +2,62 @@ package config
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 )
 
+// dialAMI resuelve nombres antes de conectar y comparte el timeout entre DNS y TCP.
+func dialAMI(host, port string, timeout time.Duration) (net.Conn, error) {
+	host = strings.TrimSpace(host)
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	if host == "" {
+		return nil, fmt.Errorf("host AMI vacío")
+	}
+	ctx := context.Background()
+	if timeout != 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	dialer := net.Dialer{}
+	if ip, err := netip.ParseAddr(host); err == nil {
+		return dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip.String(), port))
+	}
+
+	addresses, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("resolver host AMI %q: %w", host, err)
+	}
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("resolver host AMI %q: no se encontraron direcciones IP", host)
+	}
+	var failures []error
+	for i, address := range addresses {
+		// Reparte el tiempo restante para que una IP inaccesible no bloquee las demás.
+		if deadline, ok := ctx.Deadline(); ok {
+			dialer.Timeout = time.Until(deadline) / time.Duration(len(addresses)-i)
+		}
+		conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(address.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		failures = append(failures, err)
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	return nil, fmt.Errorf("conectar host AMI %q: %w", host, errors.Join(failures...))
+}
+
 // ExecuteAMICommand se conecta a Asterisk AMI, ejecuta un comando CLI y devuelve su salida.
 func ExecuteAMICommand(host, port, username, secret, command string, timeout time.Duration) (string, error) {
-	addr := net.JoinHostPort(host, port)
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+	conn, err := dialAMI(host, port, timeout)
 	if err != nil {
 		return "", fmt.Errorf("error al conectar: %w", err)
 	}
@@ -71,7 +117,7 @@ func amiResponseError(raw string) error {
 
 // ExecuteAMIRptStatus solicita XStat o SawStat para un nodo local de AllStar mediante AMI.
 func ExecuteAMIRptStatus(host, port, username, secret, node, command string, timeout time.Duration) (string, error) {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
+	conn, err := dialAMI(host, port, timeout)
 	if err != nil {
 		return "", fmt.Errorf("error al conectar: %w", err)
 	}
@@ -127,7 +173,7 @@ func ExecuteAMIOriginate(host, port, username, secret, channel, context, exten s
 		}
 		fmt.Fprintf(&variableHeaders, "Variable: %s=%s\r\n", variable.Name, variable.Value)
 	}
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
+	conn, err := dialAMI(host, port, timeout)
 	if err != nil {
 		return fmt.Errorf("error al conectar: %w", err)
 	}

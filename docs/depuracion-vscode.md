@@ -75,9 +75,23 @@ El backend del depurador usa:
 - Base SQLite: `/tmp/amerimon-dev.db`, separada de la base del servicio instalado.
 - Secreto JWT: `dev-secret`, exclusivamente para desarrollo.
 
-Para funciones que requieren Asterisk/AMI, define `AMI_USER` y `AMI_SECRET` en el entorno del proceso de VS Code antes de abrirlo. En SSH/WSL, deben estar disponibles en el entorno remoto que ejecuta el depurador. Esta configuración no extrae las credenciales de `manager.conf`, a diferencia de `make dev-backend`.
+Antes de iniciar el backend, la tarea **Preparar AMI para depurar** ejecuta [prepare-debug-env.cjs](../scripts/prepare-debug-env.cjs):
+
+1. Usa `AMI_USER` y `AMI_SECRET` si están definidos en el entorno de VS Code.
+2. Si faltan, lee `/etc/asterisk/manager.conf` y selecciona la primera cuenta con `secret` definido directamente. Si ya definiste `AMI_USER`, busca esa cuenta. Las cuentas basadas únicamente en plantillas o archivos incluidos requieren definir ambas variables en el entorno.
+3. Genera `.vscode/ami.env` con permisos `0600`, excluido de Git, para que el depurador cargue las credenciales.
+
+Si el archivo no es legible o no encuentra una cuenta, la tarea falla y muestra la causa. No ejecutes VS Code como root: configura ambas variables en su entorno si no puedes leer `manager.conf`. En SSH/WSL, deben estar disponibles en el entorno remoto que ejecuta el depurador.
 
 No guardes credenciales reales en los archivos de configuración versionados ni uses `dev-secret` en producción.
+
+### Dirección del servidor AMI
+
+El campo `ami.host` del YAML y el campo `host` de los servidores remotos en Allmon admiten IP o hostname, sin `http://` y con el puerto configurado por separado. Por ejemplo: `127.0.0.1`, `192.168.1.50`, `::1` o `asterisk.example.net`.
+
+El backend resuelve cada hostname antes de conectar mediante el resolvedor del sistema donde corre Go (DNS o `/etc/hosts`). Si obtiene varias direcciones, intenta las siguientes si falla la conexión, compartiendo el timeout entre la resolución y los intentos TCP. Las IP literales se usan directamente. Los fallos de resolución incluyen el hostname en el error del backend.
+
+Para depurar ese paso, coloca un breakpoint en `dialAMI` dentro de [asteriskami.go](../internal/config/asteriskami.go). Inspecciona `host`, `addresses` y, tras conectar, `conn.RemoteAddr()` para ver la IP utilizada.
 
 **Importante:** las rutas de Asterisk y Allmon siguen siendo las indicadas en el YAML. Aunque la base SQLite sea de desarrollo, las acciones administrativas pueden modificar archivos y nodos reales.
 
@@ -97,7 +111,7 @@ No guardes credenciales reales en los archivos de configuración versionados ni 
 - **Solo inicia Angular:** comprueba que seleccionaste **Angular + Go**, no **ng serve**.
 - **Puerto ocupado:** detén la ejecución anterior o el servicio correspondiente; no inicies dos backends.
 - **Go no permite iniciar la depuración:** comprueba que la extensión Go y Delve estén instalados en el entorno donde se ejecuta el proyecto.
-- **Las funciones AMI fallan:** revisa las variables de entorno, los permisos y la conectividad con Asterisk.
+- **Las funciones AMI fallan:** revisa la salida de **Preparar AMI para depurar**, los permisos de la cuenta AMI y la conectividad con Asterisk. Después de cambiar las credenciales, detén Go y vuelve a iniciar con F5.
 - **Comprobar backend y proxy:** con ambos componentes ejecutándose, estas peticiones deben devolver `{"status":"ok"}`:
 
   ```bash
@@ -105,4 +119,4 @@ No guardes credenciales reales en los archivos de configuración versionados ni 
   curl -fsS http://localhost:4200/mon/health
   ```
 
-También puedes seleccionar **Backend Go** para depurar únicamente Go o **ng serve** para depurar únicamente Angular.
+También puedes seleccionar **Backend Go** para depurar únicamente Go o **ng serve** para depurar únicamente Angular. Antes de iniciar **Backend Go** por separado, ejecuta **Tareas: Ejecutar tarea → Preparar AMI para depurar**. La configuración conjunta **Angular + Go** ya ejecuta esa tarea antes de cargar las credenciales en el depurador.

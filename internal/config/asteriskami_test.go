@@ -2,12 +2,105 @@ package config
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestDialAMI(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "localhost", " localhost "} {
+		t.Run(host, func(t *testing.T) {
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			_, port, err := net.SplitHostPort(listener.Addr().String())
+			if err != nil {
+				t.Fatal(err)
+			}
+			conn, err := dialAMI(host, port, time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			if conn.RemoteAddr().String() != listener.Addr().String() {
+				t.Fatalf("expected %s, got %s", listener.Addr(), conn.RemoteAddr())
+			}
+		})
+	}
+}
+
+func TestDialAMIIPv6(t *testing.T) {
+	listener, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	defer listener.Close()
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range []string{"::1", "[::1]"} {
+		t.Run(host, func(t *testing.T) {
+			conn, err := dialAMI(host, port, time.Second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
+			if conn.RemoteAddr().String() != listener.Addr().String() {
+				t.Fatalf("expected %s, got %s", listener.Addr(), conn.RemoteAddr())
+			}
+		})
+	}
+}
+
+func TestDialAMIErrors(t *testing.T) {
+	for _, tc := range []struct {
+		host    string
+		wantErr string
+	}{
+		{" ", "host AMI vacío"},
+		{"invalid host", `resolver host AMI "invalid host"`},
+	} {
+		t.Run(tc.host, func(t *testing.T) {
+			conn, err := dialAMI(tc.host, "5038", time.Second)
+			if conn != nil {
+				conn.Close()
+				t.Fatal("unexpected connection")
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("expected %q, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestDialAMITimeout(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "localhost"} {
+		t.Run(host, func(t *testing.T) {
+			start := time.Now()
+			conn, err := dialAMI(host, "5038", -time.Second)
+			if conn != nil {
+				conn.Close()
+				t.Fatal("unexpected connection with expired timeout")
+			}
+			if !errors.Is(err, context.DeadlineExceeded) {
+				var netErr net.Error
+				if !errors.As(err, &netErr) || !netErr.Timeout() {
+					t.Fatalf("expected timeout, got %v", err)
+				}
+			}
+			if elapsed := time.Since(start); elapsed > time.Second {
+				t.Fatalf("expired connection took %v", elapsed)
+			}
+		})
+	}
+}
 
 func TestExecuteAMIOriginate(t *testing.T) {
 	for _, tc := range []struct {

@@ -3,6 +3,13 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Preparar AMI para depurar",
+      "type": "process",
+      "command": "node",
+      "args": ["${workspaceFolder}/scripts/prepare-debug-env.cjs"],
+      "problemMatcher": []
+    },
+    {
       "type": "npm",
       "script": "start",
       "isBackground": true,

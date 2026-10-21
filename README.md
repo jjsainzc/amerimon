@@ -67,7 +67,9 @@ El navegador abre `http://localhost:4200/`. Angular reenvía las peticiones `/mo
 
 La depuración usa `packaging/amerimon.yaml`, la base SQLite `/tmp/amerimon-dev.db` y un secreto JWT exclusivo de desarrollo (`dev-secret`). No uses este secreto en producción. Las rutas de Asterisk y Allmon siguen siendo las del YAML: las acciones administrativas pueden modificar archivos y nodos reales.
 
-Para funciones que requieren AMI, define `AMI_USER` y `AMI_SECRET` en el entorno del proceso de VS Code antes de abrirlo. El depurador hereda esas variables; no guardes credenciales en `launch.json`. A diferencia de `make dev-backend`, esta configuración no extrae credenciales de `manager.conf`.
+Antes de iniciar Go, una tarea prepara las credenciales AMI: usa `AMI_USER` y `AMI_SECRET` del entorno de VS Code o, si faltan, busca una cuenta con contraseña en `/etc/asterisk/manager.conf`. Las guarda en `.vscode/ami.env`, excluido de Git y con permisos `0600`. Si no puede leer la configuración o encontrar una cuenta, la tarea falla con un mensaje explícito. No guardes credenciales en `launch.json`.
+
+**Angular + Go** ejecuta esa tarea automáticamente antes de resolver las configuraciones del depurador. Para iniciar **Backend Go** por separado, ejecuta primero **Tareas: Ejecutar tarea → Preparar AMI para depurar**.
 
 **Detener** finaliza las sesiones de depuración de Angular y Go. La tarea `npm: start` puede seguir activa: termínala con **Tareas: Terminar tarea** antes de volver a iniciarla. Si detuviste el servicio instalado, restáuralo al terminar con `sudo systemctl start amerimon`.
 
