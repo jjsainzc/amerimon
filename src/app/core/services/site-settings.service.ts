@@ -6,6 +6,7 @@ import { environment } from '../environment';
 export interface SiteSettings {
   title: string;
   subtitle: string;
+  weather_location?: string;
   asterisk_version: string;
   app_version?: string;
 }
@@ -21,7 +22,7 @@ export class SiteSettingsService {
   }
 
   /** Guarda la cabecera personalizada y devuelve la configuración efectiva del servidor. */
-  guardar(title: string, subtitle: string): Observable<SiteSettings> {
-    return this.http.put<SiteSettings>(this.url, { title, subtitle });
+  guardar(title: string, subtitle: string, weatherLocation = ''): Observable<SiteSettings> {
+    return this.http.put<SiteSettings>(this.url, { title, subtitle, weather_location: weatherLocation });
   }
 }

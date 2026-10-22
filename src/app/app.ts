@@ -7,12 +7,13 @@ import { SystemInfoDialogComponent } from './shared/system-info-dialog/system-in
 import { PasswordFieldComponent } from './shared/password-field/password-field.component';
 import { EnlaceExterno } from './core/models/enlace-externo.model';
 import { EnlacesExternosService } from './core/services/enlaces-externos.service';
+import { WeatherComponent } from './shared/weather/weather.component';
 
 type Modo = 'login' | 'crear' | 'cambiar';
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -27,6 +28,8 @@ export class App implements OnInit {
   protected readonly anioActual = new Date().getFullYear();
   protected readonly ajustesCabecera = signal<SiteSettings>({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
   /** Devuelve el título configurado o el nombre predeterminado del sitio. */
+  /** Ubicación del clima configurada; `undefined` mientras no se han cargado los ajustes. */
+  protected readonly ubicacionClima = signal<string | undefined>(undefined);
   protected readonly tituloAplicacion = computed(() => this.ajustesCabecera().title.trim() || 'Amerimon');
   /** Combina el subtítulo y la versión de Asterisk, con texto alternativo si faltan. */
   protected readonly subtituloAplicacion = computed(() => {
@@ -43,6 +46,7 @@ export class App implements OnInit {
   protected readonly errorCabecera = signal('');
   protected tituloCabecera = 'Amerimon';
   protected subtituloCabecera = '';
+  protected ubicacionClimaCabecera = '';
   protected readonly modo = signal<Modo>('login');
   protected readonly error = signal('');
   protected readonly aviso = signal('');
@@ -146,6 +150,7 @@ export class App implements OnInit {
     this.menuAbierto.set(false);
     this.tituloCabecera = this.ajustesCabecera().title;
     this.subtituloCabecera = this.ajustesCabecera().subtitle;
+    this.ubicacionClimaCabecera = this.ajustesCabecera().weather_location ?? '';
     this.errorCabecera.set('');
     this.edicionCabeceraAbierta.set(true);
   }
@@ -154,9 +159,10 @@ export class App implements OnInit {
   protected guardarCabecera(): void {
     this.errorCabecera.set('');
     this.guardandoCabecera.set(true);
-    this.siteSettingsService.guardar(this.tituloCabecera, this.subtituloCabecera).subscribe({
+    this.siteSettingsService.guardar(this.tituloCabecera, this.subtituloCabecera, this.ubicacionClimaCabecera).subscribe({
       next: settings => {
         this.ajustesCabecera.set(settings);
+        this.ubicacionClima.set(settings.weather_location?.trim() ?? '');
         this.guardandoCabecera.set(false);
         this.edicionCabeceraAbierta.set(false);
       },
@@ -225,8 +231,11 @@ export class App implements OnInit {
   /** Recupera los ajustes de cabecera; conserva los valores actuales si falla. */
   private cargarAjustesCabecera(): void {
     this.siteSettingsService.obtener().subscribe({
-      next: settings => this.ajustesCabecera.set(settings),
-      error: () => undefined,
+      next: settings => {
+        this.ajustesCabecera.set(settings);
+        this.ubicacionClima.set(settings.weather_location?.trim() ?? '');
+      },
+      error: () => this.ubicacionClima.set(''),
     });
   }
 }

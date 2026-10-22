@@ -15,7 +15,9 @@ describe('App', () => {
   });
 
   afterEach(() => {
-    TestBed.inject(HttpTestingController).verify({ ignoreCancelled: true });
+    const http = TestBed.inject(HttpTestingController);
+    http.match(req => req.url === `${environment.apiUrl}/weather`).forEach(req => req.flush(''));
+    http.verify({ ignoreCancelled: true });
     localStorage.clear();
   });
 

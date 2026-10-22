@@ -1,0 +1,10 @@
+@if (loading()) {
+  <div class="status-message">Obteniendo clima...</div>
+} @else if (errorMessage()) {
+  <div class="error-message">
+    {{ errorMessage() }}
+    <button type="button" class="weather-retry" (click)="loadWeather()">Reintentar</button>
+  </div>
+} @else {
+  <div class="report-content" [title]="weatherReport()"><strong>Clima local:</strong> {{ weatherReport() }}</div>
+}

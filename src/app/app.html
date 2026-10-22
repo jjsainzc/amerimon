@@ -7,6 +7,7 @@
         <p>{{ subtituloAplicacion() }}</p>
       </div>
     </div>
+    <app-weather class="clima-cabecera" [ubicacionConfigurada]="ubicacionClima()"></app-weather>
     <button type="button" class="hamburguesa" aria-label="Menú" aria-controls="menu-principal"
             [attr.aria-expanded]="menuAbierto()" (click)="alternarMenu()">
       <span aria-hidden="true"></span>
@@ -110,6 +111,10 @@
         <input type="text" name="subtituloCabecera" [(ngModel)]="subtituloCabecera" maxlength="120" />
       </label>
       <p class="nota-cabecera">La versión de Asterisk se mostrará junto al subtítulo.</p>
+      <label>Ubicación del clima
+        <input type="text" name="ubicacionClima" [(ngModel)]="ubicacionClimaCabecera" maxlength="120" placeholder="Ciudad, código postal o lat,lon" />
+      </label>
+      <p class="nota-cabecera">Si se indica, se usa siempre. Si queda vacía, se pide la ubicación al navegador y, si el visitante no la autoriza, se estima por su IP.</p>
       @if (errorCabecera()) { <p class="error" role="alert">{{ errorCabecera() }}</p> }
       <div class="acciones">
         <button type="submit" [disabled]="guardandoCabecera()">{{ guardandoCabecera() ? 'Guardando…' : 'Guardar' }}</button>

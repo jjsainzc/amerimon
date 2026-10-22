@@ -1,0 +1,37 @@
+:host {
+  display: block;
+  min-width: 0;
+  color: #a9bac5;
+  font-size: .78rem;
+}
+
+.status-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error-message {
+  color: #ff6b6b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-content {
+  overflow: hidden;
+  color: #dce5eb;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-retry {
+  margin-left: .35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
