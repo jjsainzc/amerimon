@@ -5,8 +5,6 @@
 
 ## 2. Agregar descripcion, ip, hostname en la cabecera de cada tabla de cada nodo remoto al lado de su numero.
 
-## 3. Agregar una linea de weather segun el timezone local (tomado del browser, no del server), aca hay un ejemplo /usr/local/sbin/supermon/weather.sh y poner la configuracion de la visualizacion y modificacion de sus parametros en admin, como localizacion (si desea cambiarlo), las unidades de medida de temp F/C de velocidades Kmh-Mph, presion hPa, si se dan en ambas unidades respectivamente.
-
 # Opciones admin
 ## 1. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch
 
@@ -21,3 +19,4 @@
 
 ## 4. En las configuraciones de nodo principal, para el file /etc/asterisk/manager.conf,  agregar cambio de passwd, hay que mostrarlo,  AMI (secret) y bind address, opcional las variables deny y permit para agregar redes con su ayuda de calculos de red, usar "manager reload" para no reiniciar asterisk, y actualizar esto en las config del yaml /etc/amerimon.
 
+> **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 
