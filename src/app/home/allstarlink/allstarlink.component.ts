@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { Subscription, timeout } from 'rxjs';
 import {
@@ -9,6 +10,7 @@ import {
   AllstarlinkNode,
   AllstarlinkTabla,
   SupermonCommand,
+  SupermonCommandRequest,
   SupermonCommandResult
 } from '../../core/models/allstarlink.model';
 import { AllstarlinkService } from '../../core/services/allstarlink.service';
@@ -19,11 +21,15 @@ import { FavoritosPopupComponent } from '../../shared/favoritos-popup/favoritos-
 import { ScrollTopComponent } from '../../shared/scroll-top/scroll-top.component';
 
 type CampoOrden = 'protocolo' | 'nodo' | 'callsign' | 'informacion' | 'ubicacion' | 'enlace' | 'direccion' | 'actividad' | 'conectado' | 'modo';
+type SolicitudConexion = Readonly<SupermonCommandRequest & {
+  remote_node: string;
+  timeout_seconds: number;
+}>;
 
 @Component({
   selector: 'app-allstarlink',
   standalone: true,
-  imports: [CommonModule, ScrollTopComponent, FavoritosPopupComponent],
+  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent],
   templateUrl: './allstarlink.component.html',
   styleUrl: './allstarlink.component.css'
 })
@@ -358,7 +364,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   }
 
   /** Valida, confirma y ejecuta la operación administrativa seleccionada. */
-  ejecutarComando(confirmado = false): void {
+  ejecutarComando(): void {
     const comando = this.comandoSeleccionado();
     const localNode = this.nodoLocal().trim();
     const remoteNode = this.nodoRemoto().trim();
@@ -369,24 +375,30 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.requiereConfirmacion() && !confirmado) {
-      this.solicitarConfirmacion(
-        'Confirmar operación',
-        `Se ejecutará "${comando.label}" en el nodo ${localNode}${remoteNode ? ` hacia ${remoteNode}` : ''}.`,
-        () => this.ejecutarComando(true)
-      );
-      return;
-    }
-
-    this.ejecutando.set(true);
-    this.errorEjecucion.set('');
-    this.resultado.set(null);
-    this.service.ejecutarComando({
+    const request: SupermonCommandRequest = {
       local_node: localNode,
       ...(comando.requires_remote_node ? { remote_node: remoteNode } : {}),
       action: comando.id,
       permanent: comando.supports_permanent && comando.id !== 'disconnect' && this.permanente()
-    }).pipe(timeout({ each: 10_000 })).subscribe({
+    };
+    if (this.requiereConfirmacion()) {
+      this.solicitarConfirmacion(
+        'Confirmar operación',
+        `Se ejecutará "${comando.label}" en el nodo ${localNode}${remoteNode ? ` hacia ${remoteNode}` : ''}.`,
+        () => this.ejecutarOperacion(comando, request)
+      );
+      return;
+    }
+
+    this.ejecutarOperacion(comando, request);
+  }
+
+  private ejecutarOperacion(comando: SupermonCommand, request: SupermonCommandRequest): void {
+    if (!this.validarServidorOperacion(request.local_node)) { return; }
+    this.ejecutando.set(true);
+    this.errorEjecucion.set('');
+    this.resultado.set(null);
+    this.service.ejecutarComando(request).pipe(timeout({ each: 10_000 })).subscribe({
       next: respuesta => {
         this.ejecutando.set(false);
         if (respuesta?.status === 'success' && respuesta.data) {
@@ -408,7 +420,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   }
 
   /** Solicita una conexión temporal o permanente tras validar y confirmar sus parámetros. */
-  conectarNodo(confirmado = false): void {
+  conectarNodo(): void {
     const local = this.nodoLocal().trim();
     const remoto = this.nodoRemotoConexion().trim();
     if (!this.esAdmin() || !/^\d+$/.test(local) || !this.esNodoRemotoValido(remoto)) {
@@ -423,25 +435,28 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const timeoutSegundos = Math.min(300, Math.max(1, Math.floor(Number(this.timeoutConexion()) || 15)));
     this.timeoutConexion.set(timeoutSegundos);
     const tipoConexion = permanente ? 'permanente' : 'temporal';
-    if (!confirmado) {
-      this.solicitarConfirmacion(
-        'Confirmar conexión',
-        `Conectar el nodo ${remoto} a ${local} en modo ${modoLabel} (${tipoConexion}).`,
-        () => this.conectarNodo(true)
-      );
-      return;
-    }
-
-    this.conectando.set(true);
-    this.resultadoConexion.set(null);
-  this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
-    this.service.ejecutarComando({
+    if (!this.validarServidorOperacion(local)) { return; }
+    const request: SolicitudConexion = {
       local_node: local,
       remote_node: remoto,
       action: modo,
       permanent: permanente,
       timeout_seconds: timeoutSegundos
-    }).pipe(timeout({ each: permanente ? 10_000 : timeoutSegundos * 1000 + 10_000 })).subscribe({
+    };
+    this.solicitarConfirmacion(
+      'Confirmar conexión',
+      `Conectar el nodo ${remoto} a ${local} en modo ${modoLabel} (${tipoConexion}).`,
+      () => this.ejecutarConexion(request, modoLabel)
+    );
+  }
+
+  private ejecutarConexion(request: SolicitudConexion, modoLabel: string): void {
+    if (!this.validarServidorOperacion(request.local_node)) { return; }
+    const { local_node: local, remote_node: remoto, permanent: permanente, timeout_seconds: timeoutSegundos } = request;
+    this.conectando.set(true);
+    this.resultadoConexion.set(null);
+    this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
+    this.service.ejecutarComando(request).pipe(timeout({ each: permanente ? 10_000 : timeoutSegundos * 1000 + 10_000 })).subscribe({
       next: respuesta => {
         this.conectando.set(false);
         if (respuesta?.status === 'success') { this.programarRecargaConexiones(); }
@@ -467,6 +482,16 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.mostrarPopup('Error de conexión', '', [this.resultadoConexion()!.texto], true);
       }
     });
+  }
+
+  private validarServidorOperacion(local: string): boolean {
+    if (this.esAdmin() && this.nodosLocales().includes(local)) { return true; }
+    this.mostrarPopup('Operación no ejecutada', '', [
+      this.esAdmin()
+        ? `El servidor local ${local} ya no está disponible. Selecciona un servidor y vuelve a confirmar la operación.`
+        : 'Se requiere una sesión de administrador para ejecutar la operación.'
+    ], true);
+    return false;
   }
 
   /** Solicita la desconexión de un nodo, espera confirmación y verifica el resultado. */
@@ -704,8 +729,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
               !this.servidoresDisponibles().includes(this.servidorSeleccionado())) {
             this.servidorSeleccionado.set('todos');
           }
-          if (!this.nodoLocal()) {
-            this.nodoLocal.set(this.nodoPrincipal() || this.nodosLocales()[0] || '');
+          if (!this.nodosLocales().includes(this.nodoLocal())) {
+            this.nodoLocal.set(this.nodosLocales().includes(this.nodoPrincipal()) ? this.nodoPrincipal() : '');
           }
           this.error.set(this.erroresServidor()[this.nodoPrincipal()] ?? '');
           for (const tabla of tablas) { this.consultarServidor(tabla.nodo_local, forzar); }

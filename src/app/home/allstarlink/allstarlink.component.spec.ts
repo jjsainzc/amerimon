@@ -4,11 +4,207 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { AllstarlinkComponent } from './allstarlink.component';
 import { environment } from '../../core/environment';
 import { vi } from 'vitest';
+import { signal } from '@angular/core';
+import { AuthService } from '../../core/services/auth.service';
 
 const nodesUrl = `${environment.apiUrl}/allstarlink/nodes`;
 const tablas = ['616265', '700001'].map(nodo_local => ({
   nodo_local, servidor_conectado: false, nodos_disponibles: []
 }));
+
+describe('Allstarlink connection target safety', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AllstarlinkComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: { esAdmin: signal(true) } }
+      ]
+    });
+  });
+
+  async function crearMonitor() {
+    const fixture = TestBed.createComponent(AllstarlinkComponent);
+    const component = fixture.componentInstance;
+    component.intervaloMs.set(0);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({
+      status: 'success',
+      data: [{ id: 'restart', label: 'Reiniciar', requires_remote_node: false, supports_permanent: false }]
+    });
+    http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({ status: 'success', data: [] });
+    http.expectOne(`${nodesUrl}?discovery=true`).flush({
+      status: 'success',
+      data: {
+        nodo_principal: '616262',
+        tablas: ['56502', '59201', '616262'].map(nodo_local => ({
+          nodo_local, servidor_conectado: true, nodos_disponibles: []
+        })),
+        resultados: []
+      }
+    });
+    for (const local of ['56502', '59201', '616262']) {
+      http.expectOne(`${nodesUrl}?local_node=${local}`).flush(respuestaServidor(local));
+    }
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return { fixture, component, http, element: fixture.nativeElement as HTMLElement };
+  }
+
+  it('displays the actual local target after options arrive asynchronously, in both panels', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      const selector = element.querySelector<HTMLSelectElement>('.allstarlink-conexion select')!;
+      expect(component.nodoLocal()).toBe('616262');
+      expect(selector.value).toBe('616262');
+      expect(selector.selectedOptions[0].textContent?.trim()).toBe('616262');
+      component.panelAdminAbierto.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const admin = element.querySelector<HTMLSelectElement>('#allstarlink-admin-contenido select[name="local_node"]')!;
+      expect(admin.value).toBe('616262');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('sends 46818 to the selected 56502 and freezes all confirmed parameters', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      const selector = element.querySelector<HTMLSelectElement>('.allstarlink-conexion select')!;
+      selector.value = '56502';
+      selector.dispatchEvent(new Event('change'));
+      component.nodoRemotoConexion.set('46818');
+      component.modoConexion.set('localmonitor');
+      fixture.detectChanges();
+      element.querySelector<HTMLFormElement>('.allstarlink-conexion form')!.dispatchEvent(
+        new Event('submit', { cancelable: true })
+      );
+      expect(component.confirmacionPendiente()?.mensaje)
+        .toBe('Conectar el nodo 46818 a 56502 en modo Local Monitor (temporal).');
+      http.expectNone(request => request.method === 'POST');
+      component.nodoLocal.set('616262');
+      component.nodoRemotoConexion.set('99999');
+      component.modoConexion.set('connect');
+      component.permanenteConexion.set(true);
+      component.timeoutConexion.set(60);
+      component.confirmarAccion();
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      expect(request.request.body).toEqual({
+        local_node: '56502', remote_node: '46818', action: 'localmonitor',
+        permanent: false, timeout_seconds: 15
+      });
+      request.flush({ status: 'error', message: 'Respuesta simulada; no se ejecutan conexiones reales.' });
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('does not execute a cancelled connection', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      component.cancelarConfirmacion();
+      component.confirmarAccion();
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('keeps both selectors synchronized when options are replaced without changing the chosen node', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.panelAdminAbierto.set(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const selector = element.querySelector<HTMLSelectElement>('.allstarlink-conexion select')!;
+      const admin = element.querySelector<HTMLSelectElement>('#allstarlink-admin-contenido select[name="local_node"]')!;
+      selector.value = '56502';
+      selector.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      expect(admin.value).toBe('56502');
+      component.tablasLocales.update(tablas => [
+        { nodo_local: '10000', servidor_conectado: true, nodos_disponibles: [] },
+        ...tablas.slice().reverse()
+      ]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(selector.value).toBe('56502');
+      expect(admin.value).toBe('56502');
+      expect(component.nodoLocal()).toBe('56502');
+      admin.value = '59201';
+      admin.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      expect(component.nodoLocal()).toBe('59201');
+      expect(selector.value).toBe('59201');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('executes the administrative operation on the node shown in its confirmation', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.ejecutarComando();
+      expect(component.confirmacionPendiente()?.mensaje).toContain('56502');
+      component.nodoLocal.set('616262');
+      component.accionSeleccionada.set('other_command');
+      component.confirmarAccion();
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      expect(request.request.body).toEqual({
+        local_node: '56502', action: 'restart', permanent: false
+      });
+      request.flush({ status: 'success', data: { command: 'simulated', lines: [] } });
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('rejects a local node not present in the server list without offering confirmation', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('999999');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      expect(component.confirmacionPendiente()).toBeNull();
+      expect(component.resultadoPopup()?.error).toBe(true);
+      expect(component.resultadoPopup()?.lineas.join(' ')).toContain('999999');
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('blocks a confirmed connection if its local server is no longer available', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      component.tablasLocales.update(tablas => tablas.filter(tabla => tabla.nodo_local !== '56502'));
+      component.nodos.update(nodos => nodos.filter(nodo => nodo.nodo_local !== '56502'));
+      component.confirmarAccion();
+      http.expectNone(request => request.method === 'POST');
+      expect(component.resultadoPopup()?.error).toBe(true);
+      expect(component.resultadoPopup()?.lineas.join(' ')).toContain('56502');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+});
 
 function descubrirServidores(http: HttpTestingController): void {
   http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({ status: 'success', data: [] });

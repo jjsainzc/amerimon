@@ -69,7 +69,7 @@
           </label>
           <label>
             <span>Nodo local</span>
-            <select [value]="nodoLocal()" (change)="nodoLocal.set($any($event.target).value)" required>
+            <select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
               <option value="" disabled>Selecciona un nodo</option>
               @for (nodo of nodosLocales(); track nodo) {
                 <option [value]="nodo">{{ nodo }}</option>
@@ -111,7 +111,7 @@
       <form class="allstarlink-formulario" (submit)="$event.preventDefault(); conectarNodo()">
         <label>
           <span>Servidor local</span>
-          <select [value]="nodoLocal()" (change)="nodoLocal.set($any($event.target).value)" required>
+          <select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
             <option value="" disabled>Selecciona un servidor</option>
             @for (nodo of nodosLocales(); track nodo) {
               <option [value]="nodo">{{ nodo }}</option>
