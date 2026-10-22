@@ -32,7 +32,7 @@ nfpms:
     package_name: amerimon
     formats:
       - deb
-    maintainer: "Amerimon <admin@example.com>"
+    maintainer: "Amerimon <support@amerinet-hamradio.net>"
     description: Amerimon web application with embedded Angular frontend and SQLite storage.
     license: Proprietary
     section: web
