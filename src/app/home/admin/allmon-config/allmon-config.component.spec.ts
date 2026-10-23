@@ -41,6 +41,7 @@ describe('AllmonConfigComponent', () => {
   it('renders and saves the tracking checkbox while retaining the node row', () => {
     const checkbox: HTMLInputElement = fixture.nativeElement.querySelector('input[type="checkbox"]');
     expect(checkbox.checked).toBe(true);
+    expect(fixture.nativeElement.querySelector('.allmon-quitar i.fa-trash-can')).not.toBeNull();
     checkbox.click();
     fixture.detectChanges();
 

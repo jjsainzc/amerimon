@@ -15,6 +15,7 @@
 .ea-boton { padding: .45rem .8rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #e5edf2; font: inherit; cursor: pointer; }
 .ea-primario { border-color: #087e8b; background: #087e8b; color: #fff; }
 .ea-borrar { border-color: #bd3f37; color: #ffaaa0; }
+.ea-borrar i.fa-trash-can { color: #ff6b6b; }
 .ea-mensaje { margin: .8rem 0; padding: .65rem .8rem; border: 1px solid; border-radius: 5px; }
 .ea-error { border-color: #73403a; background: #442724; color: #ffaaa0; }
 .ea-exito { border-color: #3d7352; background: #194632; color: #a4e4b6; }

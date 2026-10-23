@@ -12,6 +12,7 @@
 .fa-btn:disabled { opacity: .6; cursor: default; }
 .fa-primario { border-color: #8dcfff; color: #8dcfff; }
 .fa-icono { padding: .45rem .6rem; }
+.fa-icono i.fa-trash-can { color: #ff6b6b; }
 .fa-mensaje { margin: .8rem 0; padding: .65rem .8rem; border: 1px solid; border-radius: 5px; }
 .fa-error { border-color: #b3261e; background: #3a1a1a; color: #ffd7d3; }
 .fa-exito { border-color: #2e7d32; background: #1a2e1d; color: #b7dfba; }

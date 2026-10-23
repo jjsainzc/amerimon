@@ -234,7 +234,7 @@ describe('Primary node administration', () => {
     expect(rows[1].cells[1].textContent).toBe('TEST2/P');
     expect(rows[0].cells[2].textContent).toBe('Permitido de prueba');
     const remove = rows[1].cells[3].querySelector<HTMLButtonElement>('button')!;
-    expect(remove.textContent?.trim()).toBe('Borrar');
+    expect(remove.querySelector('i.fa-trash-can')).not.toBeNull();
     expect(remove.getAttribute('aria-label')).toBe('Eliminar TEST2/P de bloqueados');
     remove.click();
     const request = http.expectOne(`${url}/access`);

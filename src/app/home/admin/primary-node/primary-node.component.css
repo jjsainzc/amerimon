@@ -7,6 +7,7 @@ input, select { box-sizing: border-box; width: 100%; min-width: 0; padding: .5re
 button { padding: .5rem .8rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; cursor: pointer; }
 button:disabled { opacity: .55; cursor: default; }
 .acciones { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.acciones button i.fa-trash-can, .acceso-accion button i.fa-trash-can { color: #ff6b6b; }
 .acceso-tabla-scroll { overflow-x: auto; margin: .75rem 0; border: 1px solid #455b68; border-radius: 5px; }
 .acceso-tabla { width: 100%; border-collapse: collapse; font-size: .875rem; text-align: left; }
 .acceso-tabla th, .acceso-tabla td { padding: .35rem .5rem; border-bottom: 1px solid #455b68; }

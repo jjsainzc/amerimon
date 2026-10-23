@@ -1,7 +1,3 @@
-# General 
-
-## 1. Reorganizar header, poner botones en menu desplegable, para admin,  (dejar solo los mas relevantes afuera, Sistema, Favoritos, Administrar enlaces)  y el boton salir ponerlo con un icon al extremo derecho en esa misma linea.
-
 
 # Opciones admin
 ## 1. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch
@@ -14,7 +10,7 @@
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
 
-## 3. En las configuraciones de nodo principal, para el file /etc/asterisk/manager.conf,  agregar cambio de passwd, hay que mostrarlo,  AMI (secret) y bind address, opcional las variables deny y permit para agregar redes con su ayuda de calculos de red, usar "manager reload" para no reiniciar asterisk, y actualizar esto en las config del yaml /etc/amerimon.
+## 3. En las configuraciones de nodo principal, antes de la lista de accesos, para el file /etc/asterisk/manager.conf,  agregar cambio de passwd, hay que mostrarlo,  AMI (secret) y bind address, opcional las variables deny y permit para agregar redes con su ayuda de calculos de red, usar "manager reload" para no reiniciar asterisk, y actualizar esto en las config del yaml /etc/amerimon y en la parte de los accesos AMI para el nodo principal.
 
 
 

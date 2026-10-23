@@ -53,9 +53,13 @@
       [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || leyendoArchivo() || !nodoAcceso()">Importar listas</button>
     <input #archivoListas type="file" accept=".json,application/json" hidden (change)="seleccionarImportacion($event)" />
     <button type="button" (click)="solicitarVaciado('allowlist')"
-      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">Vaciar permitidos</button>
+      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">
+      <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Vaciar permitidos
+    </button>
     <button type="button" (click)="solicitarVaciado('denylist')"
-      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">Vaciar denegados</button>
+      [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || !nodoAcceso()">
+      <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Vaciar denegados
+    </button>
   </div>
   @if (leyendoArchivo()) { <p role="status">Leyendo archivo JSON…</p> }
   @if (importacionPendiente(); as pendiente) {
@@ -75,7 +79,9 @@
       @if (pendiente.tipo === 'allowlist') {
         <p>Al vaciar permitidos se elimina la restricción a los nodos autorizados; la lista de denegados seguirá aplicándose.</p>
       }
-      <button type="button" (click)="vaciarAcceso()" [disabled]="cargandoAcceso() || guardandoAcceso() || guardando()">Confirmar vaciado</button>
+      <button type="button" (click)="vaciarAcceso()" [disabled]="cargandoAcceso() || guardandoAcceso() || guardando()">
+        <i class="fa-solid fa-trash-can" aria-hidden="true"></i> Confirmar vaciado
+      </button>
       <button type="button" (click)="vaciadoPendiente.set(null)">Cancelar</button>
     </section>
   }
@@ -101,7 +107,10 @@
             <td class="acceso-accion">
               <button type="button" (click)="cambiarAcceso(entry, true)"
                 [disabled]="guardandoAcceso() || guardando() || cargandoAcceso()"
-                [attr.aria-label]="'Eliminar ' + entry.node + ' de ' + (entry.type === 'allowlist' ? 'permitidos' : 'bloqueados')">Borrar</button>
+                [attr.aria-label]="'Eliminar ' + entry.node + ' de ' + (entry.type === 'allowlist' ? 'permitidos' : 'bloqueados')"
+                [title]="'Eliminar ' + entry.node + ' de ' + (entry.type === 'allowlist' ? 'permitidos' : 'bloqueados')">
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+              </button>
             </td>
           </tr>
         } @empty {

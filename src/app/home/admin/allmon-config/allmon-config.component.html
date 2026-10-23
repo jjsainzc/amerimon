@@ -30,7 +30,9 @@
               <td data-label="Usuario AMI"><input name="user{{ i }}" [(ngModel)]="f.user" autocomplete="off" required /></td>
               <td data-label="Contraseña"><app-password-field name="passwd{{ i }}" [(ngModel)]="f.passwd" autocomplete="new-password"
                          [placeholder]="f.passwdSet ? 'sin cambios' : ''" /></td>
-              <td class="allmon-celda-quitar"><button type="button" class="allmon-quitar" aria-label="Quitar nodo" (click)="quitar(i)">&times;</button></td>
+              <td class="allmon-celda-quitar"><button type="button" class="allmon-quitar"
+                [attr.aria-label]="'Quitar nodo ' + (f.node || i + 1)" [title]="'Quitar nodo ' + (f.node || i + 1)"
+                (click)="quitar(i)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></td>
             </tr>
           } @empty {
             <tr class="allmon-vacio"><td colspan="7">No hay nodos definidos.</td></tr>

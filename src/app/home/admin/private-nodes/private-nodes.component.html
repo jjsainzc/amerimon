@@ -22,7 +22,9 @@
             (ngModelChange)="actualizar(i, $event)"
             maxlength="512" autocomplete="off" placeholder="448511|EA4ABC|Descripción|Ubicación">
           <button type="button" class="private-nodes-quitar" (click)="quitar(i)"
-            [attr.aria-label]="'Borrar línea ' + (i + 1)">Borrar</button>
+            [attr.aria-label]="'Borrar línea ' + (i + 1)" [title]="'Borrar línea ' + (i + 1)">
+            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+          </button>
         </div>
       } @empty {
         <p class="private-nodes-vacio">No hay líneas configuradas.</p>

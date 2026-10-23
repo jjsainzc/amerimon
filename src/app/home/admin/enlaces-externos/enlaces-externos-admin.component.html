@@ -29,7 +29,10 @@
           <div class="ea-acciones-item">
             <button type="button" class="ea-boton" (click)="abrirEditar(enlace)">Editar</button>
             <button type="button" class="ea-boton ea-borrar" (click)="solicitarBorrado(enlace)"
-              [attr.aria-label]="'Eliminar enlace ' + (enlace.descripcion || enlace.dashid)">Eliminar</button>
+              [attr.aria-label]="'Eliminar enlace ' + (enlace.descripcion || enlace.dashid)"
+              [title]="'Eliminar enlace ' + (enlace.descripcion || enlace.dashid)">
+              <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+            </button>
           </div>
         </article>
       }
