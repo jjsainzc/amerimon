@@ -9,7 +9,7 @@
     <button type="button" class="weather-retry" (click)="loadWeather()">Reintentar ahora</button>
   </div>
 } @else {
-  <div class="report-content" [title]="weatherReport()"><strong>Clima local:</strong> {{ weatherReport() }}</div>
+  <div class="report-content" [title]="weatherReport()">Clima local:<span style="color: #ffffff !important"><strong> {{ weatherReport() }}</strong></span></div>
 }
 <div class="location-row">
   @if (consultedLocation()) {
