@@ -1,9 +1,7 @@
 # General 
 
-
 ## 1. Reorganizar header, poner botones en menu desplegable, para admin,  (dejar solo los mas relevantes afuera, Sistema, Favoritos, Administrar enlaces)  y el boton salir ponerlo con in icon al extremo derecho en la linea donde estan Allstarlink, Listen-Live y Enlaces externos.
 
-## 2. Agregar descripcion, ip, hostname en la cabecera de cada tabla de cada nodo remoto al lado de su numero.
 
 # Opciones admin
 ## 1. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch
