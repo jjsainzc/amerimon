@@ -99,6 +99,27 @@ type SystemTemperature struct {
 	Celsius float64 `json:"celsius"`
 }
 
+// FormatUptime formatea una duración en una cadena legible.
+func formatUptime(d time.Duration) string {
+	d = d.Round(time.Second)
+
+	days := int(d.Hours() / 24)
+	hours := int(d.Hours()) % 24
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+
+	if days > 0 {
+		return fmt.Sprintf("%dd %dh %dm %ds", days, hours, minutes, seconds)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
+}
+
 // GetSystemInfo recopila métricas del sistema y Asterisk disponibles y las devuelve como JSON.
 func GetSystemInfo(c echo.Context) error {
 	info := SystemInfo{
@@ -115,7 +136,7 @@ func GetSystemInfo(c echo.Context) error {
 			Hostname: hostInfo.Hostname, Platform: hostInfo.Platform,
 			Distribution: hostInfo.Platform, Version: hostInfo.PlatformVersion,
 			Architecture: hostInfo.KernelArch, Kernel: hostInfo.KernelVersion,
-			Uptime: (time.Duration(hostInfo.Uptime) * time.Second).Round(time.Second).String(),
+			Uptime: formatUptime(time.Duration(hostInfo.Uptime) * time.Second),
 		}
 	}
 
