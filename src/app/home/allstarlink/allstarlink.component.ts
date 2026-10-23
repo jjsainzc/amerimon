@@ -139,17 +139,23 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       ...this.tablasLocales().map(tabla => tabla.nodo_local?.trim()).filter((nodo): nodo is string => !!nodo),
       ...porNodoLocal.keys()
     ]);
-    const servidorPorNodo = new Map(this.tablasLocales().map(tabla => [tabla.nodo_local, tabla.servidor_conectado]));
+    const tablaPorNodo = new Map(this.tablasLocales().map(tabla => [tabla.nodo_local, tabla]));
 
     return Array.from(nodosLocales, nodoLocal => {
       const conexiones = porNodoLocal.get(nodoLocal) ?? [];
+      const tabla = tablaPorNodo.get(nodoLocal);
       return {
         nodoLocal,
+        detalle: [tabla?.descripcion, tabla?.ip, tabla?.hostname]
+          .map(valor => valor?.trim()).filter(Boolean).join(' - '),
         nodos: conexiones,
         conectados: conexiones.filter(nodo => nodo.enlace?.trim().toLowerCase() === 'established').length,
-        servidorConectado: servidorPorNodo.get(nodoLocal) ?? conexiones.length > 0
+        servidorConectado: tabla?.servidor_conectado ?? conexiones.length > 0
       };
-    }).sort((a, b) => a.nodoLocal.localeCompare(b.nodoLocal, undefined, { numeric: true }));
+    }).sort((a, b) =>
+      Number(b.nodoLocal === this.nodoPrincipal()) - Number(a.nodoLocal === this.nodoPrincipal()) ||
+      a.nodoLocal.localeCompare(b.nodoLocal, undefined, { numeric: true })
+    );
   });
   /** Conserva la marca temporal más reciente por combinación de nodos local y remoto. */
   readonly actividadPorNodo = computed(() => {
@@ -723,7 +729,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
             Object.entries(errores).filter(([local]) => servidores.has(local))
           ));
           const anteriores = new Map(this.tablasLocales().map(tabla => [tabla.nodo_local, tabla]));
-          this.tablasLocales.set(tablas.map(tabla => anteriores.get(tabla.nodo_local) ?? tabla));
+          this.tablasLocales.set(tablas.map(tabla => ({
+            ...tabla,
+            servidor_conectado: anteriores.get(tabla.nodo_local)?.servidor_conectado ?? tabla.servidor_conectado,
+            nodos_disponibles: anteriores.get(tabla.nodo_local)?.nodos_disponibles ?? tabla.nodos_disponibles
+          })));
           this.nodos.update(nodos => nodos.filter(nodo => servidores.has(nodo.nodo_local)));
           if (this.servidorSeleccionado() !== 'todos' &&
               !this.servidoresDisponibles().includes(this.servidorSeleccionado())) {

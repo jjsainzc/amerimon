@@ -202,10 +202,8 @@
         <h4>
           @if (grupo.nodoLocal === nodoPrincipal()) {
             <span class="allstarlink-modo modo-duplex">Nodo principal</span>
-          } @else {
-            <span>Nodo remoto</span>
           }
-          <span>{{ grupo.nodoLocal }}</span><small>{{ grupo.conectados }} conectados</small>
+          <span class="allstarlink-grupo-titulo"><strong>{{ grupo.nodoLocal }}</strong>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} conectados</small>
           @if (esAdmin() && grupo.nodoLocal === nodoPrincipal()) {
             <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
               (click)="abrirLsnodes()" aria-haspopup="dialog">

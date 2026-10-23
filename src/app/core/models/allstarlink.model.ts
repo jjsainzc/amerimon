@@ -28,6 +28,9 @@ export interface AllstarlinkData {
 
 export interface AllstarlinkTabla {
   nodo_local: string;
+  descripcion?: string;
+  ip?: string;
+  hostname?: string;
   servidor_conectado: boolean;
   nodos_disponibles: { value: string; label: string }[];
 }
@@ -86,6 +89,7 @@ export interface AllstarlinkConnectionHistoryResponse {
 
 export interface AllstarlinkGrupo {
   nodoLocal: string;
+  detalle: string;
   nodos: AllstarlinkNode[];
   conectados: number;
   servidorConectado: boolean;

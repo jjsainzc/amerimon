@@ -190,6 +190,10 @@ La búsqueda de `allmon.ini` sigue este orden:
 
 Los nodos locales se obtienen de `/etc/asterisk/rpt.conf` (o `ami.rpt_config_path`), incluido el principal identificado por `<nodo> = radio@127.0.0.1/<nodo>,NONE` en `[nodes]`. Se excluyen como servidores los nodos de `privatenodes.txt` y los clasificados como privados (cuatro dígitos): no crean tablas ni opciones del selector de servidores. Sus conexiones siguen apareciendo en la tabla del nodo al que están conectadas, sea el principal u otro servidor. El principal no se elige por orden: si varias entradas no privadas cumplen la regla loopback, se registra el error de ambigüedad. Los nodos locales usan las credenciales AMI globales de Amerimon. Las entradas Allmon dirigidas a loopback o al host AMI global no sustituyen estos nodos ni sus credenciales. Las instancias de servidores remotos conservan su configuración Allmon. Esta selección se comparte entre la tabla, el sondeo de actividad y las acciones sobre nodos.
 
+En el monitor AllStarLink, la tabla del nodo principal aparece primero; las restantes se ordenan por número. La cabecera de cada tabla muestra `número - descripción - IP/hostname`; el principal conserva su etiqueta «Nodo principal» y las remotas no llevan el prefijo «Nodo remoto». La descripción procede de `astdb.txt` y la dirección del host AMI global para los nodos locales o del campo `host` de Allmon para los remotos (sin puerto). Se muestra la IP o el hostname según lo configurado, sin consultas DNS; los datos ausentes se omiten, incluso cuando el servidor está desconectado.
+
+Solo el número del nodo se muestra en negrita; la descripción y la IP/hostname usan peso normal, tanto en el principal como en los remotos.
+
 Cuando existe un `allmon.ini` con nodos remotos válidos, esas instancias proporcionan la conexión AMI de cada servidor remoto. Una entrada típica es:
 
 ```ini

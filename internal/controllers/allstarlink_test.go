@@ -41,6 +41,10 @@ func TestAllStarLinkDiscoveryDoesNotConnectToAMI(t *testing.T) {
 	dir := t.TempDir()
 	rptPath := filepath.Join(dir, "rpt.conf")
 	allmonPath := filepath.Join(dir, "allmon.ini")
+	astdbPath := filepath.Join(dir, "astdb.txt")
+	if err := os.WriteFile(astdbPath, []byte("700001|EA4ABC|Servidor remoto|Madrid\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(rptPath, []byte("[616265]\n[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +58,7 @@ func TestAllStarLinkDiscoveryDoesNotConnectToAMI(t *testing.T) {
 	config.App.AMI.Host, config.App.AMI.Port = host, port
 	config.App.AMI.User, config.App.AMI.Secret = "test-user", "test-secret"
 	config.App.Sources.AllmonINIPath = allmonPath
+	config.App.Sources.AstDBPath = astdbPath
 	config.App.Sources.PrivateNodesPath = filepath.Join(dir, "privatenodes.txt")
 
 	for _, query := range []string{"discovery=true", "discovery=true&local_node=700001"} {
@@ -91,9 +96,34 @@ func TestAllStarLinkDiscoveryDoesNotConnectToAMI(t *testing.T) {
 		if strings.Contains(rec.Body.String(), "test-secret") || strings.Contains(rec.Body.String(), "test-user") {
 			t.Fatal("discovery exposed AMI credentials")
 		}
+		for _, table := range response.Data.Tables {
+			if table.NodoLocal == "700001" && (table.Descripcion != "Servidor remoto" || table.IP != "192.0.2.10" || table.Hostname != "") {
+				t.Fatalf("remote metadata missing from discovery: %+v", table)
+			}
+		}
 	}
 	if connections.Load() != 0 {
 		t.Fatalf("discovery opened %d AMI connections", connections.Load())
+	}
+}
+
+func TestAllStarLinkTableHostMetadata(t *testing.T) {
+	tables := buildAllStarLinkLocalTables([]allmonInstance{
+		{Node: "700001", Host: "radio.example.org", User: "private-user", Secret: "private-secret"},
+		{Node: "700002", Host: "2001:db8::1"},
+	}, nil, nil)
+	if tables[0].Hostname != "radio.example.org" || tables[0].IP != "" {
+		t.Fatalf("unexpected hostname metadata: %+v", tables[0])
+	}
+	if tables[1].IP != "2001:db8::1" || tables[1].Hostname != "" {
+		t.Fatalf("unexpected IPv6 metadata: %+v", tables[1])
+	}
+	raw, err := json.Marshal(tables)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "private-") {
+		t.Fatal("table metadata exposed AMI credentials")
 	}
 }
 

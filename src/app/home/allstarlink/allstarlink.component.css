@@ -226,6 +226,8 @@
 }
 
 .allstarlink-grupo h4 small { margin-left: auto; font-size: 0.75rem; font-weight: 500; }
+.allstarlink-grupo-titulo { min-width: 0; overflow-wrap: anywhere; }
+.allstarlink-grupo-detalle { font-weight: 400; }
 
 .allstarlink-tabla-scroll {
   overflow-x: auto;

@@ -234,6 +234,50 @@ describe('Allstarlink server selection', () => {
     });
   });
 
+  it('puts the primary table first and shows remote metadata even before AMI responds', async () => {
+    const fixture = TestBed.createComponent(AllstarlinkComponent);
+    const component = fixture.componentInstance;
+    component.intervaloMs.set(0);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({ status: 'success', data: [] });
+    http.expectOne(`${nodesUrl}?discovery=true`).flush({
+      status: 'success',
+      data: {
+        nodo_principal: '700003',
+        tablas: [
+          { nodo_local: '700002', descripcion: 'Radio Madrid', hostname: 'radio.example.org', servidor_conectado: false, nodos_disponibles: [] },
+          { nodo_local: '700001', descripcion: 'Radio local', ip: '192.0.2.10', servidor_conectado: false, nodos_disponibles: [] },
+          { nodo_local: '700003', descripcion: 'Radio principal', ip: '192.0.2.20', servidor_conectado: false, nodos_disponibles: [] },
+          { nodo_local: '700004', servidor_conectado: false, nodos_disponibles: [] }
+        ],
+        resultados: []
+      }
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const titulos = Array.from(element.querySelectorAll('.allstarlink-grupo-titulo'), titulo => titulo.textContent?.trim());
+    expect(titulos).toEqual(['700003 - Radio principal - 192.0.2.20', '700001 - Radio local - 192.0.2.10', '700002 - Radio Madrid - radio.example.org', '700004']);
+    expect(Array.from(element.querySelectorAll('.allstarlink-grupo-titulo strong'), nodo => nodo.textContent))
+      .toEqual(['700003', '700001', '700002', '700004']);
+    const detalles = Array.from(element.querySelectorAll('.allstarlink-grupo-detalle'));
+    expect(detalles).toHaveLength(3);
+    for (const detalle of detalles) {
+      expect(getComputedStyle(detalle).fontWeight).toBe('400');
+      expect(detalle.querySelector('strong, b')).toBeNull();
+    }
+    expect(element.querySelectorAll('h4')[0].textContent).toContain('Nodo principal');
+    expect(Array.from(element.querySelectorAll('h4')).some(titulo => titulo.textContent?.includes('Nodo remoto'))).toBe(false);
+    component.nodoPrincipal.set('700004');
+    expect(component.grupos().map(grupo => grupo.nodoLocal)).toEqual(['700004', '700001', '700002', '700003']);
+    for (const local of ['700001', '700002', '700003', '700004']) {
+      http.expectOne(`${nodesUrl}?local_node=${local}`).flush(respuestaServidor(local));
+    }
+    http.verify();
+    fixture.destroy();
+  });
+
   it('keeps private connections under their own servers without adding server options', async () => {
     const fixture = TestBed.createComponent(AllstarlinkComponent);
     fixture.componentInstance.intervaloMs.set(0);

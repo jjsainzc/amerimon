@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -54,6 +55,9 @@ type AllStarLinkNodeOption struct {
 
 type AllStarLinkLocalTable struct {
 	NodoLocal         string                  `json:"nodo_local"`
+	Descripcion       string                  `json:"descripcion,omitempty"`
+	IP                string                  `json:"ip,omitempty"`
+	Hostname          string                  `json:"hostname,omitempty"`
 	ServidorConectado bool                    `json:"servidor_conectado"`
 	NodosDisponibles  []AllStarLinkNodeOption `json:"nodos_disponibles"`
 	Acciones          []AllStarLinkAction     `json:"acciones,omitempty"`
@@ -149,19 +153,6 @@ func GetAllStarLinkNodes(c echo.Context) error {
 		}
 	}
 
-	// Permite descubrir los servidores sin esperar ninguna conexión AMI.
-	if c.QueryParam("discovery") == "true" {
-		return c.JSON(http.StatusOK, map[string]any{
-			"status": "success",
-			"data": map[string]any{
-				"count":          0,
-				"resultados":     []AllStarLinkNode{},
-				"tablas":         buildAllStarLinkLocalTables(amiInstances, nil, nil),
-				"nodo_principal": primaryNode,
-			},
-		})
-	}
-
 	astdbPath := config.App.Sources.AstDBPath
 	astdbEntries := make(map[string]AstDBEntry)
 	if astdbPath != "" {
@@ -181,6 +172,21 @@ func GetAllStarLinkNodes(c echo.Context) error {
 		}
 	} else if !os.IsNotExist(err) {
 		log.Printf("allstarlink: no se pudo acceder a privatenodes.txt: %v", err)
+	}
+
+	// El descubrimiento usa metadatos locales, sin conexiones AMI ni consultas DNS.
+	if c.QueryParam("discovery") == "true" {
+		tables := buildAllStarLinkLocalTables(amiInstances, nil, nil)
+		for i := range tables {
+			tables[i].Descripcion = lookupNodeInfo(tables[i].NodoLocal, astdbEntries, privateEntries).Descripcion
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "success",
+			"data": map[string]any{
+				"count": 0, "resultados": []AllStarLinkNode{}, "tablas": tables,
+				"nodo_principal": primaryNode,
+			},
+		})
 	}
 
 	nodesByNumber := make(map[string]*AllStarLinkNode)
@@ -312,6 +318,9 @@ func GetAllStarLinkNodes(c echo.Context) error {
 		}
 	}
 	tablas := buildAllStarLinkLocalTables(amiInstances, resultados, serverReachable)
+	for i := range tablas {
+		tablas[i].Descripcion = lookupNodeInfo(tablas[i].NodoLocal, astdbEntries, privateEntries).Descripcion
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "success",
@@ -370,6 +379,12 @@ func buildAllStarLinkLocalTables(instances []allmonInstance, nodes []AllStarLink
 			NodosDisponibles: make([]AllStarLinkNodeOption, 0),
 			Acciones:         []AllStarLinkAction{lsNodesPopupAction(instance.Node)},
 		})
+		host := strings.TrimSpace(instance.Host)
+		if net.ParseIP(host) != nil {
+			tables[len(tables)-1].IP = host
+		} else {
+			tables[len(tables)-1].Hostname = host
+		}
 	}
 	for _, node := range nodes {
 		if node.Protocolo != "iax" || !isNumericNode(node.Nodo) {
