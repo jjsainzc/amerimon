@@ -13,8 +13,10 @@
 ```
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
-## 3. Agregar un check mark en lista de nodos allmon para desactivar su seguimiento (visualizacion/edicion) pero mantenerlos en la lista.
+## 3. En /home/hc1lnm/Documents/AngularPro/amerimon/src/app/home/admin/allmon-config, agregar un check mark en lista de nodos allmon para desactivar su seguimiento (visualizacion/edicion) pero mantenerlos en la lista.
 
 ## 4. En las configuraciones de nodo principal, para el file /etc/asterisk/manager.conf,  agregar cambio de passwd, hay que mostrarlo,  AMI (secret) y bind address, opcional las variables deny y permit para agregar redes con su ayuda de calculos de red, usar "manager reload" para no reiniciar asterisk, y actualizar esto en las config del yaml /etc/amerimon.
+
+## 5. Cuando se vaya a agregar a favoritos un nodo, tener la opcion de poner tambien un indicativo y que muestre los numeros de nodos que tengan si son mas de uno para escoger uno.
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 

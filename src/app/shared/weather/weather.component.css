@@ -43,7 +43,20 @@
   color: #dce5eb;
 }
 
-.report-content {
+.weather-line {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: .3rem;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.report-content,
+.weather-line .status-message,
+.weather-line .error-message {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: #a9bac5;
   text-overflow: ellipsis;
@@ -70,6 +83,23 @@
 
 .location-message { min-width: 0; }
 .weather-change { flex-shrink: 0; }
+
+.weather-refresh {
+  flex: 0 0 auto;
+  margin-left: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7dd3fc;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.weather-refresh:disabled {
+  opacity: .6;
+  cursor: wait;
+}
 
 .location-dialog button {
   padding: .3rem .55rem;

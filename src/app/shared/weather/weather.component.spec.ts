@@ -74,6 +74,37 @@ describe('WeatherComponent', () => {
     expect(component.consultedLocation()).toBe('ubicación automática por IP');
   });
 
+  it('refreshes the current location from the manual refresh button', () => {
+    component.fetchWeather('Quito');
+    http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 60°F');
+    fixture.detectChanges();
+
+    const refreshButton: HTMLButtonElement = fixture.nativeElement.querySelector('.weather-refresh');
+    expect(refreshButton.getAttribute('aria-label')).toBe('Actualizar clima ahora');
+    expect(refreshButton.parentElement?.querySelector('.report-content')).not.toBeNull();
+    expect(refreshButton.closest('.location-row')).toBeNull();
+    refreshButton.click();
+    http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 61°F');
+    expect(component.weatherReport()).toBe('Quito: 61°F');
+  });
+
+  it('refreshes automatically every five minutes and clears the timer on destroy', () => {
+    vi.useFakeTimers();
+    const timedFixture = TestBed.createComponent(WeatherComponent);
+    timedFixture.componentRef.setInput('ubicacionConfigurada', 'Quito');
+    timedFixture.detectChanges();
+    http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 60°F');
+
+    vi.advanceTimersByTime(299_999);
+    http.expectNone(req => req.url === `${environment.apiUrl}/weather`);
+    vi.advanceTimersByTime(1);
+    http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 61°F');
+
+    timedFixture.destroy();
+    vi.advanceTimersByTime(300_000);
+    http.expectNone(req => req.url === `${environment.apiUrl}/weather`);
+  });
+
   it('retries failed requests automatically in the background', () => {
     vi.useFakeTimers();
     component.fetchWeather('Quito');
@@ -138,7 +169,7 @@ describe('WeatherComponent', () => {
 
     const row: HTMLElement = fixture.nativeElement.querySelector('.location-row');
     expect(row.textContent).toContain('Localidad consultada: Quito');
-    row.querySelector('button')!.click();
+    (row.querySelector('.weather-change') as HTMLButtonElement).click();
     expect(dialog.showModal).toHaveBeenCalled();
   });
 

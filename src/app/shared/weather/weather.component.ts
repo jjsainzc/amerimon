@@ -1,4 +1,4 @@
-import { Component, computed, Input, OnDestroy, signal } from '@angular/core';
+import { Component, computed, Input, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +12,7 @@ import { WeatherService } from '../../core/services/weather.service';
   templateUrl: './weather.component.html',
   styleUrls: ['./weather.component.css']
 })
-export class WeatherComponent implements OnDestroy {
+export class WeatherComponent implements OnInit, OnDestroy {
   readonly weatherReport = signal('');
   readonly loading = signal(false);
   readonly errorMessage = signal('');
@@ -27,14 +27,28 @@ export class WeatherComponent implements OnDestroy {
   locationDraft = '';
 
   private temporaryLocation: string | undefined;
+  private lastWeatherLocation: string | undefined;
   private weatherRequest: Subscription | undefined;
   private requestVersion = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private refreshTimer: ReturnType<typeof setInterval> | undefined;
   private static readonly retryDelayMs = 30_000;
+  private static readonly refreshIntervalMs = 300_000;
 
   constructor(private weatherService: WeatherService) {}
 
+  ngOnInit(): void {
+    this.refreshTimer = setInterval(() => {
+      if (!this.loading()) {
+        this.refreshWeather();
+      }
+    }, WeatherComponent.refreshIntervalMs);
+  }
+
   ngOnDestroy(): void {
+    if (this.refreshTimer !== undefined) {
+      clearInterval(this.refreshTimer);
+    }
     this.cancelPendingRequest();
   }
 
@@ -59,6 +73,14 @@ export class WeatherComponent implements OnDestroy {
       this.fetchWeather(location);
     } else {
       this.getWeatherForBrowserLocation();
+    }
+  }
+
+  refreshWeather(): void {
+    if (this.lastWeatherLocation !== undefined) {
+      this.fetchWeather(this.lastWeatherLocation);
+    } else {
+      this.loadWeather();
     }
   }
 
@@ -160,6 +182,7 @@ export class WeatherComponent implements OnDestroy {
 
   fetchWeather(location: string): void {
     this.cancelPendingRequest();
+    this.lastWeatherLocation = location.trim();
     this.mapLocation.set(location.trim());
     this.consultedLocation.set(location.trim() || 'ubicación automática por IP');
     this.loading.set(true);

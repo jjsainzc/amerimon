@@ -33,7 +33,7 @@ Abre `http(s)://<host>/amerimon/` con el proxy configurado, o `http://<IP-del-se
 
 ### Ubicación del clima
 
-Cualquier visitante puede pulsar **Cambiar ubicación**, junto a la localidad consultada, para **Obtener mi ubicación**, volver a **Usar configuración** (solo si el administrador guardó una ubicación) o escribir una **Ubicación**. La selección solo afecta al clima de la página actual: no guarda ni modifica la configuración del administrador y se descarta al recargar. La geolocalización requiere HTTPS (o localhost) y autorización del navegador; si el permiso fue denegado previamente, hay que habilitarlo en los permisos del sitio.
+Cualquier visitante puede pulsar **Cambiar ubicación**, junto a la localidad consultada, para **Obtener mi ubicación**, volver a **Usar configuración** (solo si el administrador guardó una ubicación) o escribir una **Ubicación**. El clima se actualiza automáticamente cada cinco minutos; el botón de recarga junto a la localidad permite actualizarlo manualmente. La selección solo afecta al clima de la página actual: no guarda ni modifica la configuración del administrador y se descarta al recargar. La geolocalización requiere HTTPS (o localhost) y autorización del navegador; si el permiso fue denegado previamente, hay que habilitarlo en los permisos del sitio.
 
 ## Restablecer contraseña de administrador
 
