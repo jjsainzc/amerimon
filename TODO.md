@@ -13,7 +13,7 @@
 ```
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
-## 3. En /home/hc1lnm/Documents/AngularPro/amerimon/src/app/home/admin/allmon-config, agregar un check mark en lista de nodos allmon para desactivar su seguimiento (visualizacion/edicion) pero mantenerlos en la lista.
+## 3. En /home/hc1lnm/Documents/AngularPro/amerimon/src/app/home/admin/allmon-config, agregar un check mark en lista (al principio de cada linea) de nodos allmon para desactivar su seguimiento (visualizacion/edicion) pero mantenerlos en la lista, eliminar el exceso de tamaño del final de la tabla
 
 ## 4. En las configuraciones de nodo principal, para el file /etc/asterisk/manager.conf,  agregar cambio de passwd, hay que mostrarlo,  AMI (secret) y bind address, opcional las variables deny y permit para agregar redes con su ayuda de calculos de red, usar "manager reload" para no reiniciar asterisk, y actualizar esto en las config del yaml /etc/amerimon.
 

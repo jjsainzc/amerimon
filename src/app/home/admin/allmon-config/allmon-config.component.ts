@@ -41,7 +41,15 @@ export class AllmonConfigComponent implements OnInit {
         this.cargando.set(false);
         this.ruta.set(r.path);
         this.escribible.set(r.writable);
-        this.filas.set(r.nodes.map(n => ({ node: n.node, host: n.host, port: n.port, user: n.user, passwd: n.passwd ?? '', passwdSet: n.passwd_set })));
+        this.filas.set(r.nodes.map(n => ({
+          node: n.node,
+          host: n.host,
+          port: n.port,
+          user: n.user,
+          passwd: n.passwd ?? '',
+          passwdSet: n.passwd_set,
+          tracking_enabled: n.tracking_enabled,
+        })));
       },
       error: (e: HttpErrorResponse) => {
         this.cargando.set(false);
@@ -52,7 +60,10 @@ export class AllmonConfigComponent implements OnInit {
 
   /** Añade una fila con valores iniciales para configurar un nodo Allmon. */
   agregar(): void {
-    this.filas.update(f => [...f, { node: '', host: '127.0.0.1', port: '5038', user: '', passwd: '', passwdSet: false }]);
+    this.filas.update(f => [...f, {
+      node: '', host: '127.0.0.1', port: '5038', user: '', passwd: '',
+      passwdSet: false, tracking_enabled: true,
+    }]);
   }
 
   /** Quita de la edición la fila seleccionada. */

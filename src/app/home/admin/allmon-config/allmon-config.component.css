@@ -5,10 +5,15 @@
 .allmon-ayuda { color: #a9bac5; font-size: .9rem; }
 .allmon-alerta { padding: .5rem .75rem; border: 1px solid #b3261e; border-radius: 6px; background: #3a1a1a; color: #ffd7d3; }
 .allmon-tabla-scroll { overflow-x: auto; }
-.allmon-tabla { width: 100%; border-collapse: collapse; }
+.allmon-tabla { width: max-content; max-width: 100%; border-collapse: collapse; }
 .allmon-tabla th { padding: .4rem; text-align: left; font-size: .8rem; color: #a9bac5; }
+.allmon-tabla th:first-child,
+.allmon-tabla td:first-child { width: 4.5rem; }
+.allmon-tabla th:last-child,
+.allmon-tabla td:last-child { width: 2.5rem; }
 .allmon-tabla td { padding: .25rem; }
-.allmon-tabla input { box-sizing: border-box; width: 100%; padding: .4rem .5rem; border: 1px solid #3a4f5e; border-radius: 5px; background: #111a22; color: inherit; font: inherit; }
+.allmon-tabla input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; padding: .4rem .5rem; border: 1px solid #3a4f5e; border-radius: 5px; background: #111a22; color: inherit; font: inherit; }
+.allmon-tabla input[type="checkbox"] { display: block; width: 1rem; height: 1rem; margin: 0 auto; accent-color: #79d3dd; }
 .allmon-quitar { width: 2rem; height: 2rem; border: 0; border-radius: 50%; background: transparent; color: #dce5eb; font-size: 1.4rem; cursor: pointer; }
 .allmon-quitar:hover { background: #263641; }
 .allmon-acciones { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .75rem; }

@@ -15,11 +15,15 @@
     <div class="allmon-tabla-scroll">
       <table class="allmon-tabla">
         <thead>
-          <tr><th>Nodo</th><th>Host</th><th>Puerto</th><th>Usuario AMI</th><th>Contraseña</th><th></th></tr>
+          <tr><th>Se ve</th><th>Nodo</th><th>Host</th><th>Puerto</th><th>Usuario AMI</th><th>Contraseña</th><th></th></tr>
         </thead>
         <tbody>
           @for (f of filas(); track $index; let i = $index) {
             <tr>
+              <td data-label="Seguimiento" class="allmon-celda-seguimiento">
+                <input type="checkbox" name="tracking{{ i }}" [(ngModel)]="f.tracking_enabled"
+                  [attr.aria-label]="'Seguir nodo ' + (f.node || i + 1)" />
+              </td>
               <td data-label="Nodo"><input name="node{{ i }}" [(ngModel)]="f.node" inputmode="numeric" maxlength="7" required /></td>
               <td data-label="Host"><input name="host{{ i }}" [(ngModel)]="f.host" required /></td>
               <td data-label="Puerto"><input name="port{{ i }}" [(ngModel)]="f.port" inputmode="numeric" maxlength="5" /></td>
@@ -29,7 +33,7 @@
               <td class="allmon-celda-quitar"><button type="button" class="allmon-quitar" aria-label="Quitar nodo" (click)="quitar(i)">&times;</button></td>
             </tr>
           } @empty {
-            <tr class="allmon-vacio"><td colspan="6">No hay nodos definidos.</td></tr>
+            <tr class="allmon-vacio"><td colspan="7">No hay nodos definidos.</td></tr>
           }
         </tbody>
       </table>

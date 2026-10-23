@@ -38,11 +38,12 @@ func allmonINIPath() string {
 }
 
 type allmonInstance struct {
-	Node   string
-	Host   string
-	Port   string
-	User   string
-	Secret string
+	Node             string
+	Host             string
+	Port             string
+	User             string
+	Secret           string
+	TrackingDisabled bool
 }
 
 // readAllmonInstances analiza las secciones de nodos válidas de allmon.ini y devuelve errores de lectura.
@@ -85,6 +86,7 @@ func readAllmonInstances(path string) ([]allmonInstance, error) {
 		seen[section] = struct{}{}
 		instances = append(instances, allmonInstance{
 			Node: section, Host: host, Port: port, User: user, Secret: secret,
+			TrackingDisabled: strings.EqualFold(strings.TrimSpace(values["amerimon_tracking"]), "disabled"),
 		})
 	}
 
@@ -148,7 +150,20 @@ func loadAllmonInstances() ([]allmonInstance, bool, error) {
 		return nil, true, err
 	}
 	instances, err = reconcileLocalAllmonInstances(instances)
-	return instances, true, err
+	if err != nil {
+		return nil, true, err
+	}
+	return filterDisabledAllmonInstances(instances), true, nil
+}
+
+func filterDisabledAllmonInstances(instances []allmonInstance) []allmonInstance {
+	active := make([]allmonInstance, 0, len(instances))
+	for _, instance := range instances {
+		if !instance.TrackingDisabled {
+			active = append(active, instance)
+		}
+	}
+	return active
 }
 
 // reconcileLocalAllmonInstances toma los nodos locales de rpt.conf y conserva los servidores remotos de Allmon.
@@ -179,6 +194,10 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 	}
 	resolved := make([]allmonInstance, 0, len(nodes)+len(instances))
 	local := make(map[string]bool)
+	trackingDisabled := make(map[string]bool, len(instances))
+	for _, instance := range instances {
+		trackingDisabled[instance.Node] = instance.TrackingDisabled
+	}
 	for _, node := range nodes {
 		if isPrivateMonitorNode(node, privateNodes) {
 			continue
@@ -189,6 +208,7 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 		local[node] = true
 		resolved = append(resolved, allmonInstance{
 			Node: node, Host: ami.Host, Port: port, User: ami.User, Secret: ami.Secret,
+			TrackingDisabled: trackingDisabled[node],
 		})
 	}
 	for _, instance := range instances {

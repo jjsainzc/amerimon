@@ -9,13 +9,22 @@ export interface AllmonNodoEntrada {
   port: string;
   user: string;
   passwd: string;
+  tracking_enabled: boolean;
 }
 
 export interface AllmonConfig {
   status: string;
   path: string;
   writable: boolean;
-  nodes: { node: string; host: string; port: string; user: string; passwd: string; passwd_set: boolean }[];
+  nodes: {
+    node: string;
+    host: string;
+    port: string;
+    user: string;
+    passwd: string;
+    passwd_set: boolean;
+    tracking_enabled: boolean;
+  }[];
 }
 
 @Injectable({ providedIn: 'root' })

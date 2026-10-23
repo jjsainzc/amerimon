@@ -23,20 +23,23 @@ var (
 )
 
 type allmonNodeIn struct {
-	Node   string `json:"node"`
-	Host   string `json:"host"`
-	Port   string `json:"port"`
-	User   string `json:"user"`
-	Passwd string `json:"passwd"`
+	Node             string `json:"node"`
+	Host             string `json:"host"`
+	Port             string `json:"port"`
+	User             string `json:"user"`
+	Passwd           string `json:"passwd"`
+	TrackingEnabled  *bool  `json:"tracking_enabled"`
+	TrackingDisabled bool   `json:"-"`
 }
 
 type allmonNodeOut struct {
-	Node      string `json:"node"`
-	Host      string `json:"host"`
-	Port      string `json:"port"`
-	User      string `json:"user"`
-	Passwd    string `json:"passwd"`
-	PasswdSet bool   `json:"passwd_set"`
+	Node            string `json:"node"`
+	Host            string `json:"host"`
+	Port            string `json:"port"`
+	User            string `json:"user"`
+	Passwd          string `json:"passwd"`
+	PasswdSet       bool   `json:"passwd_set"`
+	TrackingEnabled bool   `json:"tracking_enabled"`
 }
 
 // allmonWritable indica si el archivo puede abrirse para escritura o todavía no existe.
@@ -58,7 +61,10 @@ func GetAllmonConfig(c echo.Context) error {
 	}
 	nodes := make([]allmonNodeOut, 0, len(instances))
 	for _, i := range instances {
-		nodes = append(nodes, allmonNodeOut{Node: i.Node, Host: i.Host, Port: i.Port, User: i.User, Passwd: i.Secret, PasswdSet: i.Secret != ""})
+		nodes = append(nodes, allmonNodeOut{
+			Node: i.Node, Host: i.Host, Port: i.Port, User: i.User, Passwd: i.Secret,
+			PasswdSet: i.Secret != "", TrackingEnabled: !i.TrackingDisabled,
+		})
 	}
 	return c.JSON(http.StatusOK, echo.Map{
 		"status":   "ok",
@@ -90,8 +96,10 @@ func SaveAllmonConfig(c echo.Context) error {
 		return apiError(http.StatusInternalServerError, "No se pudo leer "+path)
 	}
 	existing := map[string]bool{}
+	trackingDisabled := map[string]bool{}
 	for _, i := range current {
 		existing[i.Node] = true
+		trackingDisabled[i.Node] = i.TrackingDisabled
 	}
 
 	seen := map[string]bool{}
@@ -104,6 +112,10 @@ func SaveAllmonConfig(c echo.Context) error {
 		}
 		if n.Passwd == "" && !existing[n.Node] {
 			return apiError(http.StatusBadRequest, "Nodo "+n.Node+": la contraseña es obligatoria")
+		}
+		n.TrackingDisabled = trackingDisabled[n.Node]
+		if n.TrackingEnabled != nil {
+			n.TrackingDisabled = !*n.TrackingEnabled
 		}
 		seen[n.Node] = true
 	}
@@ -185,6 +197,9 @@ func rewriteAllmonNodes(content string, nodes []allmonNodeIn, existing map[strin
 			b.WriteString("port=" + n.Port + eol)
 		}
 		b.WriteString("user=" + n.User + eol + "passwd=" + n.Passwd + eol + "hideNodeURL=no" + eol + "menu=yes" + eol)
+		if n.TrackingDisabled {
+			b.WriteString("amerimon_tracking=disabled" + eol)
+		}
 	}
 	return b.String()
 }
@@ -199,6 +214,7 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 		want["passwd"] = n.Passwd
 	}
 	done := map[string]bool{}
+	trackingDone := false
 
 	var b strings.Builder
 	b.WriteString(block[0])
@@ -207,6 +223,13 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 		trim := strings.TrimSpace(l)
 		if k := reAllmonKey.FindStringSubmatch(l); k != nil && !strings.HasPrefix(trim, ";") && !strings.HasPrefix(trim, "#") {
 			key := strings.ToLower(k[1])
+			if key == "amerimon_tracking" {
+				if n.TrackingDisabled && !trackingDone {
+					b.WriteString("amerimon_tracking=disabled" + eol)
+					trackingDone = true
+				}
+				continue
+			}
 			switch {
 			case key == "port" && n.Port == "":
 				continue // puerto vacío: se quita para usar el 5038 por defecto
@@ -232,6 +255,9 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 		if v, ok := want[key]; ok && !done[key] {
 			missing.WriteString(key + "=" + v + eol)
 		}
+	}
+	if n.TrackingDisabled && !trackingDone {
+		missing.WriteString("amerimon_tracking=disabled" + eol)
 	}
 	if missing.Len() == 0 {
 		return text
