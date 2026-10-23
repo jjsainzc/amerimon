@@ -7,3 +7,10 @@ export interface Favorito {
 }
 
 export type FavoritoEntrada = Pick<Favorito, 'numero' | 'descripcion'>;
+
+export interface AstdbCoincidencia {
+  nodo: string;
+  callsign: string;
+  descripcion: string;
+  ubicacion: string;
+}

@@ -23,6 +23,13 @@
 .fa-campo input { width: 100%; min-width: 0; box-sizing: border-box; padding: .58rem .65rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #e5edf2; font: inherit; font-weight: 400; }
 .fa-campo small { color: #ff8a80; font-weight: 400; }
 .fa-campo small.fa-sugerida { color: #a9bac5; }
+.fa-busqueda { margin: 0 0 .8rem; color: #a9bac5; font-size: .84rem; }
+.fa-coincidencias { display: grid; gap: .4rem; margin: 0 0 .8rem; padding: .65rem; border: 1px solid #455b68; border-radius: 5px; }
+.fa-coincidencias legend { padding: 0 .25rem; color: #a9bac5; font-size: .84rem; }
+.fa-coincidencia { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: .6rem; padding: .5rem .6rem; border: 1px solid #405461; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; text-align: left; cursor: pointer; }
+.fa-coincidencia:hover, .fa-coincidencia:focus-visible { border-color: #8dcfff; }
+.fa-coincidencia strong { color: #8dcfff; }
+.fa-coincidencia span { overflow-wrap: anywhere; }
 .fa-form-acciones { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .6rem; }
 @media (max-width: 600px) {
   .fav-admin { padding: 1rem .75rem 2rem; }

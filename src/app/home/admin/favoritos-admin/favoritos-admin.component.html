@@ -43,18 +43,32 @@
 
       <form [formGroup]="form" (ngSubmit)="guardar()" novalidate>
         <label class="fa-campo">
-          <span>Número del nodo *</span>
-          <input type="text" formControlName="numero" maxlength="32" autocomplete="off" placeholder="448511" />
-          @if (form.controls.numero.touched && form.controls.numero.invalid) { <small>Usa letras, números, punto, guion o barra (hasta 32).</small> }
+          <span>Búsqueda *</span>
+          <input type="text" formControlName="busqueda" maxlength="120" autocomplete="off" placeholder="Número, indicativo o descripción" />
+          @if (form.controls.busqueda.touched && form.controls.busqueda.invalid) { <small>Escribe un número, indicativo o descripción para buscar en AstDB.</small> }
         </label>
+        @if (buscando()) { <p class="fa-busqueda" role="status">Buscando en AstDB…</p> }
+        @if (estadoBusqueda()) { <p class="fa-busqueda" role="status">{{ estadoBusqueda() }}</p> }
+        @if (errorBusqueda()) { <p class="fa-mensaje fa-error" role="alert">{{ errorBusqueda() }}</p> }
+        @if (coincidencias().length > 1) {
+          <fieldset class="fa-coincidencias">
+            <legend>Destinos encontrados. Elige el nodo que quieres agregar:</legend>
+            @for (coincidencia of coincidencias(); track coincidencia.nodo) {
+              <button type="button" class="fa-coincidencia" (click)="elegirCoincidencia(coincidencia)">
+                <strong>{{ coincidencia.nodo }}</strong>
+                <span>{{ textoCoincidencia(coincidencia) }}</span>
+              </button>
+            }
+          </fieldset>
+        }
         <label class="fa-campo">
-          <span>Descripción</span>
+          <span>Descripción personalizada (opcional)</span>
           <input type="text" formControlName="descripcion" maxlength="120" [placeholder]="sugerida() || 'HI3ACS La Vega, RD'" />
           @if (sugerida() && !form.controls.descripcion.value) { <small class="fa-sugerida">Si lo dejas vacío se usará la de astdb: {{ sugerida() }}</small> }
         </label>
         <div class="fa-form-acciones">
           <button type="button" class="fa-btn" (click)="cerrarFormulario()" [disabled]="guardando()">Cancelar</button>
-          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : 'Guardar' }}</button>
+          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando() || buscando()">{{ guardando() ? 'Guardando…' : 'Guardar' }}</button>
         </div>
       </form>
     </section>

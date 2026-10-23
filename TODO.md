@@ -17,6 +17,6 @@
 
 ## 4. En las configuraciones de nodo principal, para el file /etc/asterisk/manager.conf,  agregar cambio de passwd, hay que mostrarlo,  AMI (secret) y bind address, opcional las variables deny y permit para agregar redes con su ayuda de calculos de red, usar "manager reload" para no reiniciar asterisk, y actualizar esto en las config del yaml /etc/amerimon.
 
-## 5. Cuando se vaya a agregar a favoritos un nodo, tener la opcion de poner tambien un indicativo y que muestre los numeros de nodos que tengan si son mas de uno para escoger uno.
+## 5. Cuando se vaya a agregar a favoritos un nodo, tener la opcion de poner tambien un indicativo y que muestre las ocurrencias encontradas de nodos (si son mas de uno) para escoger el deseado.
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 

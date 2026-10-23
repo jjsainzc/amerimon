@@ -214,6 +214,7 @@ menu=yes
 - Si la contraseña de la instancia queda vacía y host/puerto/usuario coinciden con AMI global, se reutiliza el secreto global.
 - El editor de Allmon valida hasta 50 nodos, crea una copia `allmon.ini.amerimon.bak` y solo reescribe las secciones de nodos.
 - La casilla **Seguimiento** de **Administración → Nodos Allmon** permite excluir un nodo del monitor, sus consultas de actividad y sus operaciones sin borrarlo. Amerimon guarda esa elección con `amerimon_tracking=disabled` en su stanza; al volver a activar la casilla, elimina únicamente esa opción propia y conserva las demás configuraciones.
+- En **Administración → Favoritos**, un único campo **Búsqueda** consulta AstDB por número de nodo, indicativo o descripción. Una coincidencia selecciona el nodo automáticamente y, si hay varias, puedes elegir el destino; el favorito guarda el número seleccionado.
 
 Si no hay instancias Allmon configuradas, los nodos locales se leen de `rpt_config_path` (normalmente `/etc/asterisk/rpt.conf`) y todos usan la AMI global.
 

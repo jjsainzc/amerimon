@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -92,6 +93,41 @@ func ListFavoritos(c echo.Context) error {
 		items = append(items, f)
 	}
 	return c.JSON(http.StatusOK, items)
+}
+
+// BuscarAstdbFavorito busca números, indicativos y descripciones que coinciden con el texto.
+func BuscarAstdbFavorito(c echo.Context) error {
+	query := strings.TrimSpace(c.QueryParam("q"))
+	if query == "" || len(query) > 120 || strings.ContainsAny(query, "\r\n\x00") {
+		return apiError(http.StatusBadRequest, "Introduce un texto válido para buscar")
+	}
+	path := strings.TrimSpace(config.App.Sources.AstDBPath)
+	if path == "" {
+		return apiError(http.StatusInternalServerError, "La ruta de astdb.txt no está configurada")
+	}
+	results, err := buscarCoincidenciasAstDB(path, query)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, "No se pudo leer el archivo astdb.txt")
+	}
+	return c.JSON(http.StatusOK, results)
+}
+
+func buscarCoincidenciasAstDB(path, query string) ([]AstDBEntry, error) {
+	entries, err := readAstDBEntries(path)
+	if err != nil {
+		return nil, err
+	}
+	needle := strings.ToLower(query)
+	results := make([]AstDBEntry, 0)
+	for _, entry := range entries {
+		if strings.Contains(strings.ToLower(entry.Nodo), needle) ||
+			strings.Contains(strings.ToLower(entry.Callsign), needle) ||
+			strings.Contains(strings.ToLower(entry.Descripcion), needle) {
+			results = append(results, entry)
+		}
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Nodo < results[j].Nodo })
+	return results, nil
 }
 
 // AstdbFavorito devuelve la descripción del nodo en astdb.txt, para sugerirla al crear un favorito.

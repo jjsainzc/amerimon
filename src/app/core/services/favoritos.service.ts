@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../environment';
-import { Favorito, FavoritoEntrada } from '../models/favorito.model';
+import { AstdbCoincidencia, Favorito, FavoritoEntrada } from '../models/favorito.model';
 
 @Injectable({ providedIn: 'root' })
 export class FavoritosService {
@@ -17,6 +17,11 @@ export class FavoritosService {
   /** Busca en AstDB la descripción del nodo para completar su ficha de favorito. */
   descripcionAstdb(numero: string): Observable<{ descripcion: string }> {
     return this.http.get<{ descripcion: string }>(`${this.url}/astdb/${encodeURIComponent(numero)}`);
+  }
+
+  /** Busca nodos de AstDB por número, indicativo o descripción. */
+  buscarAstdb(query: string): Observable<AstdbCoincidencia[]> {
+    return this.http.get<AstdbCoincidencia[]>(`${this.url}/astdb-search`, { params: { q: query } });
   }
 
   /** Guarda un nuevo favorito y devuelve el registro con su identificador. */

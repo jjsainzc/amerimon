@@ -1,8 +1,8 @@
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { EMPTY, catchError, debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs';
+import { catchError, distinctUntilChanged, finalize, map, of, switchMap, timer } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Favorito, FavoritoEntrada } from '../../../core/models/favorito.model';
+import { AstdbCoincidencia, Favorito, FavoritoEntrada } from '../../../core/models/favorito.model';
 import { FavoritosService } from '../../../core/services/favoritos.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
@@ -29,26 +29,55 @@ export class FavoritosAdminComponent implements OnInit {
   readonly editandoId = signal<number | null>(null);
   readonly pendienteBorrar = signal<Favorito | null>(null);
   readonly sugerida = signal('');
+  readonly nodoSeleccionado = signal('');
+  readonly coincidencias = signal<AstdbCoincidencia[]>([]);
+  readonly buscando = signal(false);
+  readonly errorBusqueda = signal('');
+  readonly estadoBusqueda = signal('');
 
   readonly form = this.fb.nonNullable.group({
-    numero: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,31}$/)]],
+    busqueda: ['', [Validators.required, Validators.maxLength(120)]],
     descripcion: ['', [Validators.maxLength(120)]]
   });
 
-  /** Carga los favoritos y conecta el formulario con la sugerencia de astdb. */
+  /** Carga favoritos y busca nodos de AstDB por número, indicativo o descripción. */
   ngOnInit(): void {
     this.cargar();
-    // Sugiere la descripción de astdb.txt al escribir el número del nodo.
-    this.form.controls.numero.valueChanges.pipe(
-      map(v => v.trim()),
-      debounceTime(300),
+    this.form.controls.busqueda.valueChanges.pipe(
+      map(value => value.trim()),
       distinctUntilChanged(),
-      switchMap(numero => {
-        if (!this.form.controls.numero.valid) { this.sugerida.set(''); return EMPTY; }
-        return this.svc.descripcionAstdb(numero).pipe(catchError(() => { this.sugerida.set(''); return EMPTY; }));
+      switchMap(query => {
+        this.nodoSeleccionado.set('');
+        this.sugerida.set('');
+        this.coincidencias.set([]);
+        this.errorBusqueda.set('');
+        this.estadoBusqueda.set('');
+        if (!query || !this.form.controls.busqueda.valid) {
+          this.buscando.set(false);
+          return of<AstdbCoincidencia[] | null>([]);
+        }
+        this.buscando.set(true);
+        return timer(300).pipe(
+          switchMap(() => this.svc.buscarAstdb(query)),
+          catchError(error => {
+            this.errorBusqueda.set(this.mensajeError(error));
+            return of<AstdbCoincidencia[] | null>(null);
+          }),
+          finalize(() => this.buscando.set(false))
+        );
       }),
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(r => this.sugerida.set(r.descripcion ?? ''));
+    ).subscribe(results => {
+      if (results === null) { return; }
+      this.coincidencias.set(results);
+      if (results.length === 1) {
+        this.elegirCoincidencia(results[0]);
+      } else if (results.length > 1) {
+        this.estadoBusqueda.set(`Se encontraron ${results.length} nodos. Elige el destino deseado.`);
+      } else if (this.form.controls.busqueda.value.trim()) {
+        this.estadoBusqueda.set('No se encontraron nodos en AstDB para esa búsqueda.');
+      }
+    });
   }
 
   /** Obtiene la lista de favoritos y comunica errores de consulta. */
@@ -72,7 +101,11 @@ export class FavoritosAdminComponent implements OnInit {
     this.editandoId.set(null);
     this.error.set('');
     this.sugerida.set('');
-    this.form.reset({ numero: '', descripcion: '' });
+    this.nodoSeleccionado.set('');
+    this.coincidencias.set([]);
+    this.errorBusqueda.set('');
+    this.estadoBusqueda.set('');
+    this.form.reset({ busqueda: '', descripcion: '' });
     this.formularioAbierto.set(true);
   }
 
@@ -81,7 +114,11 @@ export class FavoritosAdminComponent implements OnInit {
     this.editandoId.set(f.id);
     this.error.set('');
     this.sugerida.set(f.descripcion_astdb ?? '');
-    this.form.reset({ numero: f.numero, descripcion: f.descripcion });
+    this.nodoSeleccionado.set(f.numero);
+    this.coincidencias.set([]);
+    this.errorBusqueda.set('');
+    this.estadoBusqueda.set('Nodo guardado seleccionado.');
+    this.form.reset({ busqueda: f.numero, descripcion: f.descripcion }, { emitEvent: false });
     this.formularioAbierto.set(true);
   }
 
@@ -94,10 +131,17 @@ export class FavoritosAdminComponent implements OnInit {
   /** Valida y crea o actualiza el favorito según el modo de edición. */
   guardar(): void {
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.guardando()) { return; }
+    if (this.form.invalid || this.guardando() || this.buscando()) { return; }
+    if (!this.nodoSeleccionado()) {
+      this.errorBusqueda.set('Selecciona un nodo de los resultados de AstDB.');
+      return;
+    }
 
     const v = this.form.getRawValue();
-    const datos: FavoritoEntrada = { numero: v.numero.trim(), descripcion: v.descripcion.trim() };
+    const datos: FavoritoEntrada = {
+      numero: this.nodoSeleccionado(),
+      descripcion: v.descripcion.trim()
+    };
     const id = this.editandoId();
     this.guardando.set(true);
     this.error.set('');
@@ -140,6 +184,20 @@ export class FavoritosAdminComponent implements OnInit {
       },
       error: err => this.error.set(this.mensajeError(err))
     });
+  }
+
+  /** Selecciona el nodo de AstDB que se guardará como favorito. */
+  elegirCoincidencia(coincidencia: AstdbCoincidencia): void {
+    this.nodoSeleccionado.set(coincidencia.nodo);
+    this.sugerida.set(this.textoCoincidencia(coincidencia));
+    this.estadoBusqueda.set(`Nodo ${coincidencia.nodo} seleccionado.`);
+    this.coincidencias.set([]);
+  }
+
+  /** Presenta los datos de AstDB asociados a una coincidencia de indicativo. */
+  textoCoincidencia(coincidencia: AstdbCoincidencia): string {
+    return [coincidencia.callsign, coincidencia.descripcion, coincidencia.ubicacion]
+      .map(value => value.trim()).filter(Boolean).join(' ');
   }
 
   /** Extrae el mensaje del servidor o devuelve uno genérico para la interfaz. */
