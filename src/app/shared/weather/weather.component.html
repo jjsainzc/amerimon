@@ -3,8 +3,45 @@
 } @else if (errorMessage()) {
   <div class="error-message">
     {{ errorMessage() }}
-    <button type="button" class="weather-retry" (click)="loadWeather()">Reintentar</button>
+  </div>
+  <div class="retry-message">
+    Reintentando automáticamente en segundo plano...
+    <button type="button" class="weather-retry" (click)="loadWeather()">Reintentar ahora</button>
   </div>
 } @else {
   <div class="report-content" [title]="weatherReport()"><strong>Clima local:</strong> {{ weatherReport() }}</div>
 }
+<div class="location-row">
+  @if (consultedLocation()) {
+    <span class="location-message" [title]="consultedLocation()">Localidad consultada:
+      @if (locationMapUrl()) {
+        <a [href]="locationMapUrl()" target="_blank" rel="noopener noreferrer" title="Ver localidad en Google Maps"><strong>{{ consultedLocation() }}</strong></a>
+      } @else {
+        <strong>{{ consultedLocation() }}</strong>
+      }
+    </span>
+  }
+  <button type="button" class="weather-change" aria-haspopup="dialog" (click)="openLocationDialog(locationDialog)"><span aria-hidden="true">↻</span> Cambiar ubicación</button>
+</div>
+
+<dialog #locationDialog class="location-dialog" aria-labelledby="weather-location-title" (close)="closeLocationDialog()">
+  <h2 id="weather-location-title">Cambiar ubicación</h2>
+  <button type="button" class="location-close" aria-label="Cerrar" (click)="locationDialog.close()">×</button>
+  <p>Este cambio es temporal y no modifica la configuración del administrador.</p>
+  <div class="location-options">
+    <button type="button" [disabled]="locating()" (click)="useBrowserLocation(locationDialog)">
+      {{ locating() ? 'Obteniendo ubicación...' : 'Obtener mi ubicación' }}
+    </button>
+    @if (configuredLocation()) {
+      <button type="button" (click)="useConfiguredLocation(locationDialog)">Usar configuración</button>
+    }
+  </div>
+  <form (ngSubmit)="useEnteredLocation(locationDialog)">
+    <label for="weather-location">Ubicación</label>
+    <input id="weather-location" type="text" name="location" [(ngModel)]="locationDraft" maxlength="120" placeholder="Ciudad, código postal o lat,lon" />
+    <button type="submit">Usar ubicación</button>
+  </form>
+  @if (locationError()) {
+    <p class="location-error" role="alert">{{ locationError() }}</p>
+  }
+</dialog>

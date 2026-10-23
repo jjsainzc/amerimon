@@ -114,7 +114,7 @@
       <label>Ubicación del clima
         <input type="text" name="ubicacionClima" [(ngModel)]="ubicacionClimaCabecera" maxlength="120" placeholder="Ciudad, código postal o lat,lon" />
       </label>
-      <p class="nota-cabecera">Si se indica, se usa siempre. Si queda vacía, se pide la ubicación al navegador y, si el visitante no la autoriza, se estima por su IP.</p>
+      <p class="nota-cabecera">Se usa como ubicación predeterminada. Si queda vacía, se pide la ubicación al navegador y, si el visitante no la autoriza, se estima por su IP. Cada visitante puede cambiarla temporalmente sin modificar este valor.</p>
       @if (errorCabecera()) { <p class="error" role="alert">{{ errorCabecera() }}</p> }
       <div class="acciones">
         <button type="submit" [disabled]="guardandoCabecera()">{{ guardandoCabecera() ? 'Guardando…' : 'Guardar' }}</button>
