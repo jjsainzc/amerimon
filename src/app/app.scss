@@ -58,10 +58,42 @@
 .enlaces { display: flex; flex-wrap: wrap; gap: .4rem; margin-right: auto; }
 .enlaces a, .enlaces button { padding: .4rem .65rem; border: 0; border-radius: 5px; background: transparent; color: #dce5eb; text-decoration: none; font: inherit; cursor: pointer; }
 .enlaces a.activo { background: #263d47; color: #79d3dd; }
-.sesion { display: flex; flex-wrap: wrap; gap: .4rem; }
+.sesion { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-left: auto; }
 .sesion .boton-enlace { padding: .42rem .65rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; font-size: .82rem; text-decoration: none; cursor: pointer; }
 .sesion .boton-enlace:hover, .enlaces a:hover, .enlaces button:hover { background: #304651; }
 .sesion .boton-enlace.activo { color: #79d3dd; }
+.admin-desplegable { position: relative; }
+.admin-desplegable-boton { display: inline-flex; align-items: center; gap: .4rem; }
+.admin-desplegable-panel {
+  position: absolute;
+  top: calc(100% + .35rem);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  min-width: 13rem;
+  padding: .35rem;
+  border: 1px solid #455b68;
+  border-radius: 6px;
+  background: #1d2a34;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .3);
+}
+.admin-desplegable-panel a,
+.admin-desplegable-panel button {
+  padding: .5rem .65rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #dce5eb;
+  font: inherit;
+  font-size: .82rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.admin-desplegable-panel a:hover,
+.admin-desplegable-panel button:hover,
+.admin-desplegable-panel a.activo { background: #263d47; color: #79d3dd; }
+.sesion .boton-salir { margin-left: .25rem; padding-inline: .7rem; }
 
 @media (max-width: 720px) {
   .barra { margin: .5rem; padding: .8rem; }
@@ -109,6 +141,19 @@
   .menu.abierto { display: flex; }
   .menu .enlaces, .menu .sesion { flex-direction: column; align-items: stretch; width: 100%; }
   .menu .enlaces a, .menu .enlaces button, .menu .sesion .boton-enlace { text-align: left; }
+  .menu .sesion { margin-left: 0; }
+  .menu .admin-desplegable { width: 100%; }
+  .menu .admin-desplegable-boton { display: none; }
+  .admin-desplegable-panel {
+    position: static;
+    min-width: 0;
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .menu .sesion .boton-salir { align-self: flex-end; width: auto; text-align: center; }
 }
 
 .sesion button, .acciones button {

@@ -24,16 +24,27 @@
     <div class="sesion">
       @if (esAdmin()) {
         <button type="button" class="boton-enlace" (click)="abrirSistema()">Sistema</button>
-        <a class="boton-enlace" routerLink="/admin/allstarlink-historial" routerLinkActive="activo" (click)="cerrarMenu()">Historial</a>
-        <a class="boton-enlace" routerLink="/admin/asterisk-logs" routerLinkActive="activo" (click)="cerrarMenu()">Registros Asterisk</a>
         <a class="boton-enlace" routerLink="/admin/favoritos" routerLinkActive="activo" (click)="cerrarMenu()">Favoritos</a>
-        <a class="boton-enlace" routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">Nodos Allmon</a>
-        <a class="boton-enlace" routerLink="/admin/primary-node" routerLinkActive="activo" (click)="cerrarMenu()">Nodo principal</a>
-        <a class="boton-enlace" routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">Nodos privados</a>
         <a class="boton-enlace" routerLink="/admin/enlaces-externos" routerLinkActive="activo" (click)="cerrarMenu()">Administrar enlaces</a>
-        <button type="button" class="boton-enlace" (click)="abrirEdicionCabecera()">Personalizar cabecera</button>
-        <button type="button" class="boton-enlace" (click)="abrirCambio()">Cambiar contraseña</button>
-        <button type="button" class="boton-enlace" (click)="salir()">Salir</button>
+        <div class="admin-desplegable">
+          <button type="button" class="boton-enlace admin-desplegable-boton"
+                  aria-haspopup="true" [attr.aria-expanded]="adminMenuAbierto()"
+                  (click)="alternarMenuAdmin()">Más opciones <span aria-hidden="true">▾</span></button>
+          @if (adminMenuAbierto() || menuAbierto()) {
+            <nav class="admin-desplegable-panel" aria-label="Más opciones de administración">
+              <a routerLink="/admin/allstarlink-historial" routerLinkActive="activo" (click)="cerrarMenu()">Historial</a>
+              <a routerLink="/admin/asterisk-logs" routerLinkActive="activo" (click)="cerrarMenu()">Registros Asterisk</a>
+              <a routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">Nodos Allmon</a>
+              <a routerLink="/admin/primary-node" routerLinkActive="activo" (click)="cerrarMenu()">Nodo principal</a>
+              <a routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">Nodos privados</a>
+              <button type="button" (click)="abrirEdicionCabecera()">Personalizar cabecera</button>
+              <button type="button" (click)="abrirCambio()">Cambiar contraseña</button>
+            </nav>
+          }
+        </div>
+        <button type="button" class="boton-enlace boton-salir" aria-label="Salir" title="Salir" (click)="salir()">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        </button>
       } @else {
         <button type="button" class="boton-enlace" (click)="abrirLogin()">Admin</button>
       }

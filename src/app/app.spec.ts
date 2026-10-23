@@ -16,7 +16,9 @@ describe('App', () => {
 
   afterEach(() => {
     const http = TestBed.inject(HttpTestingController);
-    http.match(req => req.url === `${environment.apiUrl}/weather`).forEach(req => req.flush(''));
+    http.match(req => req.url === `${environment.apiUrl}/weather`)
+      .filter(req => !req.cancelled)
+      .forEach(req => req.flush(''));
     http.verify({ ignoreCancelled: true });
     localStorage.clear();
   });
@@ -115,8 +117,26 @@ describe('App', () => {
     request.flush({ status: 'ok', token: `header.${btoa(JSON.stringify({ role: 'A' }))}.signature` });
     await fixture.whenStable();
     expect(element.querySelector('form.dialogo')).toBeNull();
-    Array.from(element.querySelectorAll<HTMLButtonElement>('.sesion button'))
-      .find(button => button.textContent?.trim() === 'Salir')!.click();
+    expect(element.querySelector('.sesion a[routerLink="/admin/favoritos"]')).not.toBeNull();
+    expect(element.querySelector('.sesion a[routerLink="/admin/enlaces-externos"]')).not.toBeNull();
+    expect(element.querySelector('.sesion a[routerLink="/admin/allmon"]')).toBeNull();
+    const adminMenuButton = element.querySelector<HTMLButtonElement>('.admin-desplegable-boton')!;
+    adminMenuButton.click();
+    await fixture.whenStable();
+    expect(element.querySelector('.admin-desplegable-panel a[routerLink="/admin/allmon"]')).not.toBeNull();
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await fixture.whenStable();
+    expect(element.querySelector('.admin-desplegable-panel')).toBeNull();
+    const hamburger = element.querySelector<HTMLButtonElement>('.hamburguesa')!;
+    hamburger.click();
+    await fixture.whenStable();
+    expect(element.querySelector('.menu')?.classList.contains('abierto')).toBe(true);
+    expect(element.querySelector('.admin-desplegable-panel a[routerLink="/admin/allmon"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel button')?.textContent).toContain('Personalizar cabecera');
+    hamburger.click();
+    await fixture.whenStable();
+    expect(element.querySelector('.admin-desplegable-panel')).toBeNull();
+    element.querySelector<HTMLButtonElement>('[aria-label="Salir"]')!.click();
     await fixture.whenStable();
     expect(localStorage.getItem('amerimon.admin.token')).toBeNull();
     fixture.destroy();

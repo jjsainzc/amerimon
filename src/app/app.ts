@@ -39,6 +39,7 @@ export class App implements OnInit {
     return [subtitle, version].filter(Boolean).join(' · ') || 'Monitoreo AllStarLink';
   });
   protected readonly menuAbierto = signal(false);
+  protected readonly adminMenuAbierto = signal(false);
   protected readonly dialogoAbierto = signal(false);
   protected readonly sistemaAbierto = signal(false);
   protected readonly edicionCabeceraAbierta = signal(false);
@@ -80,6 +81,20 @@ export class App implements OnInit {
     this.menuAbierto.update(v => !v);
   }
 
+  /** Alterna el submenú de administración. */
+  protected alternarMenuAdmin(): void {
+    this.adminMenuAbierto.update(open => !open);
+  }
+
+  /** Cierra el submenú al hacer clic fuera de su botón y opciones. */
+  @HostListener('document:click', ['$event'])
+  protected cerrarMenuAdminFuera(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest('.admin-desplegable')) {
+      this.adminMenuAbierto.set(false);
+    }
+  }
+
   /** Oculta la cabecera al desplazarse hacia abajo y la muestra al subir. */
   @HostListener('window:scroll')
   protected controlarHeader(): void {
@@ -92,6 +107,7 @@ export class App implements OnInit {
   @HostListener('document:keydown.escape')
   protected cerrarMenu(): void {
     this.menuAbierto.set(false);
+    this.adminMenuAbierto.set(false);
     this.enlacesAbiertos.set(false);
   }
 
@@ -116,6 +132,7 @@ export class App implements OnInit {
   /** Abre el acceso administrativo y decide si corresponde iniciar sesión o configurar. */
   protected abrirLogin(): void {
     this.menuAbierto.set(false);
+    this.adminMenuAbierto.set(false);
     this.limpiar();
     this.password = this.auth.passwordRecordada();
     this.dialogoAbierto.set(true);
@@ -129,6 +146,7 @@ export class App implements OnInit {
   /** Abre el diálogo para cambiar la contraseña de la sesión actual. */
   protected abrirCambio(): void {
     this.menuAbierto.set(false);
+    this.adminMenuAbierto.set(false);
     this.limpiar();
     this.modo.set('cambiar');
     this.dialogoAbierto.set(true);
@@ -137,6 +155,7 @@ export class App implements OnInit {
   /** Muestra el diálogo con información del sistema. */
   protected abrirSistema(): void {
     this.menuAbierto.set(false);
+    this.adminMenuAbierto.set(false);
     this.sistemaAbierto.set(true);
   }
 
@@ -148,6 +167,7 @@ export class App implements OnInit {
   /** Copia los ajustes actuales a los campos de edición de la cabecera. */
   protected abrirEdicionCabecera(): void {
     this.menuAbierto.set(false);
+    this.adminMenuAbierto.set(false);
     this.tituloCabecera = this.ajustesCabecera().title;
     this.subtituloCabecera = this.ajustesCabecera().subtitle;
     this.ubicacionClimaCabecera = this.ajustesCabecera().weather_location ?? '';
@@ -182,6 +202,7 @@ export class App implements OnInit {
   /** Cierra el menú e inicia el cierre de sesión. */
   protected salir(): void {
     this.menuAbierto.set(false);
+    this.adminMenuAbierto.set(false);
     this.auth.logout();
   }
 
