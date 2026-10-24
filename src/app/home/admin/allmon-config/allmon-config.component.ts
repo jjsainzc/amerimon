@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { AllmonConfigService, AllmonNodoEntrada } from '../../../core/services/allmon-config.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
@@ -12,7 +13,7 @@ interface Fila extends AllmonNodoEntrada {
 @Component({
   selector: 'app-allmon-config',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent, CopyValueDirective],
   templateUrl: './allmon-config.component.html',
   styleUrl: './allmon-config.component.css'
 })

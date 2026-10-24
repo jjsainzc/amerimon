@@ -14,9 +14,9 @@
 }
 
 .logs-tabla th:nth-child(1), .logs-tabla td:nth-child(1) { width: 130px; } /* Fecha y hora */
-.logs-tabla th:nth-child(2), .logs-tabla td:nth-child(2) { width: 100px; } /* Acción */
-.logs-tabla th:nth-child(3), .logs-tabla td:nth-child(3) { width: 85px;  } /* Nodo local */
-.logs-tabla th:nth-child(4), .logs-tabla td:nth-child(4) { width: 85px;  } /* Nodo remoto */
+.logs-tabla th:nth-child(2), .logs-tabla td:nth-child(2) { width: calc(100px + 3ch); } /* Acción */
+.logs-tabla th:nth-child(3), .logs-tabla td:nth-child(3) { width: calc(85px + 3ch);  } /* Nodo local */
+.logs-tabla th:nth-child(4), .logs-tabla td:nth-child(4) { width: calc(85px + 3ch);  } /* Nodo remoto */
 .logs-tabla th:nth-child(5), .logs-tabla td:nth-child(5) { width: 75px;  } /* Modo */
 .logs-tabla th:nth-child(6), .logs-tabla td:nth-child(6) { width: auto;   } /* Comando */
 .logs-tabla th:nth-child(7), .logs-tabla td:nth-child(7) { width: 110px; } /* Resultado */
@@ -31,6 +31,15 @@
 .logs-detalle p { max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; }
 .logs-error { padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
 .logs-estado, .logs-vacio { padding: 1rem 0; color: #a9bac5; }
+
+@media (min-width: 769px) {
+  .logs-tabla td:nth-child(2),
+  .logs-tabla td:nth-child(3),
+  .logs-tabla td:nth-child(4) {
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+  }
+}
 
 @media (max-width: 700px) {
   .logs-cabecera h1 { font-size: 1.15rem; }

@@ -1,4 +1,5 @@
 import { Component, HostListener, OnDestroy, OnInit, effect, inject, signal } from '@angular/core';
+import { CopyValueDirective } from '../../shared/copy-value/copy-value.directive';
 import { ListenLiveService } from '../../core/services/listenlive.service';
 import { ListenLiveSessionsService } from '../../core/services/listenlive-sessions.service';
 import { ListenLiveSession } from '../../core/models/listenlive-session.model';
@@ -12,7 +13,7 @@ import { ConfirmacionDialogComponent } from '../../shared/confirmacion-dialog/co
 @Component({
   selector: 'app-monitor-call',
   standalone: true,
-  imports: [UtcToLocalPipe, LoadingIndicatorComponent, MarkdownViewerComponent, ConfirmacionDialogComponent, GeoIpLinkComponent],
+  imports: [UtcToLocalPipe, LoadingIndicatorComponent, MarkdownViewerComponent, ConfirmacionDialogComponent, GeoIpLinkComponent, CopyValueDirective],
   templateUrl: './monitorcall.component.html',
   styleUrl: './monitorcall.component.css'
 })

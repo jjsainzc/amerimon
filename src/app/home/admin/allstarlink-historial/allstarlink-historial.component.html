@@ -20,11 +20,11 @@
   <form class="historial-filtros" data-print-hide [formGroup]="filtroForm" (ngSubmit)="cargar()">
     <label>
       <span>Nodo local</span>
-      <input type="search" inputmode="numeric" placeholder="Ej. 616260" formControlName="local_node" />
+      <span class="clipboard-field" [appCopy]="filtroForm.controls.local_node.value"><input type="search" inputmode="numeric" placeholder="Ej. 616260" formControlName="local_node" /></span>
     </label>
     <label>
       <span>Nodo remoto</span>
-      <input type="search" inputmode="numeric" placeholder="Ej. 616265" formControlName="remote_node" />
+      <span class="clipboard-field" [appCopy]="filtroForm.controls.remote_node.value"><input type="search" inputmode="numeric" placeholder="Ej. 616265" formControlName="remote_node" /></span>
     </label>
     <label>
       <span>Desde</span>
@@ -75,15 +75,17 @@
               @if (indice === 0 || conexion.local_node !== conexionesPaginadas()[indice - 1].local_node) {
                 <tr class="historial-grupo"><th colspan="8">
                   <span class="historial-grupo-etiqueta">Nodo local</span>
-                  <span class="historial-nodo-local">{{ conexion.local_node }}</span>
+                  <span class="historial-nodo-local" [appCopy]="conexion.local_node">{{ conexion.local_node }}</span>
                 </th></tr>
               }
               <tr>
                 <td><span [class]="'historial-tipo ' + claseTipoConexion(conexion.connection_type)">{{ etiquetaTipoConexion(conexion.connection_type) }}</span></td>
                 <td class="historial-nodo">
+                  <span [appCopy]="conexion.remote_node">
                   @if (urlEstadisticasNodo(conexion.remote_node, conexion.connection_type); as url) {
                     <a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_node }}</a>
                   } @else { {{ conexion.remote_node }} }
+                  </span>
                 </td>
                 <td>
                   @if (conexion.remote_ip; as ip ) {
@@ -95,8 +97,8 @@
                 </td>
                 <td>
                   @if (urlQrz(conexion.remote_callsign); as url) {
-                    <a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_callsign }}</a>
-                  } @else { {{ conexion.remote_callsign || '—' }} }
+                    <span [appCopy]="conexion.remote_callsign"><a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_callsign }}</a></span>
+                  } @else { <span [appCopy]="conexion.remote_callsign">{{ conexion.remote_callsign || '—' }}</span> }
                 </td>
                 <td class="historial-descripcion">{{ conexion.remote_description || '—' }}</td>
                 <td><time [attr.datetime]="conexion.first_seen_at">{{ conexion.first_seen_at | utcToLocal:'yyyy-MM-dd HH:mm:ss' }}</time></td>
@@ -116,7 +118,7 @@
           @if (indice === 0 || conexion.local_node !== conexionesPaginadas()[indice - 1].local_node) {
             <h2 class="historial-grupo-movil">
               <span class="historial-grupo-etiqueta">Nodo local</span>
-              <span class="historial-nodo-local">{{ conexion.local_node }}</span>
+              <span class="historial-nodo-local" [appCopy]="conexion.local_node">{{ conexion.local_node }}</span>
             </h2>
           }
           <article class="historial-card">
@@ -127,9 +129,11 @@
             <dl>
               <dt>Nodo remoto</dt>
               <dd>
+                <span [appCopy]="conexion.remote_node">
                 @if (urlEstadisticasNodo(conexion.remote_node, conexion.connection_type); as url) {
                   <a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_node }}</a>
                 } @else { {{ conexion.remote_node }} }
+                </span>
               </dd>
               <dt>IP remota</dt>
               <dd>
@@ -142,8 +146,8 @@
               <dt>Indicativo remoto</dt>
               <dd>
                 @if (urlQrz(conexion.remote_callsign); as url) {
-                  <a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_callsign }}</a>
-                } @else { {{ conexion.remote_callsign || '—' }} }
+                  <span [appCopy]="conexion.remote_callsign"><a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_callsign }}</a></span>
+                } @else { <span [appCopy]="conexion.remote_callsign">{{ conexion.remote_callsign || '—' }}</span> }
               </dd>
               <dt>Descripción</dt><dd>{{ conexion.remote_description || '—' }}</dd>
               <dt>Desconectado</dt>
@@ -166,4 +170,3 @@
 </main>
 
 <app-scroll-top />
-

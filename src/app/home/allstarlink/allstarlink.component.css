@@ -265,7 +265,7 @@
   font-weight: 700;
 }
 .allstarlink-tabla th.allstarlink-columna-nodo,
-.allstarlink-tabla td.allstarlink-columna-nodo { width: 12ch; max-width: 12ch; white-space: nowrap; }
+.allstarlink-tabla td.allstarlink-columna-nodo { width: 16ch; max-width: 16ch; white-space: nowrap; }
 
 .allstarlink-tabla th.allstarlink-columna-protocolo,
 .allstarlink-tabla td.allstarlink-columna-protocolo { width: 18ch; max-width: 18ch; white-space: nowrap; }
@@ -293,7 +293,7 @@
 .allstarlink-tabla td.allstarlink-columna-enlace { width: 18ch !important; max-width: 18ch !important; white-space: nowrap !important; }
 
 .allstarlink-tabla th.allstarlink-columna-callsign,
-.allstarlink-tabla td.allstarlink-columna-callsign { width: 12ch !important; max-width: 12ch !important; white-space: nowrap !important; }
+.allstarlink-tabla td.allstarlink-columna-callsign { width: 18ch !important; max-width: 18ch !important; white-space: nowrap !important; }
 
 
 @container allstarlink-layout (min-width: 971px) {

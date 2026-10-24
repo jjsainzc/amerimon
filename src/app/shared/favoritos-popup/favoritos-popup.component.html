@@ -11,11 +11,12 @@
         @if (favoritos().length) {
           <ul class="fav-lista">
             @for (f of favoritos(); track f.id) {
-              <li>
+              <li class="fav-copy-row">
                 <button type="button" class="fav-item" (click)="seleccionado.emit(f.numero)">
                   <strong>{{ f.numero }}</strong>
                   <span>{{ f.descripcion || f.descripcion_astdb || 'Sin descripción' }}</span>
                 </button>
+                <span [appCopy]="f.numero"></span>
               </li>
             }
           </ul>

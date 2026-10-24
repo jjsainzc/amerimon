@@ -1,13 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, output, signal } from '@angular/core';
+import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { SystemInfo } from '../../core/models/system-info.model';
 import { SystemAction, SystemControlResponse, SystemInfoService } from '../../core/services/system-info.service';
 
 @Component({
   selector: 'app-system-info-dialog',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CopyValueDirective],
   templateUrl: './system-info-dialog.component.html',
   styleUrl: './system-info-dialog.component.css',
 })

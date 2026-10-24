@@ -1,11 +1,12 @@
 import { Component, input, output, signal } from '@angular/core';
+import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-net-calculator-popup',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, CopyValueDirective],
   templateUrl: './net-calculator-popup.component.html',
   styleUrl: './net-calculator-popup.component.css'
 })

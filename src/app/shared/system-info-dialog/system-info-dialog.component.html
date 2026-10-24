@@ -105,7 +105,9 @@
         <article class="sys-tarjeta">
           <h3>Red</h3>
           @for (interfaz of info.network; track interfaz.device) {
-            <div class="sys-sublectura"><strong>{{ interfaz.device }} · {{ interfaz.status }}</strong><span>{{ interfaz.ip_address.join(', ') || 'Sin IP' }}</span><span>MAC {{ interfaz.mac_address || '—' }}</span></div>
+            <div class="sys-sublectura"><strong>{{ interfaz.device }} · {{ interfaz.status }}</strong>
+              @for (ip of interfaz.ip_address; track $index) { <span [appCopy]="ip">{{ ip }}</span> } @empty { <span>Sin IP</span> }
+              <span>MAC {{ interfaz.mac_address || '—' }}</span></div>
           } @empty { <span>Sin interfaces de red.</span> }
         </article>
         <article class="sys-tarjeta">

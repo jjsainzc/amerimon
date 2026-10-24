@@ -69,17 +69,17 @@
           </label>
           <label>
             <span>Nodo local</span>
-            <select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
+            <span class="clipboard-field" [appCopy]="nodoLocal()"><select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
               <option value="" disabled>Selecciona un nodo</option>
               @for (nodo of nodosLocales(); track nodo) {
                 <option [value]="nodo">{{ nodo }}</option>
               }
-            </select>
+            </select></span>
           </label>
           @if (comandoSeleccionado()?.requires_remote_node) {
             <label>
               <span>Nodo remoto o indicativo</span>
-              <input type="text" autocomplete="off" [value]="nodoRemoto()" (input)="nodoRemoto.set($any($event.target).value)" placeholder="Ej. 448511 o EA4ABC" required>
+              <span class="clipboard-field" [appCopy]="nodoRemoto()"><input type="text" autocomplete="off" [value]="nodoRemoto()" (input)="nodoRemoto.set($any($event.target).value)" placeholder="Ej. 448511 o EA4ABC" required></span>
             </label>
           }
           @if (comandoSeleccionado()?.supports_permanent && comandoSeleccionado()?.id !== 'disconnect') {
@@ -115,17 +115,17 @@
       <form class="allstarlink-formulario" (submit)="$event.preventDefault(); conectarNodo()">
         <label>
           <span>Servidor local</span>
-          <select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
+          <span class="clipboard-field" [appCopy]="nodoLocal()"><select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
             <option value="" disabled>Selecciona un servidor</option>
             @for (nodo of nodosLocales(); track nodo) {
               <option [value]="nodo">{{ nodo }}</option>
             }
-          </select>
+          </select></span>
         </label>
         <label>
           <span>Número del nodo remoto</span>
           <span class="allstarlink-nodo-fila">
-            <input type="text" autocomplete="off" [value]="nodoRemotoConexion()" (input)="nodoRemotoConexion.set($any($event.target).value)" placeholder="Ej. 448511" required>
+            <span class="clipboard-field" [appCopy]="nodoRemotoConexion()"><input type="text" autocomplete="off" [value]="nodoRemotoConexion()" (input)="nodoRemotoConexion.set($any($event.target).value)" placeholder="Ej. 448511" required></span>
             <button type="button" class="allstarlink-favoritos" (click)="favoritosAbierto.set(true)">Favoritos</button>
           </span>
         </label>
@@ -160,12 +160,12 @@
       @if (mostrarSelectorServidor()) {
         <label class="allstarlink-filtro-servidor">
           <span>Mostrar servidor</span>
-          <select aria-label="Mostrar servidor" [value]="servidorSeleccionado()" (change)="servidorSeleccionado.set($any($event.target).value)">
+          <span class="clipboard-field" [appCopy]="servidorSeleccionado() === 'todos' ? '' : servidorSeleccionado()"><select aria-label="Mostrar servidor" [value]="servidorSeleccionado()" (change)="servidorSeleccionado.set($any($event.target).value)">
             <option value="todos">Todos</option>
             @for (servidor of servidoresDisponibles(); track servidor) {
               <option [value]="servidor">{{ servidor }}</option>
             }
-          </select>
+          </select></span>
         </label>
       }
       <label class="allstarlink-busqueda">
@@ -207,7 +207,7 @@
           @if (grupo.nodoLocal === nodoPrincipal()) {
             <span class="allstarlink-modo modo-duplex">Nodo principal</span>
           }
-          <span class="allstarlink-grupo-titulo"><strong>{{ grupo.nodoLocal }}</strong>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} conectados</small>
+          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><strong>{{ grupo.nodoLocal }}</strong></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} conectados</small>
           @if (esAdmin() && grupo.nodoLocal === nodoPrincipal()) {
             <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
               (click)="abrirLsnodes()" aria-haspopup="dialog">
@@ -246,19 +246,23 @@
                 <tr [class.allstarlink-conexion-pendiente]="nodo.pendiente || desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo" [attr.aria-busy]="nodo.pendiente || desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'true' : null">
                   <td data-label="Tipo" class="allstarlink-columna-protocolo"><span [class]="'allstarlink-modo ' + claseCategoria(nodo)">{{ etiquetaProtocolo(nodo) }}</span></td>
                   <td data-label="Nodo" class="allstarlink-columna-nodo" [attr.title]="nodo.nodo || null">
+                    <span [appCopy]="nodo.nodo">
                     @if (urlNodo(nodo); as url) {
                       <a [href]="url" target="_blank" rel="noopener noreferrer"
                         [attr.aria-label]="categoriaNodo(nodo) === 'iaxrpt' ? 'Buscar indicativo ' + nodo.nodo + ' en QRZ' : 'Estadísticas AllStarLink del nodo ' + nodo.nodo">{{ nodo.nodo }}</a>
                     } @else {
                       {{ nodo.nodo || '—' }}
                     }
+                    </span>
                   </td>
                   <td data-label="Callsign" class="allstarlink-columna-callsign" [attr.title]="nodo.callsign || null">
+                    <span [appCopy]="nodo.callsign">
                     @if (urlQrz(nodo.callsign); as url) {
                       <a [href]="url" target="_blank" rel="noopener noreferrer" [attr.aria-label]="'Buscar indicativo ' + nodo.callsign + ' en QRZ'">{{ nodo.callsign }}</a>
                     } @else {
                       {{ nodo.callsign || '—' }}
                     }
+                    </span>
                   </td>
                   <td data-label="Información" class="allstarlink-columna-informacion">{{ nodo.informacion || nodo.descripcion || nodo.contacto || '—' }}</td>
                   <td data-label="Ubicación" class="allstarlink-columna-ubicacion">{{ nodo.ubicacion || '—' }}</td>
@@ -325,7 +329,7 @@
       aria-modal="true" aria-labelledby="allstarlink-lsnodes-titulo" (click)="$event.stopPropagation()"
       (keydown.escape)="cerrarLsnodes()" tabindex="-1">
       <header class="allstarlink-admin-cabecera">
-        <h3 id="allstarlink-lsnodes-titulo">LsNodes — {{ nodoPrincipal() }}</h3>
+        <h3 id="allstarlink-lsnodes-titulo">LsNodes — <span [appCopy]="nodoPrincipal()">{{ nodoPrincipal() }}</span></h3>
         <button type="button" class="allstarlink-actualizar" (click)="cerrarLsnodes()">Cerrar</button>
       </header>
       <iframe class="allstarlink-lsnodes-frame" [src]="lsnodesUrl()" title="Estado LsNodes del nodo principal"></iframe>

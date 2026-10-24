@@ -1,10 +1,12 @@
 import { Component, HostListener, effect, inject, input, output, signal } from '@angular/core';
 import { timeout } from 'rxjs';
+import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { GeoData, GeoIpService } from '../../core/services/geoip.service';
 
 @Component({
   selector: 'app-geoip-dialog',
   standalone: true,
+  imports: [CopyValueDirective],
   templateUrl: './geoip-dialog.component.html',
   styleUrl: './geoip-dialog.component.css'
 })

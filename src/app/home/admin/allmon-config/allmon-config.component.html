@@ -24,8 +24,8 @@
                 <input type="checkbox" name="tracking{{ i }}" [(ngModel)]="f.tracking_enabled"
                   [attr.aria-label]="'Seguir nodo ' + (f.node || i + 1)" />
               </td>
-              <td data-label="Nodo"><input name="node{{ i }}" [(ngModel)]="f.node" inputmode="numeric" maxlength="7" required /></td>
-              <td data-label="Host"><input name="host{{ i }}" [(ngModel)]="f.host" required /></td>
+              <td data-label="Nodo"><span class="clipboard-field" [appCopy]="f.node"><input name="node{{ i }}" [(ngModel)]="f.node" inputmode="numeric" maxlength="7" required /></span></td>
+              <td data-label="Host"><span class="clipboard-field" [appCopy]="f.host"><input name="host{{ i }}" [(ngModel)]="f.host" required /></span></td>
               <td data-label="Puerto"><input name="port{{ i }}" [(ngModel)]="f.port" inputmode="numeric" maxlength="5" /></td>
               <td data-label="Usuario AMI"><input name="user{{ i }}" [(ngModel)]="f.user" autocomplete="off" required /></td>
               <td data-label="Contraseña"><app-password-field name="passwd{{ i }}" [(ngModel)]="f.passwd" autocomplete="new-password"

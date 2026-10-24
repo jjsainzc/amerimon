@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { CopyValueDirective } from '../../shared/copy-value/copy-value.directive';
 import { Component, DestroyRef, OnDestroy, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -31,7 +32,7 @@ type SolicitudConexion = Readonly<SupermonCommandRequest & {
 @Component({
   selector: 'app-allstarlink',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent],
+  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective],
   templateUrl: './allstarlink.component.html',
   styleUrl: './allstarlink.component.css'
 })

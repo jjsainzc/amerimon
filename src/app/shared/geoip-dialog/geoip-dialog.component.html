@@ -3,7 +3,7 @@
     <section class="geoip-dialogo" role="dialog" aria-modal="true" aria-labelledby="geoip-titulo" (click)="$event.stopPropagation()">
       <button type="button" class="geoip-cerrar" aria-label="Cerrar geolocalización" (click)="cerrar()">&times;</button>
       <p class="geoip-eyebrow">GEOLOCALIZACIÓN IP</p>
-      <h2 id="geoip-titulo">{{ ipActual }}</h2>
+      <h2 id="geoip-titulo"><span [appCopy]="ipActual">{{ ipActual }}</span></h2>
       @if (cargando()) { <p role="status">Consultando ubicación…</p> }
       @if (error()) { <p class="geoip-error" role="alert">{{ error() }}</p> }
       @if (datos(); as geo) {

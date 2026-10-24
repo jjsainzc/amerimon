@@ -116,7 +116,7 @@
               <td data-label="IP de origen">
                 @if (sesion.ip_origen && esAdmin()) {
                   <app-geoip-link [ip]="sesion.ip_origen" [label]="sesion.ip_origen" />
-                } @else { {{ sesion.ip_origen || '—' }} }
+                } @else { <span [appCopy]="sesion.ip_origen">{{ sesion.ip_origen || '—' }}</span> }
               </td>
               <td data-label="Inicio"><time [attr.datetime]="sesion.fecha_inicio">{{ sesion.fecha_inicio | utcToLocal:'dd/MM/yyyy HH:mm:ss' }}</time></td>
               @if (esAdmin()) {

@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   AllstarlinkConnectionHistory,
@@ -20,7 +21,7 @@ type CampoOrden = 'local_node' | 'remote_node' | 'remote_ip' | 'remote_callsign'
 @Component({
   selector: 'app-allstarlink-historial',
   standalone: true,
-  imports: [UtcToLocalPipe, ReactiveFormsModule, AdminVolverComponent, PrintButtonComponent, ScrollTopComponent, IsIpPipe, GeoIpLinkComponent, TablePaginationComponent],
+  imports: [UtcToLocalPipe, ReactiveFormsModule, AdminVolverComponent, PrintButtonComponent, ScrollTopComponent, IsIpPipe, GeoIpLinkComponent, TablePaginationComponent, CopyValueDirective],
   templateUrl: './allstarlink-historial.component.html',
   styleUrl: './allstarlink-historial.component.css'
 })

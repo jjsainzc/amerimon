@@ -1,4 +1,5 @@
 import { Component, effect, inject, input, output, signal } from '@angular/core';
+import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { Favorito } from '../../core/models/favorito.model';
 import { FavoritosService } from '../../core/services/favoritos.service';
 
@@ -6,6 +7,7 @@ import { FavoritosService } from '../../core/services/favoritos.service';
 @Component({
   selector: 'app-favoritos-popup',
   standalone: true,
+  imports: [CopyValueDirective],
   templateUrl: './favoritos-popup.component.html',
   styleUrl: './favoritos-popup.component.css'
 })

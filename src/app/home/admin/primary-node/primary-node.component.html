@@ -9,7 +9,7 @@
   <form #configForm="ngForm" (ngSubmit)="confirmando.set(true)">
     <fieldset [disabled]="cargando() || guardando() || !actual()">
       <label>Número del nodo
-        <input name="numero" [(ngModel)]="numero" required pattern="[2-9][0-9]{3,5}" maxlength="6" inputmode="numeric" />
+        <span class="clipboard-field" [appCopy]="numero"><input name="numero" [(ngModel)]="numero" required pattern="[2-9][0-9]{3,5}" maxlength="6" inputmode="numeric" /></span>
       </label>
       <small>El nodo principal del monitor debe ser público: 4 a 6 dígitos sin comenzar por 0 o 1.</small>
       <label>Contraseña del nodo AllStarLink
@@ -19,7 +19,7 @@
         Usa el botón del ojo para mostrar u ocultar la contraseña actual. Déjala sin cambios o vacía para conservarla.
         Una nueva contraseña debe tener de 6 a 128 letras, números, _ o -.</small>
       <label>Indicativo del nodo
-        <input name="indicativo" [(ngModel)]="indicativo" required pattern="[A-Za-z0-9\x2F\x2D]{3,64}" maxlength="64" autocomplete="off" />
+        <span class="clipboard-field" [appCopy]="indicativo"><input name="indicativo" [(ngModel)]="indicativo" required pattern="[A-Za-z0-9\x2F\x2D]{3,64}" maxlength="64" autocomplete="off" /></span>
       </label>
       <small>Se utiliza para la identificación de Asterisk (idrecording).</small>
       <div class="acciones">
@@ -57,8 +57,8 @@
           <small>{{ ami.secret_set ? 'Secret actual cargado y enmascarado; usa el ojo para mostrarlo.' : 'No hay secret configurado.' }}
             Solo admite de 6 a 128 letras, números, _ o -.</small>
           <label>Bind address
-            <input name="amiBindAddress" [ngModel]="amiBindAddress()" (ngModelChange)="amiBindAddress.set($event)"
-              required autocomplete="off" placeholder="0.0.0.0" />
+            <span class="clipboard-field" [appCopy]="amiBindAddress()"><input name="amiBindAddress" [ngModel]="amiBindAddress()" (ngModelChange)="amiBindAddress.set($event)"
+              required autocomplete="off" placeholder="0.0.0.0" /></span>
           </label>
           <small>Dirección donde manager.conf acepta conexiones. La dirección del backend se ajustará cuando sea necesario
             y se comprobará antes de aplicar el cambio.</small>
@@ -68,23 +68,23 @@
             @if (ami.permit.length || ami.deny.length) {
               <p>Reglas existentes (se conservan):</p>
               <ul>
-                @for (rule of ami.permit; track $index) { <li>Permitir: <code>{{ rule }}</code></li> }
-                @for (rule of ami.deny; track $index) { <li>Denegar: <code>{{ rule }}</code></li> }
+                @for (rule of ami.permit; track $index) { <li>Permitir: <span [appCopy]="rule"><code>{{ rule }}</code></span></li> }
+                @for (rule of ami.deny; track $index) { <li>Denegar: <span [appCopy]="rule"><code>{{ rule }}</code></span></li> }
               </ul>
             } @else {
               <p>No hay reglas permit/deny configuradas para este usuario.</p>
             }
             <label>Dirección IPv4 para calcular la red
               <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <input name="redEntrada" [ngModel]="entradaRed()" (ngModelChange)="entradaRed.set($any($event)); calcularRed()"
-                  autocomplete="off" placeholder="192.168.1.37/24 o 255.255.255.0" style="flex: 1;" />
+                <span class="clipboard-field" [appCopy]="entradaRed()"><input name="redEntrada" [ngModel]="entradaRed()" (ngModelChange)="entradaRed.set($any($event)); calcularRed()"
+                  autocomplete="off" placeholder="192.168.1.37/24 o 255.255.255.0" /></span>
                 <button type="button" (click)="popupCalculadoraAbierto.set(true)" title="Abrir calculadora de red avanzada">
                   <i class="fa-solid fa-calculator" aria-hidden="true"></i> Calcular
                 </button>
               </div>
             </label>
             @if (entradaRed()) {
-              <p role="status">Red calculada: <code>{{ redCalculada() || 'formato inválido' }}</code></p>
+              <p role="status">Red calculada: <span [appCopy]="redCalculada()"><code>{{ redCalculada() || 'formato inválido' }}</code></span></p>
             }
             <label>Agregar como
               <select name="tipoRed" [ngModel]="tipoRed()" (ngModelChange)="tipoRed.set($event)">
@@ -94,12 +94,12 @@
             </label>
             <button type="button" (click)="agregarRed()" [disabled]="!redCalculada()">Agregar red</button>
             <label>Redes nuevas permitidas
-              <textarea name="permitsNuevas" [ngModel]="permitsNuevas()" (ngModelChange)="permitsNuevas.set($event)"
-                rows="2" placeholder="Una red por línea"></textarea>
+              <span class="clipboard-field" [appCopy]="permitsNuevas()"><textarea name="permitsNuevas" [ngModel]="permitsNuevas()" (ngModelChange)="permitsNuevas.set($event)"
+                rows="2" placeholder="Una red por línea"></textarea></span>
             </label>
             <label>Redes nuevas denegadas
-              <textarea name="deniesNuevas" [ngModel]="deniesNuevas()" (ngModelChange)="deniesNuevas.set($event)"
-                rows="2" placeholder="Una red por línea"></textarea>
+              <span class="clipboard-field" [appCopy]="deniesNuevas()"><textarea name="deniesNuevas" [ngModel]="deniesNuevas()" (ngModelChange)="deniesNuevas.set($event)"
+                rows="2" placeholder="Una red por línea"></textarea></span>
             </label>
             <small>Las reglas nuevas se añaden a las existentes; no se eliminan ni reemplazan opciones personalizadas.
               Las redes se normalizan al guardarlas. No agregues deny que incluya 127.0.0.1, ::1 o la dirección AMI del backend.</small>
@@ -180,7 +180,7 @@
         @for (entry of entradas(); track entry.type + ':' + entry.node) {
           <tr>
             <td data-label="Lista">{{ entry.type === 'allowlist' ? 'Permitido' : 'Bloqueado' }}</td>
-            <th scope="row" data-label="Nodo / indicativo">{{ entry.node }}</th>
+            <th scope="row" data-label="Nodo / indicativo"><span [appCopy]="entry.node">{{ entry.node }}</span></th>
             <td class="acceso-motivo" data-label="Motivo">{{ entry.reason }}</td>
             <td class="acceso-accion">
               <button type="button" (click)="cambiarAcceso(entry, true)"
@@ -208,7 +208,7 @@
         </select>
       </label>
       <label>Nodo o indicativo remoto
-        <input name="remoto" [(ngModel)]="remoto" required pattern="([0-9]{1,7}|[A-Za-z0-9\x2F\x2D]{3,64})" maxlength="64" autocomplete="off" />
+        <span class="clipboard-field" [appCopy]="remoto"><input name="remoto" [(ngModel)]="remoto" required pattern="([0-9]{1,7}|[A-Za-z0-9\x2F\x2D]{3,64})" maxlength="64" autocomplete="off" /></span>
       </label>
       <label>Motivo (opcional)
         <input name="motivo" [(ngModel)]="motivo" maxlength="200" autocomplete="off" />

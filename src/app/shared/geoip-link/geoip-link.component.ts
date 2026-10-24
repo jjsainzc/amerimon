@@ -1,10 +1,11 @@
 import { Component, input, signal } from '@angular/core';
+import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { GeoIpDialogComponent } from '../geoip-dialog/geoip-dialog.component';
 
 @Component({
   selector: 'app-geoip-link',
   standalone: true,
-  imports: [GeoIpDialogComponent],
+  imports: [GeoIpDialogComponent, CopyValueDirective],
   templateUrl: './geoip-link.component.html',
   styleUrl: './geoip-link.component.css'
 })

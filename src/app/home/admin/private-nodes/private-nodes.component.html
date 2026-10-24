@@ -18,9 +18,9 @@
       @for (linea of lineas(); track $index; let i = $index) {
         <div class="private-nodes-fila">
           <label [for]="'private-node-' + i">Línea {{ i + 1 }}</label>
-          <input [id]="'private-node-' + i" [name]="'linea' + i" [ngModel]="linea"
+          <span class="clipboard-field" [appCopy]="linea"><input [id]="'private-node-' + i" [name]="'linea' + i" [ngModel]="linea"
             (ngModelChange)="actualizar(i, $event)"
-            maxlength="512" autocomplete="off" placeholder="448511|EA4ABC|Descripción|Ubicación">
+            maxlength="512" autocomplete="off" placeholder="448511|EA4ABC|Descripción|Ubicación"></span>
           <button type="button" class="private-nodes-quitar" (click)="quitar(i)"
             [attr.aria-label]="'Borrar línea ' + (i + 1)" [title]="'Borrar línea ' + (i + 1)">
             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>

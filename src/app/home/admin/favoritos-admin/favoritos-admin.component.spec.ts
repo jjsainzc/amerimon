@@ -43,6 +43,31 @@ describe('FavoritosAdminComponent', () => {
     vi.useRealTimers();
   });
 
+  it('copies search result identities without selecting or saving them', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    try {
+      const component = fixture.componentInstance;
+      component.abrirNuevo();
+      component.form.controls.busqueda.setValue('HC1LNM');
+      component.buscar();
+      fixture.detectChanges();
+      const row: HTMLElement = fixture.nativeElement.querySelector('.fa-coincidencia-fila');
+      const buttons = row.querySelectorAll<HTMLButtonElement>('.clipboard-copy');
+      buttons[0].click();
+      await fixture.whenStable();
+      expect(writeText).toHaveBeenLastCalledWith('700001');
+      buttons[1].click();
+      await fixture.whenStable();
+      expect(writeText).toHaveBeenLastCalledWith('HC1LNM');
+      expect(component.nodoSeleccionado()).toBe('');
+      expect(service.crear).not.toHaveBeenCalled();
+      expect(row.querySelector('button button')).toBeNull();
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  });
+
   it('searches by number, indicativo or description and lets the admin choose a matching node', () => {
     const component = fixture.componentInstance;
     component.abrirNuevo();

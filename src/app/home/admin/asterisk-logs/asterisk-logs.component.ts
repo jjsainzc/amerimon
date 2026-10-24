@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { DatePipe } from '@angular/common';
 import { AsteriskLogService, AsteriskOperationLog } from '../../../core/services/asterisk-log.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
@@ -9,7 +10,7 @@ import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.compon
 @Component({
   selector: 'app-asterisk-logs',
   standalone: true,
-  imports: [DatePipe, AdminVolverComponent, TablePaginationComponent, ScrollTopComponent],
+  imports: [DatePipe, AdminVolverComponent, TablePaginationComponent, ScrollTopComponent, CopyValueDirective],
   templateUrl: './asterisk-logs.component.html',
   styleUrl: './asterisk-logs.component.css',
 })

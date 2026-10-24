@@ -11,6 +11,7 @@
       <div class="calc-inputs-grid">
         <div>
           <label class="calc-label" for="ip-input">Dirección IP</label>
+          <span class="clipboard-field" [appCopy]="ipInput()">
           <input
             id="ip-input"
             type="text"
@@ -19,6 +20,7 @@
             (ngModelChange)="ipInput.set($event)"
             placeholder="192.168.1.1"
           />
+          </span>
         </div>
         <div>
           <label class="calc-label" for="cidr-input">CIDR</label>
@@ -48,15 +50,15 @@
           <ul class="fav-lista">
             <li class="fav-item">
               <strong>Red:</strong>
-              <span>{{ res.network }}</span>
+              <span [appCopy]="res.network">{{ res.network }}</span>
             </li>
             <li class="fav-item">
               <strong>Máscara:</strong>
-              <span>{{ res.netmask }}</span>
+              <span [appCopy]="res.netmask">{{ res.netmask }}</span>
             </li>
             <li class="fav-item">
               <strong>Broadcast:</strong>
-              <span>{{ res.broadcast }}</span>
+              <span [appCopy]="res.broadcast">{{ res.broadcast }}</span>
             </li>
             <li class="fav-item">
               <strong>Hosts útiles:</strong>

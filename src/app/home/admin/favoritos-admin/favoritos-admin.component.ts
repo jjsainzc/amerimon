@@ -2,6 +2,7 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, catchError, finalize, of, switchMap } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { AstdbCoincidencia, Favorito, FavoritoEntrada } from '../../../core/models/favorito.model';
 import { FavoritosService } from '../../../core/services/favoritos.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
@@ -11,7 +12,7 @@ import { LoadingIndicatorComponent } from '../../../shared/loading-indicator/loa
 @Component({
   selector: 'app-favoritos-admin',
   standalone: true,
-  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, LoadingIndicatorComponent],
+  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, LoadingIndicatorComponent, CopyValueDirective],
   templateUrl: './favoritos-admin.component.html',
   styleUrl: './favoritos-admin.component.css'
 })

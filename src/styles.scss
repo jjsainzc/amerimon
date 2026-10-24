@@ -1785,3 +1785,26 @@ html:root body .main-content .historial-tabla td { border-bottom-color: #354854;
 html:root body .main-content .historial-tabla tbody tr:hover { background: #263641; }
 html:root body .main-content .historial-tabla a { color: #8dcfff; }
 html:root body .main-content .historial-tabla a:hover { color: #ffb38a; }
+.clipboard-value { position: relative; }
+.fav-copy-row { display: flex; align-items: center; }
+.fav-copy-row > .fav-item { flex: 1; min-width: 0; }
+html body .clipboard-value > .clipboard-copy {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 1.5rem; height: 1.5rem;
+  margin: 0 0 0 .2rem; padding: 0; border: 0; border-radius: 3px;
+  background: transparent; color: #8dcfff; font-size: .75rem; line-height: 1; vertical-align: middle; cursor: pointer;
+}
+html body .clipboard-value > .clipboard-copy:hover { background: #304651; }
+html body .clipboard-value > .clipboard-copy:focus-visible { outline: 2px solid #79d3dd; outline-offset: 1px; }
+html body .clipboard-value > .clipboard-copy:disabled { opacity: .4; cursor: default; }
+.clipboard-field { display: block; min-width: 0; width: 100%; }
+html body .clipboard-field > :is(input, select, textarea) { box-sizing: border-box; width: 100%; padding-right: 2rem; }
+html body .clipboard-field > select { padding-right: 3.5rem; }
+html body .clipboard-field > .clipboard-copy { position: absolute; right: .3rem; top: 50%; transform: translateY(-50%); margin: 0; }
+html body .clipboard-field:has(> select) > .clipboard-copy { right: 1.5rem; }
+.clipboard-status:not(:empty) {
+  position: fixed; z-index: 10000; left: 50%; bottom: 1rem; transform: translateX(-50%);
+  box-sizing: border-box; width: max-content; max-width: min(24rem, calc(100vw - 2rem));
+  padding: .3rem .5rem; border: 1px solid #455b68; border-radius: 4px;
+  background: #17252e; color: #e5edf2; font: 400 .8rem/1.4 sans-serif; white-space: normal;
+}
+@media print { .clipboard-copy, .clipboard-status { display: none !important; } }

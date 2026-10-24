@@ -1,13 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PrivateNodesService } from '../../../core/services/private-nodes.service';
 
 @Component({
   selector: 'app-private-nodes',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent],
+  imports: [FormsModule, AdminVolverComponent, CopyValueDirective],
   templateUrl: './private-nodes.component.html',
   styleUrl: './private-nodes.component.css'
 })

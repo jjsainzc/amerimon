@@ -35,6 +35,8 @@
 .fa-coincidencia:hover, .fa-coincidencia:focus-visible { border-color: #8dcfff; }
 .fa-coincidencia strong { color: #8dcfff; }
 .fa-coincidencia span { overflow-wrap: anywhere; }
+.fa-coincidencia-fila { display: flex; align-items: center; gap: .2rem; }
+.fa-coincidencia-fila .fa-coincidencia { flex: 1; min-width: 0; }
 .fa-form-acciones { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .6rem; }
 @media (max-width: 600px) {
   .fav-admin { padding: 1rem .75rem 2rem; }

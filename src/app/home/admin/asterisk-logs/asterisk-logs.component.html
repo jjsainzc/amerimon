@@ -36,8 +36,8 @@
               <tr>
                 <td><time [attr.datetime]="registro.created_at">{{ registro.created_at | date:'yyyy-MM-dd HH:mm:ss' }}</time></td>
                 <td>{{ registro.action }}</td>
-                <td>{{ registro.local_node || '—' }}</td>
-                <td>{{ registro.remote_node || '—' }}</td>
+                <td><span [appCopy]="registro.local_node">{{ registro.local_node || '—' }}</span></td>
+                <td><span [appCopy]="registro.remote_node">{{ registro.remote_node || '—' }}</span></td>
                 <td>{{ registro.mode || '—' }}{{ registro.permanent ? ' · Permanente' : '' }}</td>
                 <td><code [title]="registro.command">{{ registro.command || '—' }}</code></td>
                 <td>

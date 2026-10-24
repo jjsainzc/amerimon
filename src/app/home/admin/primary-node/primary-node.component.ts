@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { timeout } from 'rxjs';
 import { NodeAccessDocument, NodeAccessEntry, PrimaryAMIConfig, PrimaryNodeService, isNodeAccessDocument } from '../../../core/services/primary-node.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
@@ -40,7 +41,7 @@ export function calcularRedIPv4(value: string): string | null {
 @Component({
   selector: 'app-primary-node',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent, CopyValueDirective],
   templateUrl: './primary-node.component.html',
   styleUrl: './primary-node.component.css'
 })

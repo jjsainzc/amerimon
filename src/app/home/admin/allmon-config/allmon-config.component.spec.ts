@@ -53,4 +53,27 @@ describe('AllmonConfigComponent', () => {
       tracking_enabled: false,
     })]);
   });
+
+  it('copies edited host and node values without saving or exposing secrets', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    try {
+      const host: HTMLInputElement = fixture.nativeElement.querySelector('[data-label="Host"] input');
+      host.value = '192.0.2.55';
+      host.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      host.parentElement!.querySelector<HTMLButtonElement>('.clipboard-copy')!.click();
+      await fixture.whenStable();
+      expect(writeText).toHaveBeenLastCalledWith('192.0.2.55');
+      const node: HTMLInputElement = fixture.nativeElement.querySelector('[data-label="Nodo"] input');
+      node.parentElement!.querySelector<HTMLButtonElement>('.clipboard-copy')!.click();
+      await fixture.whenStable();
+      expect(writeText).toHaveBeenLastCalledWith('123456');
+      expect(fixture.nativeElement.querySelectorAll('tbody .clipboard-copy').length).toBe(2);
+      expect(fixture.nativeElement.querySelector('app-password-field .clipboard-copy')).toBeNull();
+      expect(service.guardar).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  });
 });

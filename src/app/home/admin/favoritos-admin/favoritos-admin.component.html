@@ -18,7 +18,7 @@
       @for (f of favoritos(); track f.id) {
         <article class="fa-item">
           <div class="fa-detalle">
-            <h2>{{ f.numero }}</h2>
+            <h2><span [appCopy]="f.numero">{{ f.numero }}</span></h2>
             <span>{{ f.descripcion || f.descripcion_astdb || 'Sin descripción' }}</span>
           </div>
           <div class="fa-acciones">
@@ -45,8 +45,10 @@
         <label class="fa-campo">
           <span>Búsqueda *</span>
           <span class="fa-buscador">
+            <span class="clipboard-field" [appCopy]="form.controls.busqueda.value">
             <input type="text" formControlName="busqueda" maxlength="120" autocomplete="off" placeholder="Número, indicativo o descripción"
               (keydown.enter)="$event.preventDefault(); buscar()" />
+            </span>
             <button type="button" class="fa-btn fa-buscar" aria-label="Buscar en AstDB" title="Buscar en AstDB"
               [disabled]="buscando() || guardando() || form.controls.busqueda.invalid || !form.controls.busqueda.value.trim()" (click)="buscar()">
               <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
@@ -62,10 +64,14 @@
           <fieldset class="fa-coincidencias">
             <legend>Destinos encontrados. Elige el nodo que quieres agregar:</legend>
             @for (coincidencia of coincidencias(); track coincidencia.nodo) {
+              <div class="fa-coincidencia-fila">
               <button type="button" class="fa-coincidencia" (click)="elegirCoincidencia(coincidencia)">
                 <strong>{{ coincidencia.nodo }}</strong>
                 <span>{{ textoCoincidencia(coincidencia) }}</span>
               </button>
+              <span [appCopy]="coincidencia.nodo"></span>
+              <span [appCopy]="coincidencia.callsign"></span>
+              </div>
             }
           </fieldset>
         }
