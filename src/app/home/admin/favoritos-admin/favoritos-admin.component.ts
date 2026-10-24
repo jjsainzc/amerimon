@@ -1,6 +1,6 @@
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { catchError, distinctUntilChanged, finalize, map, of, switchMap, timer } from 'rxjs';
+import { Subject, catchError, finalize, of, switchMap } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AstdbCoincidencia, Favorito, FavoritoEntrada } from '../../../core/models/favorito.model';
 import { FavoritosService } from '../../../core/services/favoritos.service';
@@ -19,6 +19,7 @@ export class FavoritosAdminComponent implements OnInit {
   private readonly svc = inject(FavoritosService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly solicitudesBusqueda = new Subject<string | null>();
 
   readonly favoritos = signal<Favorito[]>([]);
   readonly cargando = signal(false);
@@ -34,31 +35,33 @@ export class FavoritosAdminComponent implements OnInit {
   readonly buscando = signal(false);
   readonly errorBusqueda = signal('');
   readonly estadoBusqueda = signal('');
+  readonly avisoBusqueda = signal('');
 
   readonly form = this.fb.nonNullable.group({
     busqueda: ['', [Validators.required, Validators.maxLength(120)]],
     descripcion: ['', [Validators.maxLength(120)]]
   });
 
-  /** Carga favoritos y busca nodos de AstDB por número, indicativo o descripción. */
+  /** Carga favoritos y prepara la búsqueda explícita de nodos de AstDB. */
   ngOnInit(): void {
     this.cargar();
     this.form.controls.busqueda.valueChanges.pipe(
-      map(value => value.trim()),
-      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => this.solicitudesBusqueda.next(null));
+    this.solicitudesBusqueda.pipe(
       switchMap(query => {
         this.nodoSeleccionado.set('');
         this.sugerida.set('');
         this.coincidencias.set([]);
         this.errorBusqueda.set('');
         this.estadoBusqueda.set('');
-        if (!query || !this.form.controls.busqueda.valid) {
+        this.avisoBusqueda.set('');
+        if (!query) {
           this.buscando.set(false);
-          return of<AstdbCoincidencia[] | null>([]);
+          return of<AstdbCoincidencia[] | null>(null);
         }
         this.buscando.set(true);
-        return timer(300).pipe(
-          switchMap(() => this.svc.buscarAstdb(query)),
+        return this.svc.buscarAstdb(query).pipe(
           catchError(error => {
             this.errorBusqueda.set(this.mensajeError(error));
             return of<AstdbCoincidencia[] | null>(null);
@@ -69,7 +72,10 @@ export class FavoritosAdminComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(results => {
       if (results === null) { return; }
-      this.coincidencias.set(results);
+      this.coincidencias.set(results.slice(0, 50));
+      if (results.length > 50) {
+        this.avisoBusqueda.set(`Se encontraron ${results.length} nodos. Solo se muestran los primeros 50 para evitar sobrecargar el navegador. Detalla más la búsqueda para reducir la cantidad de resultados.`);
+      }
       if (results.length === 1) {
         this.elegirCoincidencia(results[0]);
       } else if (results.length > 1) {
@@ -78,6 +84,13 @@ export class FavoritosAdminComponent implements OnInit {
         this.estadoBusqueda.set('No se encontraron nodos en AstDB para esa búsqueda.');
       }
     });
+  }
+
+  buscar(): void {
+    const control = this.form.controls.busqueda;
+    control.markAsTouched();
+    if (control.invalid || !control.value.trim() || this.guardando()) { return; }
+    this.solicitudesBusqueda.next(control.value.trim());
   }
 
   /** Obtiene la lista de favoritos y comunica errores de consulta. */
@@ -98,6 +111,7 @@ export class FavoritosAdminComponent implements OnInit {
 
   /** Prepara el formulario vacío para crear un favorito. */
   abrirNuevo(): void {
+    this.solicitudesBusqueda.next(null);
     this.editandoId.set(null);
     this.error.set('');
     this.sugerida.set('');
@@ -111,6 +125,7 @@ export class FavoritosAdminComponent implements OnInit {
 
   /** Carga los datos del favorito seleccionado en el formulario. */
   abrirEditar(f: Favorito): void {
+    this.solicitudesBusqueda.next(null);
     this.editandoId.set(f.id);
     this.error.set('');
     this.sugerida.set(f.descripcion_astdb ?? '');
@@ -125,6 +140,7 @@ export class FavoritosAdminComponent implements OnInit {
   /** Cierra el formulario solo cuando no hay una operación de guardado. */
   cerrarFormulario(): void {
     if (this.guardando()) { return; }
+    this.solicitudesBusqueda.next(null);
     this.formularioAbierto.set(false);
   }
 
@@ -188,6 +204,7 @@ export class FavoritosAdminComponent implements OnInit {
 
   /** Selecciona el nodo de AstDB que se guardará como favorito. */
   elegirCoincidencia(coincidencia: AstdbCoincidencia): void {
+    this.avisoBusqueda.set('');
     this.nodoSeleccionado.set(coincidencia.nodo);
     this.sugerida.set(this.textoCoincidencia(coincidencia));
     this.estadoBusqueda.set(`Nodo ${coincidencia.nodo} seleccionado.`);

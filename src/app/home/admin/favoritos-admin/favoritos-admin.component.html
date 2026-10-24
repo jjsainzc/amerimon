@@ -44,12 +44,20 @@
       <form [formGroup]="form" (ngSubmit)="guardar()" novalidate>
         <label class="fa-campo">
           <span>Búsqueda *</span>
-          <input type="text" formControlName="busqueda" maxlength="120" autocomplete="off" placeholder="Número, indicativo o descripción" />
+          <span class="fa-buscador">
+            <input type="text" formControlName="busqueda" maxlength="120" autocomplete="off" placeholder="Número, indicativo o descripción"
+              (keydown.enter)="$event.preventDefault(); buscar()" />
+            <button type="button" class="fa-btn fa-buscar" aria-label="Buscar en AstDB" title="Buscar en AstDB"
+              [disabled]="buscando() || guardando() || form.controls.busqueda.invalid || !form.controls.busqueda.value.trim()" (click)="buscar()">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            </button>
+          </span>
           @if (form.controls.busqueda.touched && form.controls.busqueda.invalid) { <small>Escribe un número, indicativo o descripción para buscar en AstDB.</small> }
         </label>
         @if (buscando()) { <p class="fa-busqueda" role="status">Buscando en AstDB…</p> }
         @if (estadoBusqueda()) { <p class="fa-busqueda" role="status">{{ estadoBusqueda() }}</p> }
         @if (errorBusqueda()) { <p class="fa-mensaje fa-error" role="alert">{{ errorBusqueda() }}</p> }
+        @if (avisoBusqueda()) { <p class="fa-mensaje fa-aviso" role="alert">{{ avisoBusqueda() }}</p> }
         @if (coincidencias().length > 1) {
           <fieldset class="fa-coincidencias">
             <legend>Destinos encontrados. Elige el nodo que quieres agregar:</legend>

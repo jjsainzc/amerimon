@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { FavoritosService } from '../../../core/services/favoritos.service';
 import { FavoritosAdminComponent } from './favoritos-admin.component';
@@ -44,11 +44,12 @@ describe('FavoritosAdminComponent', () => {
   });
 
   it('searches by number, indicativo or description and lets the admin choose a matching node', () => {
-    vi.useFakeTimers();
     const component = fixture.componentInstance;
     component.abrirNuevo();
     component.form.controls.busqueda.setValue('HC1LNM');
-    vi.advanceTimersByTime(300);
+    fixture.detectChanges();
+    expect(service.buscarAstdb).not.toHaveBeenCalled();
+    fixture.nativeElement.querySelector('[aria-label="Buscar en AstDB"]').click();
     fixture.detectChanges();
 
     expect(service.buscarAstdb).toHaveBeenCalledWith('HC1LNM');
@@ -70,4 +71,55 @@ describe('FavoritosAdminComponent', () => {
       descripcion: '',
     });
   });
+
+    it.each([50, 51, 5000])('renders at most 50 results and warns only above 50 (%i matches)', count => {
+      const component = fixture.componentInstance;
+      service.buscarAstdb.mockReturnValue(of(Array.from({ length: count }, (_, i) => ({
+        nodo: String(700000 + i), callsign: 'TEST', descripcion: 'Nodo', ubicacion: ''
+      }))));
+      component.abrirNuevo();
+      component.form.controls.busqueda.setValue('TEST');
+      component.buscar();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelectorAll('.fa-coincidencia').length).toBe(50);
+      expect(!!component.avisoBusqueda()).toBe(count > 50);
+      if (count > 50) {
+        expect(component.avisoBusqueda()).toContain(String(count));
+        expect(component.avisoBusqueda()).toContain('primeros 50');
+      }
+    });
+
+    it('searches with Enter without submitting the favorite', () => {
+      const component = fixture.componentInstance;
+      component.abrirNuevo();
+      component.form.controls.busqueda.setValue('HC1LNM');
+      fixture.detectChanges();
+      const input = fixture.nativeElement.querySelector('input[formControlName="busqueda"]');
+      const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(service.buscarAstdb).toHaveBeenCalledWith('HC1LNM');
+      expect(service.crear).not.toHaveBeenCalled();
+    });
+
+    it('cancels pending results on editing or closing without starting another search', () => {
+      const results = new Subject<never[]>();
+      service.buscarAstdb.mockReturnValue(results.asObservable());
+      const component = fixture.componentInstance;
+      component.abrirNuevo();
+      component.form.controls.busqueda.setValue('TEST');
+      component.buscar();
+      expect(component.buscando()).toBe(true);
+      component.form.controls.busqueda.setValue('OTHER');
+      results.next([]);
+      expect(component.buscando()).toBe(false);
+      expect(component.coincidencias()).toEqual([]);
+      expect(component.estadoBusqueda()).toBe('');
+      expect(service.buscarAstdb).toHaveBeenCalledTimes(1);
+      component.buscar();
+      component.cerrarFormulario();
+      expect(component.buscando()).toBe(false);
+      expect(component.formularioAbierto()).toBe(false);
+      results.complete();
+    });
 });

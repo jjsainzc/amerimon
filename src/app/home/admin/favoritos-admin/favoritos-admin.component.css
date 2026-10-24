@@ -25,6 +25,10 @@
 .fa-campo small { color: #ff8a80; font-weight: 400; }
 .fa-campo small.fa-sugerida { color: #a9bac5; }
 .fa-busqueda { margin: 0 0 .8rem; color: #a9bac5; font-size: .84rem; }
+.fa-buscador { display: flex; align-items: center; gap: .4rem; }
+.fa-buscador input { flex: 1; }
+.fa-buscar { flex: 0 0 auto; padding: .3rem .4rem; color: #8dcfff; font-size: .8rem; }
+.fa-aviso { border-color: #b98a3a; background: #352b1b; color: #ffe1a6; }
 .fa-coincidencias { display: grid; gap: .4rem; margin: 0 0 .8rem; padding: .65rem; border: 1px solid #455b68; border-radius: 5px; }
 .fa-coincidencias legend { padding: 0 .25rem; color: #a9bac5; font-size: .84rem; }
 .fa-coincidencia { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: .6rem; padding: .5rem .6rem; border: 1px solid #405461; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; text-align: left; cursor: pointer; }
