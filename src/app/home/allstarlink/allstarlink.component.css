@@ -285,6 +285,11 @@
 .allstarlink-tabla th:nth-child(7),
 .allstarlink-tabla td:nth-child(7) { width: 6.5rem; min-width: 6.5rem; white-space: nowrap; }
 .allstarlink-tabla .allstarlink-columna-actividad { width: 9.5rem; min-width: 9.5rem; white-space: nowrap; }
+
+.allstarlink-tabla th.allstarlink-columna-enlace,
+.allstarlink-tabla td.allstarlink-columna-enlace { width: 18ch !important; max-width: 18ch !important; white-space: nowrap !important; }
+
+
 @container allstarlink-layout (min-width: 971px) {
   .allstarlink-tabla th.allstarlink-columna-informacion,
   .allstarlink-tabla td.allstarlink-columna-informacion { min-width: 14rem; }
