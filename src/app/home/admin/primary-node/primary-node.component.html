@@ -75,8 +75,13 @@
               <p>No hay reglas permit/deny configuradas para este usuario.</p>
             }
             <label>Dirección IPv4 para calcular la red
-              <input name="redEntrada" [ngModel]="entradaRed()" (ngModelChange)="entradaRed.set($event); calcularRed()"
-                autocomplete="off" placeholder="192.168.1.37/24 o 255.255.255.0" />
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <input name="redEntrada" [ngModel]="entradaRed()" (ngModelChange)="entradaRed.set($any($event)); calcularRed()"
+                  autocomplete="off" placeholder="192.168.1.37/24 o 255.255.255.0" style="flex: 1;" />
+                <button type="button" (click)="popupCalculadoraAbierto.set(true)" title="Abrir calculadora de red avanzada">
+                  <i class="fa-solid fa-calculator" aria-hidden="true"></i> Calcular
+                </button>
+              </div>
             </label>
             @if (entradaRed()) {
               <p role="status">Red calculada: <code>{{ redCalculada() || 'formato inválido' }}</code></p>
@@ -211,4 +216,11 @@
       <button type="submit" [disabled]="accessForm.invalid || guardandoAcceso()">Agregar o actualizar entrada</button>
     </fieldset>
   </form>
+
+  <!-- Pop-up de la calculadora de red -->
+  <app-net-calculator-popup
+    [isOpen]="popupCalculadoraAbierto()"
+    (closeModal)="popupCalculadoraAbierto.set(false)"
+    (selectNetwork)="aplicarRedCalculada($event)">
+  </app-net-calculator-popup>
 </section>

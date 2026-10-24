@@ -9,6 +9,10 @@
 ```
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
+## 3. En el registro de operaciones, reducir los espacios de las columnas bodo local, nodo remoto, ruracion para darle mas espacio al comando.
+
+## 4. En el combo desplegable de mas opciones, personalizar cabecera y cambia contraseña se ven como botones, ponerlo igual que los demás.
+
 
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 

@@ -6,6 +6,8 @@ import { timeout } from 'rxjs';
 import { NodeAccessDocument, NodeAccessEntry, PrimaryAMIConfig, PrimaryNodeService, isNodeAccessDocument } from '../../../core/services/primary-node.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
+import { NetCalculatorPopupComponent } from '../../../shared/net-calculator-popup/net-calculator-popup.component';
+
 
 export function calcularRedIPv4(value: string): string | null {
   const [address, maskText, extra] = value.trim().split('/');
@@ -36,7 +38,7 @@ export function calcularRedIPv4(value: string): string | null {
 @Component({
   selector: 'app-primary-node',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent],
   templateUrl: './primary-node.component.html',
   styleUrl: './primary-node.component.css'
 })
@@ -73,6 +75,8 @@ export class PrimaryNodeComponent implements OnInit {
   readonly tipoRed = signal<'permit' | 'deny'>('permit');
   readonly entradaRed = signal('');
   readonly redCalculada = signal<string | null>(null);
+  readonly popupCalculadoraAbierto = signal(false);
+
   numero = '';
   indicativo = '';
   password = '';
@@ -85,6 +89,14 @@ export class PrimaryNodeComponent implements OnInit {
     this.cargar();
     this.cargarAcceso();
     this.cargarAMI();
+  }
+
+  aplicarRedCalculada(resultado: string | null): void {
+    if (resultado) {
+      this.entradaRed.set(resultado);
+      this.calcularRed(); // Opcional: actualiza la previsualización de red calculada de inmediato
+    }
+    this.popupCalculadoraAbierto.set(false);
   }
 
   cargarAMI(): void {

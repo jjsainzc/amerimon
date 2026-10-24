@@ -1,0 +1,78 @@
+@if (isOpen()) {
+  <div class="fav-overlay" role="dialog" aria-modal="true">
+    <div class="fav-dialogo">
+
+      <!-- Botón de Cierre -->
+      <button class="fav-cerrar" (click)="close()" aria-label="Cerrar modal">&times;</button>
+
+      <h2>Calculadora de Red IPv4</h2>
+
+      <!-- Formulario de entrada compacto -->
+      <div class="calc-inputs-grid">
+        <div>
+          <label class="calc-label" for="ip-input">Dirección IP</label>
+          <input
+            id="ip-input"
+            type="text"
+            class="calc-input"
+            [ngModel]="ipInput()"
+            (ngModelChange)="ipInput.set($event)"
+            placeholder="192.168.1.1"
+          />
+        </div>
+        <div>
+          <label class="calc-label" for="cidr-input">CIDR</label>
+          <input
+            id="cidr-input"
+            type="number"
+            min="0"
+            max="32"
+            class="calc-input"
+            [ngModel]="cidrInput()"
+            (ngModelChange)="cidrInput.set($event)"
+          />
+        </div>
+      </div>
+
+      <button class="calc-btn-accion" (click)="calculateSubnet()">
+        Calcular Subred
+      </button>
+
+      <!-- Resultados o Errores -->
+      @if (networkResult(); as res) {
+        @if (res.error) {
+          <div class="fav-error">
+            {{ res.error }}
+          </div>
+        } @else {
+          <ul class="fav-lista">
+            <li class="fav-item">
+              <strong>Red:</strong>
+              <span>{{ res.network }}</span>
+            </li>
+            <li class="fav-item">
+              <strong>Máscara:</strong>
+              <span>{{ res.netmask }}</span>
+            </li>
+            <li class="fav-item">
+              <strong>Broadcast:</strong>
+              <span>{{ res.broadcast }}</span>
+            </li>
+            <li class="fav-item">
+              <strong>Hosts útiles:</strong>
+              <span>{{ res.totalHosts | number }}</span>
+            </li>
+          </ul>
+
+          <!-- Botón para aplicar la red seleccionada -->
+          <button class="calc-btn-usar" (click)="seleccionarRed()">
+            Usar esta red ({{ res.network }}/{{ cidrInput() }})
+          </button>
+        }
+      } @else {
+        <p class="fav-vacio" style="text-align: center; margin-top: 1rem;">Introduce una IP y presiona calcular.</p>
+      }
+
+    </div>
+  </div>
+}
