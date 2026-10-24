@@ -4,11 +4,12 @@ import { DatePipe } from '@angular/common';
 import { AsteriskLogService, AsteriskOperationLog } from '../../../core/services/asterisk-log.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { TablePaginationComponent } from '../../../shared/table-pagination/table-pagination.component';
+import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.component';
 
 @Component({
   selector: 'app-asterisk-logs',
   standalone: true,
-  imports: [DatePipe, AdminVolverComponent, TablePaginationComponent],
+  imports: [DatePipe, AdminVolverComponent, TablePaginationComponent, ScrollTopComponent],
   templateUrl: './asterisk-logs.component.html',
   styleUrl: './asterisk-logs.component.css',
 })

@@ -7,6 +7,8 @@ import { NodeAccessDocument, NodeAccessEntry, PrimaryAMIConfig, PrimaryNodeServi
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
 import { NetCalculatorPopupComponent } from '../../../shared/net-calculator-popup/net-calculator-popup.component';
+import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.component';
+
 
 
 export function calcularRedIPv4(value: string): string | null {
@@ -38,7 +40,7 @@ export function calcularRedIPv4(value: string): string | null {
 @Component({
   selector: 'app-primary-node',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent],
   templateUrl: './primary-node.component.html',
   styleUrl: './primary-node.component.css'
 })
