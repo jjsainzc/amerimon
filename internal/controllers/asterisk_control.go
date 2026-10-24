@@ -246,6 +246,16 @@ func ExecuteSupermonCommand(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "La configuración AMI de Asterisk está incompleta"})
 	}
 
+	if isBuiltInSupermonConnectionAction(request.Action) {
+		if !rptConnectionSafety.TryLock() {
+			return c.JSON(http.StatusConflict, echo.Map{"status": "error", "message": "Hay otra operación de enlace en curso. Espera a que termine y vuelve a intentar."})
+		}
+		defer rptConnectionSafety.Unlock()
+	}
+	if isRPTConnectionAction(request.Action) && request.LocalNode == request.RemoteNode {
+		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "connection_rejected", "No se permite enlazar un nodo consigo mismo", startedAt)
+		return c.JSON(http.StatusConflict, echo.Map{"status": "error", "message": "Conexión rechazada: un nodo no puede enlazarse consigo mismo"})
+	}
 	if request.DisconnectBeforeConnect {
 		disconnectStartedAt := time.Now()
 		err := disconnectRPTConnections(c.Request().Context(), instance, 15*time.Second)
@@ -254,15 +264,28 @@ func ExecuteSupermonCommand(c echo.Context) error {
 			recordAsteriskOperation(c.Request().Context(), "disconnect_before_connect", request.LocalNode, "", "", false, "", "error", err.Error(), disconnectStartedAt)
 			return c.JSON(http.StatusBadGateway, map[string]any{"status": "error", "message": "No se inició la nueva conexión: " + err.Error()})
 		}
+		forgetPendingRPTLinks(request.LocalNode, "")
 		recordAsteriskOperation(c.Request().Context(), "disconnect_before_connect", request.LocalNode, "", "", false, "", "success", "XStat confirmó que no quedan enlaces RPT", disconnectStartedAt)
 	}
 
+	if isRPTConnectionAction(request.Action) {
+		if status, err := validateRPTConnection(c.Request().Context(), instance, request.RemoteNode); err != nil {
+			log.Printf("asterisk: validación de enlace local=%s remoto=%s: %v", request.LocalNode, request.RemoteNode, err)
+			recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "connection_rejected", err.Error(), startedAt)
+			return c.JSON(status, echo.Map{"status": "error", "message": err.Error()})
+		}
+	}
 	log.Printf("asterisk: solicitando acción=%s local=%s remoto=%s permanente=%t destino=%s:%s comando=%q", request.Action, request.LocalNode, request.RemoteNode, request.Permanent, instance.Host, instance.Port, command)
 	raw, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
 	if err != nil {
 		log.Printf("asterisk: fallo AMI acción=%s local=%s remoto=%s destino=%s:%s comando=%q: %v", request.Action, request.LocalNode, request.RemoteNode, instance.Host, instance.Port, command, err)
 		recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "ami_error", err.Error(), startedAt)
 		return c.JSON(http.StatusBadGateway, map[string]any{"status": "error", "command": command, "message": "No se pudo ejecutar el comando en Asterisk"})
+	}
+	if isRPTConnectionAction(request.Action) {
+		rememberPendingRPTLink(instance, request.RemoteNode, resolveRPTConnectionTimeout(request.TimeoutSeconds))
+	} else if request.Action == "disconnect" {
+		forgetPendingRPTLinks(request.LocalNode, request.RemoteNode)
 	}
 	lines := config.ParseAMIOutputToLines(raw)
 	if len(lines) == 0 {
@@ -453,11 +476,21 @@ func AddNodeConnection(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "La configuración AMI de Asterisk está incompleta"})
 	}
 
+	if !rptConnectionSafety.TryLock() {
+		return c.JSON(http.StatusConflict, echo.Map{"status": "error", "message": "Hay otra operación de enlace en curso. Espera a que termine y vuelve a intentar."})
+	}
+	defer rptConnectionSafety.Unlock()
+	if status, err := validateRPTConnection(c.Request().Context(), instance, request.RemoteNode); err != nil {
+		log.Printf("asterisk: validación de enlace local=%s remoto=%s: %v", request.LocalNode, request.RemoteNode, err)
+		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "connection_rejected", err.Error(), startedAt)
+		return c.JSON(status, echo.Map{"status": "error", "message": err.Error()})
+	}
 	raw, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
 	if err != nil {
 		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "ami_error", err.Error(), startedAt)
 		return c.JSON(http.StatusBadGateway, map[string]any{"status": "error", "command": command, "message": "No se pudo agregar la conexión en Asterisk"})
 	}
+	rememberPendingRPTLink(instance, request.RemoteNode, resolveRPTConnectionTimeout(0))
 	lines := config.ParseAMIOutputToLines(raw)
 	if len(lines) == 0 {
 		lines = []string{"No data returned"}

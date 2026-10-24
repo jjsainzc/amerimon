@@ -43,7 +43,7 @@ export class FavoritosAdminComponent implements OnInit {
     descripcion: ['', [Validators.maxLength(120)]]
   });
 
-  /** Carga favoritos y prepara la búsqueda explícita de nodos de AstDB. */
+  /** Carga favoritos y prepara la búsqueda explícita de nodos de AstDB y EchoLink. */
   ngOnInit(): void {
     this.cargar();
     this.form.controls.busqueda.valueChanges.pipe(
@@ -82,7 +82,7 @@ export class FavoritosAdminComponent implements OnInit {
       } else if (results.length > 1) {
         this.estadoBusqueda.set(`Se encontraron ${results.length} nodos. Elige el destino deseado.`);
       } else if (this.form.controls.busqueda.value.trim()) {
-        this.estadoBusqueda.set('No se encontraron nodos en AstDB para esa búsqueda.');
+        this.estadoBusqueda.set('No se encontraron nodos en AstDB o EchoLink para esa búsqueda.');
       }
     });
   }
@@ -150,7 +150,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.form.markAllAsTouched();
     if (this.form.invalid || this.guardando() || this.buscando()) { return; }
     if (!this.nodoSeleccionado()) {
-      this.errorBusqueda.set('Selecciona un nodo de los resultados de AstDB.');
+      this.errorBusqueda.set('Selecciona un nodo de los resultados de AstDB o EchoLink.');
       return;
     }
 
@@ -203,7 +203,7 @@ export class FavoritosAdminComponent implements OnInit {
     });
   }
 
-  /** Selecciona el nodo de AstDB que se guardará como favorito. */
+  /** Selecciona el nodo del directorio que se guardará como favorito. */
   elegirCoincidencia(coincidencia: AstdbCoincidencia): void {
     this.avisoBusqueda.set('');
     this.nodoSeleccionado.set(coincidencia.nodo);
@@ -212,7 +212,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.coincidencias.set([]);
   }
 
-  /** Presenta los datos de AstDB asociados a una coincidencia de indicativo. */
+  /** Presenta los datos del directorio asociados a una coincidencia de indicativo. */
   textoCoincidencia(coincidencia: AstdbCoincidencia): string {
     return [coincidencia.callsign, coincidencia.descripcion, coincidencia.ubicacion]
       .map(value => value.trim()).filter(Boolean).join(' ');

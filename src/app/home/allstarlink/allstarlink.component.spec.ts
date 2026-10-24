@@ -214,6 +214,33 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it.each([
+    { status: 409, statusText: 'Conflict', message: 'Conexión rechazada para evitar un bucle: ya existe una ruta visible (56502 -> 59201 -> 46818)' },
+    { status: 503, statusText: 'Service Unavailable', message: 'No se pudo validar la topología: no se pudieron consultar los enlaces del nodo 59201' },
+  ])('shows a topology validation failure ($status) and removes the pending connection', async failure => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.desconectarAntesConexion.set(false);
+      component.conectarNodo();
+      component.confirmarAccion();
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush(
+        { status: 'error', message: failure.message },
+        { status: failure.status, statusText: failure.statusText }
+      );
+      fixture.detectChanges();
+      expect(component.resultadoConexion()).toEqual({ texto: failure.message, error: true });
+      expect(component.resultadoPopup()?.error).toBe(true);
+      expect(component.conexionesPendientes()).toEqual([]);
+      expect(component.conectando()).toBe(false);
+      expect(element.textContent).toContain(failure.message);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
   it('does not execute a cancelled connection', async () => {
     const { fixture, component, http } = await crearMonitor();
     try {

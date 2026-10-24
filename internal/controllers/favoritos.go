@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"sort"
@@ -48,6 +51,75 @@ func astdbEntries() map[string]AstDBEntry {
 	return entries
 }
 
+func readEchoLinkFavoritos(command func(string) (string, error)) (map[string]AstDBEntry, error) {
+	entries := make(map[string]AstDBEntry)
+	raw, err := command("module show like chan_echolink.so")
+	if err != nil {
+		return nil, fmt.Errorf("consultar el módulo EchoLink: %w", err)
+	}
+	loaded := false
+	for _, line := range config.ParseAMIOutputToLines(raw) {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && fields[0] == "chan_echolink.so" {
+			loaded = true
+			break
+		}
+	}
+	if !loaded {
+		return entries, nil
+	}
+	raw, err = command("echolink dbdump")
+	if err != nil {
+		return nil, fmt.Errorf("consultar el directorio EchoLink: %w", err)
+	}
+	lines := config.ParseAMIOutputToLines(raw)
+	hasOutput := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "Output:" {
+			continue
+		}
+		hasOutput = true
+		fields := strings.Split(line, "|")
+		if len(fields) != 3 {
+			continue
+		}
+		number := strings.TrimSpace(fields[0])
+		callsign := strings.TrimSpace(fields[1])
+		ip := strings.TrimSpace(fields[2])
+		if !isNumericNode(number) || callsign == "" || net.ParseIP(ip) == nil {
+			continue
+		}
+		node := "3" + number
+		entries[node] = AstDBEntry{Nodo: node, Callsign: callsign, Descripcion: "EchoLink", Ubicacion: ip}
+	}
+	if len(entries) == 0 && hasOutput {
+		return nil, fmt.Errorf("echolink dbdump no devolvió registros válidos")
+	}
+	return entries, nil
+}
+
+func echoLinkFavoritos() map[string]AstDBEntry {
+	// La AMI global corresponde al servidor principal, no a los Allmon remotos.
+	entries, err := readEchoLinkFavoritos(newPrimaryNodeControl().ami)
+	if err != nil {
+		log.Printf("favoritos: EchoLink no disponible: %v", err)
+	}
+	return entries
+}
+
+func favoritoEntries() map[string]AstDBEntry {
+	entries := astdbEntries()
+	if entries == nil {
+		entries = make(map[string]AstDBEntry)
+	}
+	for node, entry := range echoLinkFavoritos() {
+		if _, exists := entries[node]; !exists {
+			entries[node] = entry
+		}
+	}
+	return entries
+}
+
 // leerFavorito enlaza, normaliza y valida el favorito solicitado; devuelve errores HTTP ante datos inválidos.
 func leerFavorito(c echo.Context) (favorito, error) {
 	var f favorito
@@ -80,7 +152,7 @@ func ListFavoritos(c echo.Context) error {
 		return errFavorito(err)
 	}
 	defer rows.Close()
-	entries := astdbEntries()
+	entries := favoritoEntries()
 	items := []favorito{}
 	for rows.Next() {
 		var f favorito
@@ -95,7 +167,7 @@ func ListFavoritos(c echo.Context) error {
 	return c.JSON(http.StatusOK, items)
 }
 
-// BuscarAstdbFavorito busca números, indicativos y descripciones que coinciden con el texto.
+// BuscarAstdbFavorito busca destinos en AstDB y en el directorio EchoLink del principal.
 func BuscarAstdbFavorito(c echo.Context) error {
 	query := strings.TrimSpace(c.QueryParam("q"))
 	if query == "" || len(query) > 120 || strings.ContainsAny(query, "\r\n\x00") {
@@ -105,11 +177,16 @@ func BuscarAstdbFavorito(c echo.Context) error {
 	if path == "" {
 		return apiError(http.StatusInternalServerError, "La ruta de astdb.txt no está configurada")
 	}
-	results, err := buscarCoincidenciasAstDB(path, query)
+	entries, err := readAstDBEntries(path)
 	if err != nil {
 		return apiError(http.StatusInternalServerError, "No se pudo leer el archivo astdb.txt")
 	}
-	return c.JSON(http.StatusOK, results)
+	for node, entry := range echoLinkFavoritos() {
+		if _, exists := entries[node]; !exists {
+			entries[node] = entry
+		}
+	}
+	return c.JSON(http.StatusOK, coincidenciasFavorito(entries, query))
 }
 
 func buscarCoincidenciasAstDB(path, query string) ([]AstDBEntry, error) {
@@ -117,6 +194,10 @@ func buscarCoincidenciasAstDB(path, query string) ([]AstDBEntry, error) {
 	if err != nil {
 		return nil, err
 	}
+	return coincidenciasFavorito(entries, query), nil
+}
+
+func coincidenciasFavorito(entries map[string]AstDBEntry, query string) []AstDBEntry {
 	needle := strings.ToLower(query)
 	results := make([]AstDBEntry, 0)
 	for _, entry := range entries {
@@ -127,17 +208,17 @@ func buscarCoincidenciasAstDB(path, query string) ([]AstDBEntry, error) {
 		}
 	}
 	sort.Slice(results, func(i, j int) bool { return results[i].Nodo < results[j].Nodo })
-	return results, nil
+	return results
 }
 
-// AstdbFavorito devuelve la descripción del nodo en astdb.txt, para sugerirla al crear un favorito.
+// AstdbFavorito devuelve la descripción de AstDB o EchoLink para sugerirla al crear un favorito.
 func AstdbFavorito(c echo.Context) error {
 	numero := strings.TrimSpace(c.Param("numero"))
 	if !reFavoritoNumero.MatchString(numero) {
 		return apiError(http.StatusBadRequest, "El número del nodo no es válido")
 	}
 	desc := ""
-	if e, ok := astdbEntries()[numero]; ok {
+	if e, ok := favoritoEntries()[numero]; ok {
 		desc = astdbTexto(e)
 	}
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "descripcion": desc})

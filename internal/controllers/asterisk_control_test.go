@@ -123,7 +123,7 @@ func TestConnectAfterDisconnectingSelectedServer(t *testing.T) {
 			}
 			config.App.Sources.AllmonINIPath = filepath.Join(dir, "allmon.ini")
 			if err := os.WriteFile(config.App.Sources.AllmonINIPath, []byte(fmt.Sprintf(
-				"[56502]\nsystem=Nodes\nhost=%s\nport=%s\nuser=test\npasswd=test\n[616262]\nsystem=Nodes\nhost=192.0.2.1\nport=5038\nuser=other\npasswd=other\n", host, port)), 0o600); err != nil {
+				"[56502]\nsystem=Nodes\nhost=%s\nport=%s\nuser=test\npasswd=test\n[616262]\nsystem=Nodes\nhost=192.0.2.1\nport=5038\nuser=other\npasswd=other\namerimon_tracking=disabled\n", host, port)), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			request := httptest.NewRequest(http.MethodPost, "/asterisk/commands", strings.NewReader(fmt.Sprintf(
@@ -133,14 +133,14 @@ func TestConnectAfterDisconnectingSelectedServer(t *testing.T) {
 			if err := ExecuteSupermonCommand(echo.New().NewContext(request, recorder)); err != nil {
 				t.Fatal(err)
 			}
-			want := []string{"rpt cmd 56502 ilink 13 46818"}
+			want := []string{"XStat 56502", "rpt cmd 56502 ilink 13 46818"}
 			status := http.StatusOK
 			if scenario.enabled {
 				want = []string{"XStat 56502", "rpt cmd 56502 ilink 11 10001"}
 				if scenario.fail {
 					status = http.StatusBadGateway
 				} else {
-					want = append(want, "rpt cmd 56502 ilink 11 10002", "XStat 56502", "rpt cmd 56502 ilink 13 46818")
+					want = append(want, "rpt cmd 56502 ilink 11 10002", "XStat 56502", "XStat 56502", "rpt cmd 56502 ilink 13 46818")
 				}
 			}
 			operationsMu.Lock()

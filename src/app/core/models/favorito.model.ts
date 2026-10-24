@@ -2,7 +2,7 @@ export interface Favorito {
   id: number;
   numero: string;
   descripcion: string;
-  /** Texto del nodo en astdb.txt, si existe. */
+  /** Texto del nodo en AstDB o EchoLink, si existe. */
   descripcion_astdb?: string;
 }
 

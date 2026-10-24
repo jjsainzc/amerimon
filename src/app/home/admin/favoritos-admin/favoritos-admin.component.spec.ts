@@ -74,7 +74,7 @@ describe('FavoritosAdminComponent', () => {
     component.form.controls.busqueda.setValue('HC1LNM');
     fixture.detectChanges();
     expect(service.buscarAstdb).not.toHaveBeenCalled();
-    fixture.nativeElement.querySelector('[aria-label="Buscar en AstDB"]').click();
+    fixture.nativeElement.querySelector('[aria-label="Buscar en AstDB y EchoLink"]').click();
     fixture.detectChanges();
 
     expect(service.buscarAstdb).toHaveBeenCalledWith('HC1LNM');
@@ -95,6 +95,23 @@ describe('FavoritosAdminComponent', () => {
       numero: '700002',
       descripcion: '',
     });
+  });
+
+  it('selects and saves an EchoLink destination with the connection prefix', () => {
+    service.buscarAstdb.mockReturnValue(of([
+      { nodo: '3996546', callsign: 'W2LRC-R', descripcion: 'EchoLink', ubicacion: '165.227.99.201' },
+    ]));
+    const component = fixture.componentInstance;
+    component.abrirNuevo();
+    component.form.controls.busqueda.setValue('W2LRC-R');
+    component.buscar();
+    fixture.detectChanges();
+
+    expect(component.nodoSeleccionado()).toBe('3996546');
+    expect(component.sugerida()).toBe('W2LRC-R EchoLink 165.227.99.201');
+    expect(fixture.nativeElement.textContent).toContain('3996546');
+    component.guardar();
+    expect(service.crear).toHaveBeenCalledWith({ numero: '3996546', descripcion: '' });
   });
 
     it.each([50, 51, 5000])('renders at most 50 results and warns only above 50 (%i matches)', count => {
