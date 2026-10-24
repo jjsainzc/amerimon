@@ -5,17 +5,175 @@
 .logs-cabecera p:last-child { margin: .25rem 0 0; color: #a9bac5; font-size: .86rem; }
 .logs-actualizar { flex: 0 0 auto; }
 .logs-tabla-scroll { width: 100%; overflow: auto; border: 1px solid #354a56; border-radius: 6px; }
-.logs-tabla { min-width: 900px; }
-.logs-tabla code { display: block; max-width: 18rem; overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
+
+/* === CONFIGURACIÓN DE LA TABLA (ESCRITORIO) === */
+.logs-tabla {
+  width: 100%;
+  min-width: 950px;
+  table-layout: fixed;
+}
+
+.logs-tabla th:nth-child(1), .logs-tabla td:nth-child(1) { width: 130px; } /* Fecha y hora */
+.logs-tabla th:nth-child(2), .logs-tabla td:nth-child(2) { width: 100px; } /* Acción */
+.logs-tabla th:nth-child(3), .logs-tabla td:nth-child(3) { width: 85px;  } /* Nodo local */
+.logs-tabla th:nth-child(4), .logs-tabla td:nth-child(4) { width: 85px;  } /* Nodo remoto */
+.logs-tabla th:nth-child(5), .logs-tabla td:nth-child(5) { width: 75px;  } /* Modo */
+.logs-tabla th:nth-child(6), .logs-tabla td:nth-child(6) { width: auto;   } /* Comando */
+.logs-tabla th:nth-child(7), .logs-tabla td:nth-child(7) { width: 110px; } /* Resultado */
+.logs-tabla th:nth-child(8), .logs-tabla td:nth-child(8) { width: 80px;  } /* Duración */
+
+.logs-tabla code { display: block; max-width: 100%; overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
 .logs-resultado { display: inline-block; padding: .18rem .4rem; border: 1px solid #455b68; border-radius: 4px; color: #dce5eb; font-size: .74rem; white-space: nowrap; }
 .resultado-success { border-color: #347c69; background: #183c34; color: #9cddc2; }
 .resultado-not_confirmed, .resultado-ami_error, .resultado-configuration_error, .resultado-invalid_request { border-color: #80533f; background: #3c2d25; color: #ffc5a2; }
-.logs-detalle { max-width: 18rem; margin-top: .25rem; color: #9db0ba; font-size: .74rem; }
+.logs-detalle { max-width: 100%; margin-top: .25rem; color: #9db0ba; font-size: .74rem; }
 .logs-detalle summary { cursor: pointer; }
-.logs-detalle p { max-width: 18rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.logs-detalle p { max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; }
 .logs-error { padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
 .logs-estado, .logs-vacio { padding: 1rem 0; color: #a9bac5; }
 
 @media (max-width: 700px) {
   .logs-cabecera h1 { font-size: 1.15rem; }
+}
+
+/* ==========================================================
+   TRANSFORMACIÓN A CARDS PARA PANTALLAS PEQUEÑAS (< 768px)
+   ========================================================== */
+
+@media (max-width: 768px) {
+  .logs-tabla-scroll {
+    border: none;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .logs-tabla {
+    min-width: 0;
+  }
+
+  .logs-tabla,
+  .logs-tabla thead,
+  .logs-tabla tbody,
+  .logs-tabla th,
+  .logs-tabla td,
+  .logs-tabla tr {
+    display: block;
+    width: 100% !important;
+    box-sizing: border-box;
+    max-width: none !important;
+  }
+
+  .logs-tabla thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+
+  /* Tarjeta individual (Card) */
+  .logs-tabla tr {
+    margin-bottom: 1.2rem;
+    background: #1d2a34;
+    border: 1px solid #354a56;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Estructura general de las celdas en Grid (Etiqueta izquierda, Valor derecha) */
+  .logs-tabla td {
+    display: grid !important;
+    grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr) !important;
+    align-items: center;
+    padding: 0.5rem 0;
+    border: none;
+    border-bottom: 1px solid rgba(64, 84, 97, 0.25);
+    font-size: 0.9rem;
+    gap: 0.5rem;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .logs-tabla td:last-child {
+    border-bottom: none;
+  }
+
+  /* Textos de las etiquetas fijos a la izquierda */
+  .logs-tabla td:nth-child(1)::before { content: "Fecha y hora"; }
+  .logs-tabla td:nth-child(2)::before { content: "Acción"; }
+  .logs-tabla td:nth-child(3)::before { content: "Nodo local"; }
+  .logs-tabla td:nth-child(4)::before { content: "Nodo remoto"; }
+  .logs-tabla td:nth-child(5)::before { content: "Modo"; }
+  .logs-tabla td:nth-child(6)::before { content: "Comando"; }
+  .logs-tabla td:nth-child(7)::before { content: "Resultado"; }
+  .logs-tabla td:nth-child(8)::before { content: "Duración"; }
+
+  .logs-tabla td::before {
+    font-weight: 600;
+    color: #80cfd6;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  /* Mantiene las etiquetas y sus valores legibles y alineados en móvil. */
+  .logs-tabla td > * {
+    justify-self: start;
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  /* El comando usa todo el ancho disponible para poder saltar de línea. */
+  .logs-tabla td:nth-child(6) {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    min-width: 0;
+    gap: 0.3rem;
+  }
+
+  .logs-tabla td:nth-child(6) > * {
+    justify-self: start;
+    text-align: left;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .logs-tabla code {
+    box-sizing: border-box;
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .logs-tabla td:nth-child(7) .logs-detalle {
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .logs-tabla td {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: start;
+  }
+
+  .logs-tabla td > * {
+    justify-self: start;
+    text-align: left;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .logs-tabla td:nth-child(6) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: start !important;
+  }
+
+  .logs-tabla td:nth-child(7) .logs-resultado {
+    justify-self: start;
+  }
 }
