@@ -21,6 +21,10 @@
 .pie-sqlite { padding: 2px; border-radius: 3px; background: #111a22; }
 .pie-tecnologia:has(.pie-sqlite) { color: #fff; }
 
+@media (min-width: 721px) {
+  .pie { padding-right: 6rem; }
+}
+
 @media (max-width: 720px) {
   .pie { justify-content: center; margin-inline: .5rem; padding-inline: .25rem; text-align: center; }
 }
@@ -78,7 +82,7 @@
   box-shadow: 0 8px 24px rgb(0 0 0 / .3);
 }
 .admin-desplegable-panel a,
-.admin-desplegable-panel button {
+.sesion .admin-desplegable-panel button {
   padding: .5rem .65rem;
   border: 0;
   border-radius: 4px;

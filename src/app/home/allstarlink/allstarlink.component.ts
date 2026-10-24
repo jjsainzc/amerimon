@@ -745,12 +745,14 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.error.set(this.erroresServidor()[this.nodoPrincipal()] ?? '');
           for (const tabla of tablas) { this.consultarServidor(tabla.nodo_local, forzar); }
         } else {
+          this.limpiarDatosNodos();
           this.error.set(respuesta?.message || 'No se pudo cargar el listado de nodos.');
         }
         this.finalizarCarga();
         this.programarSondeoPermanente();
       },
       error: err => {
+        this.limpiarDatosNodos();
         this.finalizarCarga();
         this.consultado.set(true);
         this.error.set(err?.name === 'TimeoutError'
@@ -762,6 +764,21 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.revisarDesconexionesEnVerificacion();
       }
     });
+  }
+
+  private limpiarDatosNodos(): void {
+    this.recargasServidor.clear();
+    for (const consulta of this.consultasServidor.values()) { consulta.unsubscribe(); }
+    this.consultasServidor.clear();
+    for (const temporizador of this.reintentosServidor.values()) { clearTimeout(temporizador); }
+    this.reintentosServidor.clear();
+    this.tablasLocales.set([]);
+    this.nodos.set([]);
+    this.conexionesPendientes.set([]);
+    this.erroresServidor.set({});
+    this.nodoPrincipal.set('');
+    this.nodoLocal.set('');
+    this.servidorSeleccionado.set('todos');
   }
 
   private consultarServidor(local: string, forzar = false): void {

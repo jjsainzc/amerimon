@@ -204,6 +204,50 @@ describe('Allstarlink connection target safety', () => {
       fixture.destroy();
     }
   });
+
+  it('clears every node table when server discovery returns an error response', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.cargar();
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({ status: 'success', data: [] });
+      http.expectOne(`${nodesUrl}?discovery=true`).flush({
+        status: 'error',
+        message: 'No se pudo cargar el listado de nodos.'
+      });
+      fixture.detectChanges();
+
+      expect(component.tablasLocales()).toEqual([]);
+      expect(component.nodos()).toEqual([]);
+      expect(component.grupos()).toEqual([]);
+      expect(element.querySelectorAll('.allstarlink-tabla')).toHaveLength(0);
+      expect(element.querySelector('.allstarlink-error')?.textContent).toContain('No se pudo cargar');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('clears every node table when server discovery fails at the network level', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.cargar();
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({ status: 'success', data: [] });
+      http.expectOne(`${nodesUrl}?discovery=true`).flush(
+        { message: 'Servicio no disponible' },
+        { status: 503, statusText: 'Unavailable' }
+      );
+      fixture.detectChanges();
+
+      expect(component.tablasLocales()).toEqual([]);
+      expect(component.nodos()).toEqual([]);
+      expect(component.grupos()).toEqual([]);
+      expect(element.querySelectorAll('.allstarlink-tabla')).toHaveLength(0);
+      expect(element.querySelector('.allstarlink-error')?.textContent).toContain('Servicio no disponible');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
 });
 
 function descubrirServidores(http: HttpTestingController): void {
