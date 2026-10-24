@@ -107,6 +107,10 @@
           <p class="allstarlink-eyebrow">CONEXIÓN</p>
           <h3 id="allstarlink-conexion-titulo">Conectar nodo remoto</h3>
         </div>
+        <label class="allstarlink-permanente allstarlink-desconectar-antes">
+          <input type="checkbox" [checked]="desconectarAntesConexion()" (change)="desconectarAntesConexion.set($any($event.target).checked)" [disabled]="conectando()">
+          <span>Desconectar todos antes de conectar</span>
+        </label>
       </header>
       <form class="allstarlink-formulario" (submit)="$event.preventDefault(); conectarNodo()">
         <label>
@@ -142,7 +146,7 @@
           <input type="number" min="1" max="300" step="1" [value]="timeoutConexion()" [disabled]="permanenteConexion()" aria-label="Timeout de conexión en segundos" (input)="timeoutConexion.set(+$any($event.target).value)">
         </label>
         <button type="submit" class="allstarlink-ejecutar" [disabled]="conectando() || nodosLocales().length === 0">
-          {{ conectando() ? 'Conectando…' : 'Conectar nodo' }}
+          {{ desconectandoAntesConexion() ? 'Desconectando nodos…' : conectando() ? 'Conectando…' : 'Conectar nodo' }}
         </button>
       </form>
     </section>

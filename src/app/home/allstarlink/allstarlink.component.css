@@ -270,8 +270,6 @@
 .allstarlink-tabla th.allstarlink-columna-protocolo,
 .allstarlink-tabla td.allstarlink-columna-protocolo { width: 18ch; max-width: 18ch; white-space: nowrap; }
 
-.allstarlink-tabla th.allstarlink-columna-callsign,
-.allstarlink-tabla td.allstarlink-columna-callsign { width: 18ch; max-width: 18ch; white-space: nowrap; }
 
 .allstarlink-tabla th.allstarlink-columna-conectado,
 .allstarlink-tabla td.allstarlink-columna-conectado { width: 12ch; max-width: 12ch; white-space: nowrap; }
@@ -293,6 +291,9 @@
 
 .allstarlink-tabla th.allstarlink-columna-enlace,
 .allstarlink-tabla td.allstarlink-columna-enlace { width: 18ch !important; max-width: 18ch !important; white-space: nowrap !important; }
+
+.allstarlink-tabla th.allstarlink-columna-callsign,
+.allstarlink-tabla td.allstarlink-columna-callsign { width: 12ch !important; max-width: 12ch !important; white-space: nowrap !important; }
 
 
 @container allstarlink-layout (min-width: 971px) {

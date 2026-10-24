@@ -116,6 +116,7 @@ export interface SupermonCommandRequest {
   action: string;
   permanent: boolean;
   timeout_seconds?: number;
+  disconnect_before_connect?: boolean;
 }
 
 export interface SupermonCommandResult {

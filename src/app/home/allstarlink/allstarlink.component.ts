@@ -3,17 +3,19 @@ import { Component, DestroyRef, OnDestroy, OnInit, computed, effect, inject, sig
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Subscription, timeout } from 'rxjs';
+import { EMPTY, Observable, Subscription, concatMap, defer, expand, filter, from, map, of, switchMap, take, tap, timeout, timer, toArray } from 'rxjs';
 import {
   AllstarlinkActivity,
   AllstarlinkGrupo,
   AllstarlinkNode,
+  AllstarlinkResponse,
   AllstarlinkTabla,
   SupermonCommand,
   SupermonCommandRequest,
   SupermonCommandResult
 } from '../../core/models/allstarlink.model';
 import { AllstarlinkService } from '../../core/services/allstarlink.service';
+import { AllstarlinkConnectionStateService } from '../../core/services/allstarlink-connection-state.service';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../core/environment';
 import { indicativoQrz } from '../../core/validators/callsign.validator';
@@ -35,6 +37,7 @@ type SolicitudConexion = Readonly<SupermonCommandRequest & {
 })
 export class AllstarlinkComponent implements OnInit, OnDestroy {
   private readonly service = inject(AllstarlinkService);
+  private readonly estadoConexion = inject(AllstarlinkConnectionStateService);
   private readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
@@ -66,9 +69,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly comandos = signal<SupermonCommand[]>([]);
   readonly cargandoComandos = signal(false);
   readonly errorComandos = signal('');
-  readonly nodoLocal = signal('');
+  readonly nodoLocal = this.estadoConexion.nodoLocal;
   readonly nodoRemoto = signal('');
-  readonly nodoRemotoConexion = signal('');
+  readonly nodoRemotoConexion = this.estadoConexion.nodoRemoto;
   readonly favoritosAbierto = signal(false);
 
   /** Selecciona el nodo favorito como destino de una conexión y cierra el selector. */
@@ -76,10 +79,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     this.nodoRemotoConexion.set(numero);
     this.favoritosAbierto.set(false);
   }
-  readonly modoConexion = signal<'connect' | 'monitor' | 'localmonitor'>('connect');
-  readonly permanenteConexion = signal(false);
-  readonly timeoutConexion = signal(15);
+  readonly modoConexion = this.estadoConexion.modo;
+  readonly permanenteConexion = this.estadoConexion.permanente;
+  readonly desconectarAntesConexion = this.estadoConexion.desconectarAntes;
+  readonly timeoutConexion = this.estadoConexion.timeout;
   readonly conectando = signal(false);
+  readonly desconectandoAntesConexion = signal(false);
   readonly resultadoConexion = signal<{ texto: string; error: boolean } | null>(null);
   readonly accionSeleccionada = signal('');
   readonly permanente = signal(false);
@@ -447,11 +452,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       remote_node: remoto,
       action: modo,
       permanent: permanente,
-      timeout_seconds: timeoutSegundos
+      timeout_seconds: timeoutSegundos,
+      ...(this.desconectarAntesConexion() ? { disconnect_before_connect: true } : {})
     };
     this.solicitarConfirmacion(
       'Confirmar conexión',
-      `Conectar el nodo ${remoto} a ${local} en modo ${modoLabel} (${tipoConexion}).`,
+      `${request.disconnect_before_connect ? `Se desconectarán todos los nodos del servidor ${local}. ` : ''}Conectar el nodo ${remoto} a ${local} en modo ${modoLabel} (${tipoConexion}).`,
       () => this.ejecutarConexion(request, modoLabel)
     );
   }
@@ -460,12 +466,25 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     if (!this.validarServidorOperacion(request.local_node)) { return; }
     const { local_node: local, remote_node: remoto, permanent: permanente, timeout_seconds: timeoutSegundos } = request;
     this.conectando.set(true);
+    this.desconectandoAntesConexion.set(!!request.disconnect_before_connect);
     this.resultadoConexion.set(null);
-    this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
-    this.service.ejecutarComando(request).pipe(timeout({ each: permanente ? 10_000 : timeoutSegundos * 1000 + 10_000 })).subscribe({
+    const preparacion = request.disconnect_before_connect ? this.desconectarNodosAntesDeConectar(local) : of(undefined);
+    const { disconnect_before_connect: _desconectarAntes, ...solicitud } = request;
+    preparacion.pipe(
+      tap(() => {
+        this.desconectandoAntesConexion.set(false);
+        this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
+      }),
+      switchMap(() => this.service.ejecutarComando(solicitud).pipe(
+        timeout({ each: permanente ? 10_000 : timeoutSegundos * 1000 + 10_000 })
+      )),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
       next: respuesta => {
         this.conectando.set(false);
-        if (respuesta?.status === 'success') { this.programarRecargaConexiones(); }
+        this.desconectandoAntesConexion.set(false);
+        if (respuesta?.status !== 'success') { this.quitarConexionPendiente(local, remoto); }
+        if (request.disconnect_before_connect || respuesta?.status === 'success') { this.programarRecargaConexiones(); }
         this.resultadoConexion.set(respuesta?.status === 'success' && respuesta.data
           ? { texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
           : { texto: respuesta?.message || 'No se pudo conectar el nodo.', error: true });
@@ -478,16 +497,60 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.conectando.set(false);
+        this.desconectandoAntesConexion.set(false);
         this.quitarConexionPendiente(local, remoto);
+        if (request.disconnect_before_connect) { this.programarRecargaConexiones(); }
         this.resultadoConexion.set({
           texto: err?.name === 'TimeoutError'
             ? 'El servidor no respondió a tiempo.'
-            : err?.error?.message || 'No se pudo conectar el nodo.',
+            : err?.error?.message || err?.message || 'No se pudo conectar el nodo.',
           error: true
         });
         this.mostrarPopup('Error de conexión', '', [this.resultadoConexion()!.texto], true);
       }
     });
+  }
+
+  private nodosParaDesconectar(respuesta: AllstarlinkResponse, local: string): string[] {
+    if (respuesta.status !== 'success' || !respuesta.data?.tablas?.some(tabla =>
+      tabla.nodo_local === local && tabla.servidor_conectado
+    ) || !Array.isArray(respuesta.data.resultados)) {
+      throw new Error(respuesta.message || `No se pudo consultar la lista de nodos conectados del servidor ${local}.`);
+    }
+    return [...new Set(respuesta.data.resultados
+      .filter(nodo => nodo.nodo_local === local && nodo.protocolo?.trim().toLowerCase() !== 'sip')
+      .map(nodo => nodo.nodo))];
+  }
+
+  private desconectarNodosAntesDeConectar(local: string): Observable<unknown> {
+    const consultar = () => this.service.listarNodos(local).pipe(
+      timeout({ each: 30_000 }),
+      map(respuesta => this.nodosParaDesconectar(respuesta, local))
+    );
+    return consultar().pipe(
+      switchMap(nodos => from(nodos).pipe(
+        concatMap(remoto => this.service.ejecutarComando({
+          local_node: local, remote_node: remoto, action: 'disconnect', permanent: false
+        }).pipe(
+          timeout({ each: 10_000 }),
+          tap(respuesta => {
+            if (respuesta.status !== 'success') {
+              throw new Error(respuesta.message || `No se pudo desconectar el nodo ${remoto} del servidor ${local}.`);
+            }
+            this.quitarConexionPendiente(local, remoto);
+          })
+        )),
+        toArray(),
+        switchMap(() => defer(consultar).pipe(
+          expand(restantes => restantes.length
+            ? timer(500).pipe(switchMap(consultar))
+            : EMPTY),
+          filter(restantes => restantes.length === 0),
+          take(1),
+          timeout({ first: 15_000 })
+        ))
+      ))
+    );
   }
 
   private validarServidorOperacion(local: string): boolean {

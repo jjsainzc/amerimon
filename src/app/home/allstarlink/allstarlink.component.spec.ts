@@ -71,6 +71,52 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('preserves every connection parameter when the view is destroyed and recreated', async () => {
+    const primera = await crearMonitor();
+    primera.component.nodoLocal.set('56502');
+    primera.component.nodoRemotoConexion.set('46818');
+    primera.component.modoConexion.set('localmonitor');
+    primera.component.permanenteConexion.set(true);
+    primera.component.desconectarAntesConexion.set(true);
+    primera.component.timeoutConexion.set(42);
+    primera.fixture.destroy();
+
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      expect(component.nodoLocal()).toBe('56502');
+      expect(component.nodoRemotoConexion()).toBe('46818');
+      expect(component.modoConexion()).toBe('localmonitor');
+      expect(component.permanenteConexion()).toBe(true);
+      expect(component.desconectarAntesConexion()).toBe(true);
+      expect(component.timeoutConexion()).toBe(42);
+      expect(element.querySelector<HTMLSelectElement>('.allstarlink-conexion select[name="local_node"]')!.value).toBe('56502');
+      expect(element.querySelector<HTMLInputElement>('.allstarlink-nodo-fila input')!.value).toBe('46818');
+      expect(element.querySelector<HTMLInputElement>('.allstarlink-desconectar-antes input')!.checked).toBe(true);
+      expect(component.conectando()).toBe(false);
+      expect(component.confirmacionPendiente()).toBeNull();
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('falls back to the available primary server if the remembered server no longer exists', async () => {
+    const primera = await crearMonitor();
+    primera.component.nodoLocal.set('999999');
+    primera.component.nodoRemotoConexion.set('46818');
+    primera.fixture.destroy();
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      expect(component.nodoLocal()).toBe('616262');
+      expect(component.nodoRemotoConexion()).toBe('46818');
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
   it('sends 46818 to the selected 56502 and freezes all confirmed parameters', async () => {
     const { fixture, component, http, element } = await crearMonitor();
     try {
@@ -109,6 +155,196 @@ describe('Allstarlink connection target safety', () => {
     try {
       component.nodoLocal.set('56502');
       component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      component.cancelarConfirmacion();
+      component.confirmarAccion();
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('binds the disconnect checkbox and freezes it with the selected server at confirmation', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      const checkbox = element.querySelector<HTMLInputElement>('.allstarlink-desconectar-antes input')!;
+      expect(checkbox.checked).toBe(false);
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event('change'));
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.modoConexion.set('localmonitor');
+      component.timeoutConexion.set(42);
+      component.conectarNodo();
+      expect(component.confirmacionPendiente()?.mensaje).toContain('Se desconectarán todos los nodos del servidor 56502.');
+      http.expectNone(request => request.method === 'POST');
+      component.desconectarAntesConexion.set(false);
+      component.nodoLocal.set('616262');
+      component.nodoRemotoConexion.set('99999');
+      component.modoConexion.set('connect');
+      component.permanenteConexion.set(true);
+      component.timeoutConexion.set(5);
+      component.confirmarAccion();
+      expect(component.conexionesPendientes()).toEqual([]);
+      const lista = respuestaServidor('56502');
+      lista.data.resultados = [
+        { nodo_local: '56502', nodo: '1964', protocolo: 'iax', enlace: 'ESTABLISHED' },
+        { nodo_local: '56502', nodo: '1998', protocolo: 'iax', enlace: 'ESTABLISHED' },
+        { nodo_local: '616262', nodo: '8888', protocolo: 'iax', enlace: 'ESTABLISHED' }
+      ];
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(lista);
+      for (const remoto of ['1964', '1998']) {
+        const desconexion = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+        expect(desconexion.request.body).toEqual({
+          local_node: '56502', remote_node: remoto, action: 'disconnect', permanent: false
+        });
+        desconexion.flush({ status: 'success', data: { command: 'disconnect', lines: [] } });
+      }
+      http.expectNone(request => request.method === 'POST');
+      lista.data.resultados = [];
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(lista);
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      expect(request.request.body).toEqual({
+        local_node: '56502', remote_node: '46818', action: 'localmonitor',
+        permanent: false, timeout_seconds: 42
+      });
+      request.flush({ status: 'error', message: 'No se confirmó la desconexión previa.' });
+      expect(component.resultadoConexion()?.error).toBe(true);
+      expect(component.conexionesPendientes()).toEqual([]);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('stops before connecting when an individual disconnection fails', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.desconectarAntesConexion.set(true);
+      component.conectarNodo();
+      component.confirmarAccion();
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(respuestaServidor('56502'));
+      const desconexion = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      expect(desconexion.request.body.action).toBe('disconnect');
+      desconexion.flush({ status: 'error', message: 'Desconexión rechazada.' });
+      http.expectNone(request => request.method === 'POST');
+      expect(component.resultadoConexion()).toEqual({ texto: 'Desconexión rechazada.', error: true });
+      expect(component.conectando()).toBe(false);
+      expect(component.conexionesPendientes()).toEqual([]);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('waits for an empty list before connecting with permanent mode preserved', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    vi.useFakeTimers();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.modoConexion.set('monitor');
+      component.permanenteConexion.set(true);
+      component.desconectarAntesConexion.set(true);
+      component.conectarNodo();
+      component.confirmarAccion();
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(respuestaServidor('56502'));
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({ status: 'success' });
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(respuestaServidor('56502'));
+      http.expectNone(request => request.method === 'POST');
+      expect(component.desconectandoAntesConexion()).toBe(true);
+      await vi.advanceTimersByTimeAsync(500);
+      const vacia = respuestaServidor('56502');
+      vacia.data.resultados = [];
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(vacia);
+      const conexion = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      expect(conexion.request.body).toEqual({
+        local_node: '56502', remote_node: '46818', action: 'monitor',
+        permanent: true, timeout_seconds: 15
+      });
+      conexion.flush({ status: 'success', data: { command: 'connect', lines: [] } });
+      expect(component.desconectandoAntesConexion()).toBe(false);
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not treat an unreachable server as an empty list', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.desconectarAntesConexion.set(true);
+      component.conectarNodo();
+      component.confirmarAccion();
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(respuestaServidor('56502', false));
+      http.expectNone(request => request.method === 'POST');
+      expect(component.resultadoConexion()?.error).toBe(true);
+      expect(component.conectando()).toBe(false);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('connects without sending disconnect commands when the selected server is already empty', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.desconectarAntesConexion.set(true);
+      component.conectarNodo();
+      component.confirmarAccion();
+      const vacia = respuestaServidor('56502');
+      vacia.data.resultados = [];
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(vacia);
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(vacia);
+      const conexion = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      expect(conexion.request.body.action).toBe('connect');
+      conexion.flush({ status: 'success', data: { command: 'connect', lines: [] } });
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('never connects if disconnection cannot be confirmed within the deadline', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    vi.useFakeTimers();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.desconectarAntesConexion.set(true);
+      component.conectarNodo();
+      component.confirmarAccion();
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(respuestaServidor('56502'));
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({ status: 'success' });
+      http.expectOne(`${nodesUrl}?local_node=56502`).flush(respuestaServidor('56502'));
+      await vi.advanceTimersByTimeAsync(500);
+      const pendiente = http.expectOne(`${nodesUrl}?local_node=56502`);
+      await vi.advanceTimersByTimeAsync(14_500);
+      expect(pendiente.cancelled).toBe(true);
+      expect(component.conectando()).toBe(false);
+      expect(component.resultadoConexion()?.error).toBe(true);
+      expect(component.conexionesPendientes()).toEqual([]);
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not disconnect anything when the replacement connection is cancelled', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoRemotoConexion.set('46818');
+      component.desconectarAntesConexion.set(true);
       component.conectarNodo();
       component.cancelarConfirmacion();
       component.confirmarAccion();

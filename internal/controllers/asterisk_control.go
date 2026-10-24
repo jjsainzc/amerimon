@@ -23,11 +23,12 @@ type SupermonCommand struct {
 }
 
 type SupermonCommandRequest struct {
-	LocalNode      string `json:"local_node"`
-	RemoteNode     string `json:"remote_node"`
-	Action         string `json:"action"`
-	Permanent      bool   `json:"permanent"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
+	LocalNode               string `json:"local_node"`
+	RemoteNode              string `json:"remote_node"`
+	Action                  string `json:"action"`
+	Permanent               bool   `json:"permanent"`
+	TimeoutSeconds          int    `json:"timeout_seconds"`
+	DisconnectBeforeConnect bool   `json:"disconnect_before_connect"`
 }
 
 type NodeConnectionRequest struct {
@@ -245,6 +246,17 @@ func ExecuteSupermonCommand(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]any{"status": "error", "message": "La configuración AMI de Asterisk está incompleta"})
 	}
 
+	if request.DisconnectBeforeConnect {
+		disconnectStartedAt := time.Now()
+		err := disconnectRPTConnections(c.Request().Context(), instance, 15*time.Second)
+		if err != nil {
+			log.Printf("asterisk: desconexión previa falló local=%s: %v", request.LocalNode, err)
+			recordAsteriskOperation(c.Request().Context(), "disconnect_before_connect", request.LocalNode, "", "", false, "", "error", err.Error(), disconnectStartedAt)
+			return c.JSON(http.StatusBadGateway, map[string]any{"status": "error", "message": "No se inició la nueva conexión: " + err.Error()})
+		}
+		recordAsteriskOperation(c.Request().Context(), "disconnect_before_connect", request.LocalNode, "", "", false, "", "success", "XStat confirmó que no quedan enlaces RPT", disconnectStartedAt)
+	}
+
 	log.Printf("asterisk: solicitando acción=%s local=%s remoto=%s permanente=%t destino=%s:%s comando=%q", request.Action, request.LocalNode, request.RemoteNode, request.Permanent, instance.Host, instance.Port, command)
 	raw, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
 	if err != nil {
@@ -287,6 +299,47 @@ func isRPTConnectionAction(action string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func disconnectRPTConnections(ctx context.Context, instance allmonInstance, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	sent := make(map[string]bool)
+	for {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("no se confirmó la desconexión de todos los nodos de %s: %w", instance.Node, err)
+		}
+		deadline, _ := ctx.Deadline()
+		queryTimeout := min(5*time.Second, time.Until(deadline))
+		xstat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "XStat", queryTimeout)
+		if err != nil {
+			return fmt.Errorf("no se pudieron consultar los enlaces de %s: %w", instance.Node, err)
+		}
+		connections := parseRPTConnections(xstat, "")
+		if len(connections) == 0 {
+			return ctx.Err()
+		}
+		for _, connection := range connections {
+			if sent[connection.Node] {
+				continue
+			}
+			if err := ctx.Err(); err != nil {
+				return fmt.Errorf("desconexión previa incompleta en %s: %w", instance.Node, err)
+			}
+			command := fmt.Sprintf("rpt cmd %s ilink 11 %s", instance.Node, connection.Node)
+			log.Printf("asterisk: desconexión previa local=%s remoto=%s comando=%q", instance.Node, connection.Node, command)
+			_, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, min(5*time.Second, time.Until(deadline)))
+			if err != nil {
+				return fmt.Errorf("no se pudo desconectar el nodo %s de %s: %w", connection.Node, instance.Node, err)
+			}
+			sent[connection.Node] = true
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("no se confirmó la desconexión de todos los nodos de %s: %w", instance.Node, ctx.Err())
+		case <-time.After(250 * time.Millisecond):
+		}
 	}
 }
 
@@ -451,6 +504,9 @@ func buildSupermonCommand(request SupermonCommandRequest, definition supermonCom
 	}
 	if definition.ID == "" || definition.ID != request.Action {
 		return "", fmt.Errorf("acción desconocida")
+	}
+	if request.DisconnectBeforeConnect && !isRPTConnectionAction(request.Action) {
+		return "", fmt.Errorf("disconnect_before_connect solo se admite al conectar un nodo")
 	}
 	if definition.RequiresRemote {
 		if request.Action == "disconnect" {

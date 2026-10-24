@@ -6,6 +6,10 @@ El monitor consulta cada servidor del grupo de forma independiente. Si un servid
 
 El selector de servidor local permanece sincronizado con el nodo utilizado en las conexiones y operaciones Asterisk, incluso al cargar o actualizar la lista de servidores. La confirmación conserva los parámetros mostrados: cambios posteriores del formulario no alteran la solicitud confirmada. Si el servidor deja de estar disponible en la lista antes de confirmar, la operación se bloquea con un aviso.
 
+El panel **Conectar nodo remoto** conserva el servidor local, nodo remoto, modo, permanencia, desconexión previa y timeout al navegar a otra pantalla y regresar, aunque todavía no se haya enviado el formulario. Estos valores se mantienen en memoria hasta recargar la aplicación. Al regresar se comprueba que el servidor recordado siga disponible; si ya no existe, se selecciona el nodo principal disponible o se deja el selector vacío. Recuperar los valores no ejecuta ninguna operación.
+
+En **Conectar nodo remoto**, la casilla **Desconectar todos antes de conectar** está desmarcada por defecto. Si se activa, el componente consulta la lista actualizada del servidor local seleccionado y envía una desconexión individual por cada enlace RPT, incluidos los permanentes. Después vuelve a consultar hasta comprobar que no quedan enlaces y solo entonces solicita la nueva conexión con el nodo, modo, permanencia y timeout confirmados. No afecta a los demás servidores ni utiliza el filtro visual del monitor. Si una consulta o desconexión falla, o la lista no queda vacía en los 15 segundos posteriores a las desconexiones, no se inicia la nueva conexión y se muestra un error; los enlaces ya desconectados no se restauran automáticamente.
+
 ## Instalación
 
 Paquetes Debian disponibles para `arm64` y `amd64`:
