@@ -49,7 +49,7 @@ func runSystemCommand(ctx context.Context, timeout time.Duration, name string, a
 
 // checkControlAMI exige una respuesta AMI de uptime, no solo que el puerto acepte conexiones.
 func checkControlAMI() error {
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	response, err := config.ExecuteAMICommand(ami.Host, ami.Port, ami.User, ami.Secret, "core show uptime", 2*time.Second)
 	if err != nil {
 		return err

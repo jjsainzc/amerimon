@@ -1,13 +1,21 @@
-:host { display: block; }
-.primary-node { max-width: 60rem; margin: 0 auto; padding: 1rem; color: #dce5eb; }
+:host { display: block; min-width: 0; }
+.primary-node { box-sizing: border-box; width: 100%; min-width: 0; max-width: 60rem; margin: 0 auto; padding: 1rem; color: #dce5eb; }
 p, small { color: #a9bac5; }
-fieldset { display: grid; gap: .75rem; border: 1px solid #455b68; border-radius: 6px; padding: 1rem; }
+fieldset { display: grid; min-width: 0; gap: .75rem; border: 1px solid #455b68; border-radius: 6px; padding: 1rem; }
 label { display: grid; gap: .4rem; }
 input, select { box-sizing: border-box; width: 100%; min-width: 0; padding: .5rem; border: 1px solid #455b68; border-radius: 5px; background: #14202a; color: #e5edf2; font: inherit; }
 button { padding: .5rem .8rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; cursor: pointer; }
 button:disabled { opacity: .55; cursor: default; }
 .acciones { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
 .acciones button i.fa-trash-can, .acceso-accion button i.fa-trash-can { color: #ff6b6b; }
+.ami-config { min-width: 0; margin: 1rem 0; padding: 1rem; border: 1px solid #455b68; border-radius: 6px; background: #1a2630; }
+.ami-config h3 { margin-top: 0; }
+.ami-config p, .ami-config small { color: #a9bac5; }
+.ami-config form, .ami-config form > fieldset, .ami-config label { min-width: 0; }
+.ami-config label { margin-top: .5rem; }
+.ami-redes { margin-top: .75rem; }
+.ami-redes ul { max-height: 9rem; overflow: auto; }
+.ami-redes textarea { box-sizing: border-box; width: 100%; padding: .5rem; border: 1px solid #455b68; border-radius: 5px; background: #14202a; color: #e5edf2; font: inherit; resize: vertical; }
 .acceso-tabla-scroll { overflow-x: auto; margin: .75rem 0; border: 1px solid #455b68; border-radius: 5px; }
 .acceso-tabla { width: 100%; border-collapse: collapse; font-size: .875rem; text-align: left; }
 .acceso-tabla th, .acceso-tabla td { padding: .35rem .5rem; border-bottom: 1px solid #455b68; }

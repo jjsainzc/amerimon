@@ -4,15 +4,32 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sync"
 
 	"go.yaml.in/yaml/v3"
 )
 
 // App es la configuración global compartida por los controladores.
 var App Config
+var amiConfigMu sync.RWMutex
+
+func CurrentAMI() AMIConfig {
+	amiConfigMu.RLock()
+	defer amiConfigMu.RUnlock()
+	return App.AMI
+}
+
+func SetAMI(value AMIConfig) {
+	amiConfigMu.Lock()
+	defer amiConfigMu.Unlock()
+	App.AMI = value
+}
 
 type Config struct {
 	Version string `yaml:"-"`
+	Path    string `yaml:"-"`
+	EnvPath string `yaml:"-"`
 	DB      *sql.DB
 	UseDB   bool
 	Sources SourcesConfig `yaml:"sources"`
@@ -74,5 +91,10 @@ func Load(path string) error {
 	}
 
 	App = cfg
+	App.Path = path
+	App.EnvPath = os.Getenv("AMERIMON_ENV_FILE")
+	if App.EnvPath == "" && filepath.Clean(filepath.Dir(path)) == "/etc/amerimon" {
+		App.EnvPath = filepath.Join(filepath.Dir(path), "amerimon.env")
+	}
 	return nil
 }

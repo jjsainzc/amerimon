@@ -19,6 +19,7 @@ func TestPrimaryNodeRoutesRequireAdministrator(t *testing.T) {
 	}
 	for _, endpoint := range []struct{ method, path string }{
 		{"GET", "/mon/primary-node"}, {"PUT", "/mon/primary-node"},
+		{"GET", "/mon/primary-node/ami"}, {"PUT", "/mon/primary-node/ami"},
 		{"GET", "/mon/primary-node/access"}, {"PUT", "/mon/primary-node/access"}, {"DELETE", "/mon/primary-node/access"},
 		{"POST", "/mon/primary-node/access/clear"},
 		{"GET", "/mon/primary-node/access/export"},

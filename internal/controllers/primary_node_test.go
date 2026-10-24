@@ -48,6 +48,18 @@ func primaryNodeFixture(t *testing.T) (primaryNodeControl, nodeTestDB, map[strin
 	previous := config.App
 	t.Cleanup(func() { config.App = previous })
 	config.App.Sources.PrivateNodesPath = filepath.Join(dir, "privatenodes.txt")
+	config.App.Path = filepath.Join(dir, "amerimon.yaml")
+	config.App.EnvPath = filepath.Join(dir, "amerimon.env")
+	config.App.AMI = config.AMIConfig{Host: "127.0.0.1", Port: "5038", User: "amerimon", Secret: "old_secret"}
+	for path, data := range map[string]string{
+		filepath.Join(dir, "manager.conf"): "[general]\nbindaddr = 127.0.0.1\n[amerimon]\nsecret = old_secret\n",
+		config.App.Path:                    "sources:\n  astdb_path: /var/lib/asterisk/astdb.txt\nami:\n  host: 127.0.0.1\n  port: \"5038\"\n  user: ${AMI_USER}\n  secret: ${AMI_SECRET}\n",
+		config.App.EnvPath:                 "AMI_USER=\"amerimon\"\nAMI_SECRET=\"old_secret\"\n",
+	} {
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	files := map[string]string{
 		"rpt.conf":                    "[616265](node-main)\nidrecording = |iOLD1\nrxchannel = SimpleUSB/616265\nstatpost_url = http://stats.example/\n[700001](node-main)\nidrecording = |iOTHER\n[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n700001 = radio@192.0.2.1/700001,NONE\n",
 		"rpt_http_registrations.conf": "[registrations]\nregister => 616265:old_password@register.allstarlink.org\nregister => 700001:other_password@register.allstarlink.org\n",
@@ -69,7 +81,10 @@ func primaryNodeFixture(t *testing.T) (primaryNodeControl, nodeTestDB, map[strin
 		"denylist/616265/TEST2":   "Bloqueado",
 		"denylist/700001/9999":    "Otro servidor",
 	}
-	return primaryNodeControl{rptPath: filepath.Join(dir, "rpt.conf"), allmonPaths: []string{filepath.Join(dir, "allmon.ini")}, ami: db.command}, db, files
+	return primaryNodeControl{
+		rptPath: filepath.Join(dir, "rpt.conf"), allmonPaths: []string{filepath.Join(dir, "allmon.ini")},
+		managerPath: filepath.Join(dir, "manager.conf"), ami: db.command,
+	}, db, files
 }
 
 func nodeTestContext(method string, body any) (echo.Context, *httptest.ResponseRecorder) {

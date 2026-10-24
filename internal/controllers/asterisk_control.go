@@ -236,7 +236,7 @@ func ExecuteSupermonCommand(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]any{"status": "error", "message": "El nodo local no existe en allmon.ini"})
 	}
 	if !allmonConfigured {
-		ami := config.App.AMI
+		ami := config.CurrentAMI()
 		instance = allmonInstance{Node: request.LocalNode, Host: ami.Host, Port: ami.Port, User: ami.User, Secret: ami.Secret}
 	}
 	if instance.Host == "" || instance.Port == "" || instance.User == "" || (!allmonConfigured && instance.Secret == "") {
@@ -392,7 +392,7 @@ func AddNodeConnection(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]any{"status": "error", "message": "El nodo local no existe en allmon.ini"})
 	}
 	if !allmonConfigured {
-		ami := config.App.AMI
+		ami := config.CurrentAMI()
 		instance = allmonInstance{Node: request.LocalNode, Host: ami.Host, Port: ami.Port, User: ami.User, Secret: ami.Secret}
 	}
 	if instance.Host == "" || instance.Port == "" || instance.User == "" || (!allmonConfigured && instance.Secret == "") {

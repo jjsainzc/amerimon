@@ -237,7 +237,7 @@ p.header2 { font-size:.7em; font-family: Verdana, Arial, sans-serif; margin:0; t
 
 // executeAllStarAMICommand ejecuta un comando por AMI y devuelve sus líneas unidas; registra errores y devuelve vacío si falla.
 func executeAllStarAMICommand(command string) string {
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
 		log.Printf("sm_lsnodes: configuración AMI incompleta; no se ejecutó %q", command)
 		return ""

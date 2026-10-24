@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/amerimon/amerimon.env
+Environment=AMERIMON_ENV_FILE=/etc/amerimon/amerimon.env
 LoadCredential=jwt_secret:/etc/amerimon/jwt.secret
 ExecStart=/usr/bin/amerimon
 StandardOutput=journal

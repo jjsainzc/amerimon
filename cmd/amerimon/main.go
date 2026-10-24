@@ -94,7 +94,7 @@ func main() {
 	controllers.StartAllStarLinkActivityScheduler()
 
 	audioManager := config.NewAudioStreamManager()
-	go config.StartAudioListener(fmt.Sprintf("127.0.0.1:%d", config.App.AMI.ListenPort), audioManager)
+	go config.StartAudioListener(fmt.Sprintf("127.0.0.1:%d", config.CurrentAMI().ListenPort), audioManager)
 
 	e := echo.New()
 	e.HideBanner = true

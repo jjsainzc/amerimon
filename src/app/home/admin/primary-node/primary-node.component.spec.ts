@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { PrimaryNodeComponent } from './primary-node.component';
+import { calcularRedIPv4, PrimaryNodeComponent } from './primary-node.component';
 import { environment } from '../../../core/environment';
 import { NodeAccessDocument, isNodeAccessDocument } from '../../../core/services/primary-node.service';
 
@@ -17,17 +17,88 @@ describe('Primary node administration', () => {
     });
   });
 
-  async function crear() {
+  async function crear(amiResponse: object = {
+    user: 'amerimon', secret: 'ami_secret', secret_set: true, bind_address: '127.0.0.1', permit: [], deny: []
+  }) {
     const fixture = TestBed.createComponent(PrimaryNodeComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ node: config.node, entries: [] });
+    http.expectOne(`${url}/ami`).flush(amiResponse);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
     return { fixture, http, component: fixture.componentInstance, element: fixture.nativeElement as HTMLElement };
   }
+
+  it('calculates IPv4 networks from prefixes or dotted masks', () => {
+    expect(calcularRedIPv4('192.168.1.37/24')).toBe('192.168.1.0/24');
+    expect(calcularRedIPv4('10.2.3.4/255.255.0.0')).toBe('10.2.0.0/16');
+    expect(calcularRedIPv4('10.2.3.4')).toBe('10.2.3.4/32');
+    expect(calcularRedIPv4('192.168.1.37/255.0.255.0')).toBeNull();
+    expect(calcularRedIPv4('not-an-ip')).toBeNull();
+  });
+
+  it('saves the AMI configuration and refreshes the verified values', async () => {
+    const { fixture, http, component } = await crear();
+    component.amiSecret.set('new_secret');
+    component.amiBindAddress.set('0.0.0.0');
+    component.permitsNuevas.set('192.168.1.37/24');
+    component.deniesNuevas.set('10.0.0.0/8');
+    component.guardarAMI();
+    const request = http.expectOne(`${url}/ami`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({
+      user: 'amerimon',
+      secret: 'new_secret',
+      secret_set: true,
+      bind_address: '0.0.0.0',
+      permit: ['192.168.1.37/24'],
+      deny: ['10.0.0.0/8'],
+    });
+    request.flush({ status: 'ok', message: 'manager reload verificado' });
+    http.expectOne(`${url}/ami`).flush({
+      user: 'amerimon', secret: 'new_secret', secret_set: true,
+      bind_address: '0.0.0.0', permit: ['192.168.1.0/24', '127.0.0.1/32'], deny: ['10.0.0.0/8']
+    });
+    fixture.detectChanges();
+    expect(component.avisoAMI()).toContain('manager reload');
+    expect(component.amiConfig()?.permit).toContain('192.168.1.0/24');
+    expect(component.permitsNuevas()).toBe('');
+    expect(component.deniesNuevas()).toBe('');
+    http.verify();
+    fixture.destroy();
+  });
+
+  it('shows and hides the loaded AMI secret with its eye button', async () => {
+    const { fixture, http, element } = await crear();
+    const amiSecretField = element.querySelector<HTMLElement>('.ami-config app-password-field');
+    expect(amiSecretField?.querySelector<HTMLInputElement>('input[type="password"]')?.value).toBe('ami_secret');
+
+    amiSecretField?.querySelector<HTMLButtonElement>('button[aria-label="Mostrar contraseña"]')?.click();
+    fixture.detectChanges();
+    expect(amiSecretField?.querySelector<HTMLInputElement>('input[type="text"]')?.value).toBe('ami_secret');
+
+    amiSecretField?.querySelector<HTMLButtonElement>('button[aria-label="Ocultar contraseña"]')?.click();
+    fixture.detectChanges();
+    expect(amiSecretField?.querySelector<HTMLInputElement>('input[type="password"]')?.value).toBe('ami_secret');
+    http.verify();
+    fixture.destroy();
+  });
+
+  it('keeps the AMI form working when the API returns null ACL lists', async () => {
+    const { fixture, http, element } = await crear({
+      user: 'amerimon', secret: 'ami_secret', secret_set: true, bind_address: '127.0.0.1',
+      permit: null, deny: null
+    });
+    expect(element.querySelector('.ami-config app-password-field button[aria-label="Mostrar contraseña"]')).not.toBeNull();
+    expect(element.textContent).toContain('No hay reglas permit/deny configuradas');
+    expect(element.querySelector<HTMLInputElement>('.ami-config app-password-field input[type="password"]')?.value)
+      .toBe('ami_secret');
+    http.verify();
+    fixture.destroy();
+  });
 
   it('imports confirmed lists into the loaded primary and refreshes the merged data', async () => {
     const { fixture, http, component } = await crear();
@@ -172,6 +243,9 @@ describe('Primary node administration', () => {
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ message: 'AMI no disponible' }, { status: 503, statusText: 'Unavailable' });
+    http.expectOne(`${url}/ami`).flush({
+      user: 'amerimon', secret: 'ami_secret', secret_set: true, bind_address: '127.0.0.1', permit: [], deny: []
+    });
     expect(component.actual()).toBe('616265');
     expect(component.error()).toBe('');
     expect(component.errorAcceso()).toBe('AMI no disponible');

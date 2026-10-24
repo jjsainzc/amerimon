@@ -325,7 +325,7 @@ func StartAllStarLinkActivityScheduler() {
 	}
 
 	interval := defaultActivityPollInterval
-	if configured := strings.TrimSpace(config.App.AMI.ActivityPollInterval); configured != "" {
+	if configured := strings.TrimSpace(config.CurrentAMI().ActivityPollInterval); configured != "" {
 		parsed, err := time.ParseDuration(configured)
 		if err != nil || parsed < minimumActivityPollInterval {
 			log.Printf("allstarlink activity: intervalo %q inválido; se usa %s", configured, defaultActivityPollInterval)
@@ -577,7 +577,7 @@ func allStarLinkActivityInstances() ([]allmonInstance, error) {
 		return instances, err
 	}
 
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
 		return nil, fmt.Errorf("la configuración AMI de Asterisk está incompleta")
 	}

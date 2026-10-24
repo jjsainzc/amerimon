@@ -10,6 +10,15 @@ export interface PrimaryNodeConfig {
   path: string;
 }
 
+export interface PrimaryAMIConfig {
+  user: string;
+  secret: string;
+  secret_set: boolean;
+  bind_address: string;
+  permit: string[];
+  deny: string[];
+}
+
 export interface NodeAccessEntry {
   type: 'allowlist' | 'denylist';
   node: string;
@@ -42,6 +51,14 @@ export class PrimaryNodeService {
 
   obtener() {
     return this.http.get<PrimaryNodeConfig>(this.url);
+  }
+
+  obtenerAMI() {
+    return this.http.get<PrimaryAMIConfig>(`${this.url}/ami`);
+  }
+
+  guardarAMI(config: PrimaryAMIConfig) {
+    return this.http.put<{ status: string; message: string }>(`${this.url}/ami`, config);
   }
 
   guardar(current_node: string, node: string, callsign: string, password: string) {

@@ -24,7 +24,8 @@
         "-db", "/tmp/amerimon-dev.db"
       ],
       "env": {
-        "AMERIMON_JWT_SECRET": "dev-secret"
+        "AMERIMON_JWT_SECRET": "dev-secret",
+        "AMERIMON_ENV_FILE": "${workspaceFolder}/.vscode/ami.env"
       }
     },
     {

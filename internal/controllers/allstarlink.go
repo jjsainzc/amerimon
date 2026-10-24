@@ -80,7 +80,8 @@ func GetAllStarLinkNodes(c echo.Context) error {
 			"message": "El parámetro local_node debe ser numérico",
 		})
 	}
-	rptConfigPath := config.App.AMI.RPTConfigPath
+	amiConfig := config.CurrentAMI()
+	rptConfigPath := amiConfig.RPTConfigPath
 	if rptConfigPath == "" {
 		rptConfigPath = "/etc/asterisk/rpt.conf"
 	}
@@ -123,7 +124,7 @@ func GetAllStarLinkNodes(c echo.Context) error {
 			amiInstances = filtered
 		}
 	} else {
-		ami := config.App.AMI
+		ami := amiConfig
 		if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"status":  "error",
@@ -252,7 +253,7 @@ func GetAllStarLinkNodes(c echo.Context) error {
 		}
 	}
 
-	pjsipConfigPath := config.App.AMI.PJSIPConfigPath
+	pjsipConfigPath := config.CurrentAMI().PJSIPConfigPath
 	if pjsipConfigPath == "" {
 		pjsipConfigPath = "/etc/asterisk/pjsip.conf"
 	}

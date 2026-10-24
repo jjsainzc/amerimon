@@ -202,7 +202,7 @@ func GetSystemInfo(c echo.Context) error {
 
 // readAsteriskVersion consulta la versión por AMI y devuelve una cadena vacía si no puede obtenerla.
 func readAsteriskVersion() string {
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
 		return ""
 	}

@@ -40,6 +40,79 @@
   @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
   @if (aviso()) { <p class="ok" role="status">{{ aviso() }}</p> }
 
+  <section class="ami-config" aria-labelledby="ami-config-titulo">
+    <h3 id="ami-config-titulo">Acceso AMI de Asterisk</h3>
+    <p>Usuario AMI: <code>{{ amiConfig()?.user || '—' }}</code>. Se actualizará únicamente su stanza en
+      <code>/etc/asterisk/manager.conf</code>; las demás opciones y stanzas se conservarán.</p>
+    <p>El backend necesita acceso local a AMI. Las reglas de red que podrían bloquearlo se rechazan
+      y el cambio se verifica con una nueva conexión antes de confirmarlo.</p>
+    @if (cargandoAMI()) { <p role="status">Cargando configuración AMI…</p> }
+    @if (amiConfig(); as ami) {
+      <form #amiForm="ngForm" (ngSubmit)="guardarAMI()">
+        <fieldset [disabled]="cargandoAMI() || guardandoAMI() || guardando()">
+          <label>AMI secret
+            <app-password-field name="amiSecret" [ngModel]="amiSecret()" (ngModelChange)="amiSecret.set($event)"
+              autocomplete="new-password" [required]="true" [minlength]="6" />
+          </label>
+          <small>{{ ami.secret_set ? 'Secret actual cargado y enmascarado; usa el ojo para mostrarlo.' : 'No hay secret configurado.' }}
+            Solo admite de 6 a 128 letras, números, _ o -.</small>
+          <label>Bind address
+            <input name="amiBindAddress" [ngModel]="amiBindAddress()" (ngModelChange)="amiBindAddress.set($event)"
+              required autocomplete="off" placeholder="0.0.0.0" />
+          </label>
+          <small>Dirección donde manager.conf acepta conexiones. La dirección del backend se ajustará cuando sea necesario
+            y se comprobará antes de aplicar el cambio.</small>
+
+          <fieldset class="ami-redes">
+            <legend>Acceso por redes (opcional, aditivo)</legend>
+            @if (ami.permit.length || ami.deny.length) {
+              <p>Reglas existentes (se conservan):</p>
+              <ul>
+                @for (rule of ami.permit; track $index) { <li>Permitir: <code>{{ rule }}</code></li> }
+                @for (rule of ami.deny; track $index) { <li>Denegar: <code>{{ rule }}</code></li> }
+              </ul>
+            } @else {
+              <p>No hay reglas permit/deny configuradas para este usuario.</p>
+            }
+            <label>Dirección IPv4 para calcular la red
+              <input name="redEntrada" [ngModel]="entradaRed()" (ngModelChange)="entradaRed.set($event); calcularRed()"
+                autocomplete="off" placeholder="192.168.1.37/24 o 255.255.255.0" />
+            </label>
+            @if (entradaRed()) {
+              <p role="status">Red calculada: <code>{{ redCalculada() || 'formato inválido' }}</code></p>
+            }
+            <label>Agregar como
+              <select name="tipoRed" [ngModel]="tipoRed()" (ngModelChange)="tipoRed.set($event)">
+                <option value="permit">Permitida</option>
+                <option value="deny">Denegada</option>
+              </select>
+            </label>
+            <button type="button" (click)="agregarRed()" [disabled]="!redCalculada()">Agregar red</button>
+            <label>Redes nuevas permitidas
+              <textarea name="permitsNuevas" [ngModel]="permitsNuevas()" (ngModelChange)="permitsNuevas.set($event)"
+                rows="2" placeholder="Una red por línea"></textarea>
+            </label>
+            <label>Redes nuevas denegadas
+              <textarea name="deniesNuevas" [ngModel]="deniesNuevas()" (ngModelChange)="deniesNuevas.set($event)"
+                rows="2" placeholder="Una red por línea"></textarea>
+            </label>
+            <small>Las reglas nuevas se añaden a las existentes; no se eliminan ni reemplazan opciones personalizadas.
+              Las redes se normalizan al guardarlas. No agregues deny que incluya 127.0.0.1, ::1 o la dirección AMI del backend.</small>
+          </fieldset>
+          <div class="acciones">
+            <button type="button" (click)="cargarAMI()" [disabled]="guardandoAMI()">Recargar AMI</button>
+            <button type="submit" [disabled]="amiForm.invalid || guardandoAMI() || guardando()">
+              {{ guardandoAMI() ? 'Aplicando…' : 'Guardar y aplicar (manager reload)' }}
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    }
+    @if (guardandoAMI()) { <p role="status">Aplicando y verificando acceso AMI…</p> }
+    @if (errorAMI()) { <p class="error" role="alert">{{ errorAMI() }}</p> }
+    @if (avisoAMI()) { <p class="ok" role="status">{{ avisoAMI() }}</p> }
+  </section>
+
   <h3>Lista de acceso del nodo {{ nodoAcceso() || actual() }}</h3>
   <p>Los cambios de acceso se aplican inmediatamente en AstDB, sin reiniciar.
     Sin entradas, el acceso está abierto. La lista de permitidos restringe quién puede conectar;

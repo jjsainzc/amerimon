@@ -42,20 +42,26 @@ type nodeAccessEntry struct {
 type primaryNodeControl struct {
 	rptPath     string
 	allmonPaths []string
+	managerPath string
 	ami         func(string) (string, error)
+	amiLogin    func(host, port, user, secret, command string) (string, error)
 }
 
 func newPrimaryNodeControl() primaryNodeControl {
-	path := config.App.AMI.RPTConfigPath
+	path := config.CurrentAMI().RPTConfigPath
 	if path == "" {
 		path = "/etc/asterisk/rpt.conf"
 	}
 	return primaryNodeControl{
 		rptPath:     path,
 		allmonPaths: []string{allmonINIPath(), "/etc/allmon3/allmon3.ini"},
+		managerPath: filepath.Join(filepath.Dir(path), "manager.conf"),
 		ami: func(command string) (string, error) {
-			ami := config.App.AMI
+			ami := config.CurrentAMI()
 			return config.ExecuteAMICommand(ami.Host, ami.Port, ami.User, ami.Secret, command, 5*time.Second)
+		},
+		amiLogin: func(host, port, user, secret, command string) (string, error) {
+			return config.ExecuteAMICommand(host, port, user, secret, command, 5*time.Second)
 		},
 	}
 }

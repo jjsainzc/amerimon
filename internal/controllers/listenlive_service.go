@@ -38,7 +38,7 @@ type listenLiveRequest struct {
 // @Failure 401
 // @Router /listen-live/status [get]
 func ListenLiveAsteriskStatus(c echo.Context) error {
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	response, err := config.ExecuteAMICommand(ami.Host, ami.Port, ami.User, ami.Secret, "core show uptime", 5*time.Second)
 	if err != nil || strings.Contains(response, "Response: Error") ||
 		!(strings.Contains(response, "Response: Follows") || strings.Contains(response, "Response: Success")) {
@@ -73,7 +73,7 @@ func StartListenLive(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "message": "ext o uuid inválidos"})
 	}
 
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	var variables []config.AMIOriginateVariable
 	if req.Ext == "nodo" {
 		path := strings.TrimSpace(ami.RPTConfigPath)
@@ -125,7 +125,7 @@ func listenLiveOriginateChannel(ext string) (string, error) {
 	if ext != "nodo" {
 		return fmt.Sprintf("Local/%s@listen-live-spy/n", ext), nil
 	}
-	path := strings.TrimSpace(config.App.AMI.RPTConfigPath)
+	path := strings.TrimSpace(config.CurrentAMI().RPTConfigPath)
 	if path == "" {
 		path = "/etc/asterisk/rpt.conf"
 	}
@@ -239,7 +239,7 @@ func StopListenLive(mgr *config.AudioStreamManager) echo.HandlerFunc {
 // hangupListenLiveCalls cuelga los canales cuyo contexto es listen-live-eagi y exten el uuid.
 func hangupListenLiveCalls(source, uuid string) (int, error) {
 	log.Printf("[ListenLive] hangup begin source=%s uuid=%s", source, uuid)
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	out, err := config.ExecuteAMICommand(ami.Host, ami.Port, ami.User, ami.Secret, "core show channels concise", 5*time.Second)
 	if err != nil {
 		return 0, fmt.Errorf("consultar canales: %w", err)

@@ -3,9 +3,35 @@ import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { timeout } from 'rxjs';
-import { NodeAccessDocument, NodeAccessEntry, PrimaryNodeService, isNodeAccessDocument } from '../../../core/services/primary-node.service';
+import { NodeAccessDocument, NodeAccessEntry, PrimaryAMIConfig, PrimaryNodeService, isNodeAccessDocument } from '../../../core/services/primary-node.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
+
+export function calcularRedIPv4(value: string): string | null {
+  const [address, maskText, extra] = value.trim().split('/');
+  if (!address || extra !== undefined) { return null; }
+  const octets = address.split('.').map(part => /^\d{1,3}$/.test(part) ? Number(part) : NaN);
+  if (octets.length !== 4 || octets.some(part => !Number.isInteger(part) || part < 0 || part > 255)) { return null; }
+  const addressValue = octets.reduce((total, part) => (total << 8n) | BigInt(part), 0n);
+  let prefix: number;
+  if (maskText === undefined || maskText === '') {
+    prefix = 32;
+  } else if (/^\d{1,2}$/.test(maskText)) {
+    prefix = Number(maskText);
+    if (prefix > 32) { return null; }
+  } else {
+    const maskOctets = maskText.split('.').map(part => /^\d{1,3}$/.test(part) ? Number(part) : NaN);
+    if (maskOctets.length !== 4 || maskOctets.some(part => !Number.isInteger(part) || part < 0 || part > 255)) { return null; }
+    const maskValue = maskOctets.reduce((total, part) => (total << 8n) | BigInt(part), 0n);
+    const inverse = 0xffff_ffffn ^ maskValue;
+    if ((inverse & (inverse + 1n)) !== 0n) { return null; }
+    prefix = maskValue.toString(2).replace(/0/g, '').length;
+  }
+  const maskValue = prefix === 0 ? 0n : (0xffff_ffffn << BigInt(32 - prefix)) & 0xffff_ffffn;
+  const network = addressValue & maskValue;
+  const normalized = [24n, 16n, 8n, 0n].map(shift => Number((network >> shift) & 255n)).join('.');
+  return `${normalized}/${prefix}`;
+}
 
 @Component({
   selector: 'app-primary-node',
@@ -35,6 +61,18 @@ export class PrimaryNodeComponent implements OnInit {
   readonly vaciadoPendiente = signal<{ tipo: NodeAccessEntry['type']; nodo: string } | null>(null);
   readonly importacionPendiente = signal<{ documento: NodeAccessDocument; nodo: string } | null>(null);
   readonly leyendoArchivo = signal(false);
+  readonly amiConfig = signal<PrimaryAMIConfig | null>(null);
+  readonly cargandoAMI = signal(false);
+  readonly guardandoAMI = signal(false);
+  readonly errorAMI = signal('');
+  readonly avisoAMI = signal('');
+  readonly amiSecret = signal('');
+  readonly amiBindAddress = signal('');
+  readonly permitsNuevas = signal('');
+  readonly deniesNuevas = signal('');
+  readonly tipoRed = signal<'permit' | 'deny'>('permit');
+  readonly entradaRed = signal('');
+  readonly redCalculada = signal<string | null>(null);
   numero = '';
   indicativo = '';
   password = '';
@@ -46,6 +84,72 @@ export class PrimaryNodeComponent implements OnInit {
   ngOnInit(): void {
     this.cargar();
     this.cargarAcceso();
+    this.cargarAMI();
+  }
+
+  cargarAMI(): void {
+    if (this.cargandoAMI() || this.guardandoAMI()) { return; }
+    this.cargandoAMI.set(true);
+    this.errorAMI.set('');
+    this.service.obtenerAMI().pipe(timeout(10_000), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: response => {
+        const config: PrimaryAMIConfig = {
+          ...response,
+          permit: Array.isArray(response.permit) ? response.permit : [],
+          deny: Array.isArray(response.deny) ? response.deny : []
+        };
+        this.amiConfig.set(config);
+        this.amiSecret.set(config.secret);
+        this.amiBindAddress.set(config.bind_address);
+        this.cargandoAMI.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.cargandoAMI.set(false);
+        this.errorAMI.set(err.error?.message || 'No se pudo cargar la configuración AMI de manager.conf.');
+      }
+    });
+  }
+
+  calcularRed(): void {
+    this.redCalculada.set(calcularRedIPv4(this.entradaRed()));
+  }
+
+  agregarRed(): void {
+    const red = this.redCalculada();
+    if (!red) { return; }
+    const destination = this.tipoRed() === 'permit' ? this.permitsNuevas : this.deniesNuevas;
+    destination.update(value => [...value.split(/\r?\n/).filter(Boolean), red].join('\n'));
+    this.entradaRed.set('');
+    this.redCalculada.set(null);
+  }
+
+  guardarAMI(): void {
+    if (this.guardandoAMI() || this.cargandoAMI() || !this.amiConfig()) { return; }
+    this.guardandoAMI.set(true);
+    this.errorAMI.set('');
+    this.avisoAMI.set('');
+    const splitNetworks = (value: string) => value.split(/\r?\n/).map(network => network.trim()).filter(Boolean);
+    const current = this.amiConfig();
+    if (!current) { this.guardandoAMI.set(false); return; }
+    this.service.guardarAMI({
+      ...current,
+      secret: this.amiSecret(),
+      bind_address: this.amiBindAddress(),
+      permit: current.permit.concat(splitNetworks(this.permitsNuevas())),
+      deny: current.deny.concat(splitNetworks(this.deniesNuevas())),
+    }).subscribe({
+      next: response => {
+        this.guardandoAMI.set(false);
+        this.avisoAMI.set(response.message);
+        this.permitsNuevas.set('');
+        this.deniesNuevas.set('');
+        this.cargarAMI();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoAMI.set(false);
+        this.errorAMI.set(err.error?.message || 'No se pudo guardar la configuración AMI. No se confirmó ningún cambio.');
+      }
+    });
   }
 
   cargar(): void {

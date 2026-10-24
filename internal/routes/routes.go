@@ -67,6 +67,8 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.PUT("/private-nodes", controllers.SavePrivateNodesConfig, jwt, admin)
 	privada.GET("/primary-node", controllers.GetPrimaryNodeConfig, jwt, admin)
 	privada.PUT("/primary-node", controllers.SavePrimaryNodeConfig, jwt, admin)
+	privada.GET("/primary-node/ami", controllers.GetPrimaryNodeAMIConfig, jwt, admin)
+	privada.PUT("/primary-node/ami", controllers.SavePrimaryNodeAMIConfig, jwt, admin)
 	privada.GET("/primary-node/access", controllers.GetPrimaryNodeAccess, jwt, admin)
 	privada.PUT("/primary-node/access", controllers.SavePrimaryNodeAccess, jwt, admin)
 	privada.DELETE("/primary-node/access", controllers.DeletePrimaryNodeAccess, jwt, admin)

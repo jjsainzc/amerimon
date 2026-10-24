@@ -132,18 +132,19 @@ func loadAllmonInstances() ([]allmonInstance, bool, error) {
 	if err == nil && len(instances) == 0 {
 		return nil, false, nil
 	}
-	globalAMIPort := strings.TrimSpace(config.App.AMI.Port)
+	globalAMI := config.CurrentAMI()
+	globalAMIPort := strings.TrimSpace(globalAMI.Port)
 	if globalAMIPort == "" {
 		globalAMIPort = "5038"
 	}
 	for i := range instances {
-		if strings.TrimSpace(instances[i].Secret) != "" || strings.TrimSpace(config.App.AMI.Secret) == "" {
+		if strings.TrimSpace(instances[i].Secret) != "" || strings.TrimSpace(globalAMI.Secret) == "" {
 			continue
 		}
-		if strings.EqualFold(instances[i].Host, strings.TrimSpace(config.App.AMI.Host)) &&
+		if strings.EqualFold(instances[i].Host, strings.TrimSpace(globalAMI.Host)) &&
 			instances[i].Port == globalAMIPort &&
-			strings.EqualFold(instances[i].User, strings.TrimSpace(config.App.AMI.User)) {
-			instances[i].Secret = config.App.AMI.Secret
+			strings.EqualFold(instances[i].User, strings.TrimSpace(globalAMI.User)) {
+			instances[i].Secret = globalAMI.Secret
 		}
 	}
 	if err != nil {
@@ -168,7 +169,7 @@ func filterDisabledAllmonInstances(instances []allmonInstance) []allmonInstance 
 
 // reconcileLocalAllmonInstances toma los nodos locales de rpt.conf y conserva los servidores remotos de Allmon.
 func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance, error) {
-	ami := config.App.AMI
+	ami := config.CurrentAMI()
 	path := strings.TrimSpace(ami.RPTConfigPath)
 	if path == "" {
 		path = "/etc/asterisk/rpt.conf"
