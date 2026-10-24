@@ -21,11 +21,11 @@
 .pie-sqlite { padding: 2px; border-radius: 3px; background: #111a22; }
 .pie-tecnologia:has(.pie-sqlite) { color: #fff; }
 
-@media (min-width: 721px) {
+@media (min-width: 900px) {
   .pie { padding-right: 6rem; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .pie { justify-content: center; margin-inline: .5rem; padding-inline: .25rem; text-align: center; }
 }
 @media print {
@@ -99,7 +99,7 @@
 .admin-desplegable-panel a.activo { background: #263d47; color: #79d3dd; }
 .sesion .boton-salir { margin-left: .25rem; padding-inline: .7rem; }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .barra { margin: .5rem; padding: .8rem; }
   .logo-cabecera { width: 2.2rem; height: 2.2rem; }
   .hamburguesa {
@@ -146,6 +146,18 @@
   .menu .enlaces, .menu .sesion { flex-direction: column; align-items: stretch; width: 100%; }
   .menu .enlaces a, .menu .enlaces button, .menu .sesion .boton-enlace { text-align: left; }
   .menu .sesion { margin-left: 0; }
+  .menu .sesion .boton-enlace:not(.boton-salir) {
+    padding: .4rem .65rem;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #dce5eb;
+    font: inherit;
+    font-size: inherit;
+    text-decoration: none;
+  }
+  .menu .sesion .boton-enlace:not(.boton-salir):hover { background: #304651; }
+  .menu .sesion .boton-enlace.activo:not(.boton-salir) { background: #263d47; color: #79d3dd; }
   .menu .admin-desplegable { width: 100%; }
   .menu .admin-desplegable-boton { display: none; }
   .admin-desplegable-panel {

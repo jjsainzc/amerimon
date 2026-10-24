@@ -1726,6 +1726,9 @@ html:root body .main-content .selector-tamano-pagina select {
     border-color: #405461;
     background: #1d2a34;
   }
+  html:root body .main-content .allstarlink-tabla-base tbody tr:not(.allstarlink-conexion-pendiente):is(:hover, :focus-within) > td {
+    background-color: transparent;
+  }
   html:root body .main-content .allstarlink-tabla td::before { color: #a9bac5; }
 }
 
