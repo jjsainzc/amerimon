@@ -1698,6 +1698,9 @@ html:root body .main-content .allstarlink-tabla td { border-bottom-color: #354b5
 html:root body .main-content .allstarlink-tabla td { color: #dce5eb; }
 html:root body .main-content .allstarlink-tabla tr.allstarlink-conexion-pendiente td { background: #49302f; color: #f5d8d5; }
 html:root body .main-content .allstarlink-desconectar { border-color: #ff8a80; background: #4a292b; color: #ffaaa3; }
+html:root body .main-content .allstarlink-audio:not(.muteado) { border-color: #79d3dd; background: #263d47; color: #79d3dd; }
+.allstarlink-acciones-nodo { display: inline-flex; align-items: center; gap: .2rem; }
+.allstarlink-audio.audio-desconocido { border-style: dashed; }
 html:root body .main-content .allstarlink .modo-transceive { background: #174c46; color: #9de2d5; }
 html:root body .main-content .allstarlink .modo-simplex,
 html:root body .main-content .historial-tipo.modo-simplex { background: #1f4265; color: #a9d1ff; }

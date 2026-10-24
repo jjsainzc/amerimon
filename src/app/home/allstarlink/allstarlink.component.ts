@@ -94,6 +94,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean } | null>(null);
   readonly confirmacionPendiente = signal<{ titulo: string; mensaje: string; confirmar: () => void } | null>(null);
   readonly desconexionEnCurso = signal<string | null>(null);
+  readonly audioEnCurso = signal<string | null>(null);
   readonly resultadoDesconexion = signal<{ clave: string; texto: string; error: boolean } | null>(null);
   private temporizador?: ReturnType<typeof setInterval>;
   private temporizadorRecargaDesconexion?: ReturnType<typeof setTimeout>;
@@ -561,6 +562,57 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         : 'Se requiere una sesión de administrador para ejecutar la operación.'
     ], true);
     return false;
+  }
+
+  alternarAudio(nodo: AllstarlinkNode): void {
+    const audio = nodo.audio;
+    if (!this.esAdmin() || nodo.nodo_local !== this.nodoPrincipal() || !audio?.available ||
+        !audio.connection_id || this.audioEnCurso() || nodo.pendiente || this.conectando() || this.desconexionEnCurso()) {
+      return;
+    }
+    const muted = audio.muted !== true;
+    const connectionId = audio.connection_id;
+    this.solicitarConfirmacion(
+      muted ? 'Silenciar estación' : 'Habilitar audio de la estación',
+      muted
+        ? `Impedir que el audio del nodo ${nodo.nodo} se retransmita desde el servidor ${nodo.nodo_local}. La estación podrá seguir escuchando.`
+        : `Permitir de nuevo el audio emitido por el nodo ${nodo.nodo} en el servidor ${nodo.nodo_local}.`,
+      () => {
+        if (!this.validarServidorOperacion(nodo.nodo_local) || this.audioEnCurso() || this.conectando() || this.desconexionEnCurso()) { return; }
+        this.audioEnCurso.set(`${nodo.nodo_local}-${nodo.nodo}`);
+        this.service.cambiarAudio(nodo.nodo_local, nodo.nodo, connectionId, muted).pipe(
+          timeout({ each: 30_000 }), takeUntilDestroyed(this.destroyRef)
+        ).subscribe({
+          next: respuesta => {
+            this.audioEnCurso.set(null);
+            if (respuesta.status !== 'success' || respuesta.data?.muted !== muted ||
+                respuesta.data.connection_id !== connectionId) {
+              this.mostrarPopup('Error de audio', '', [respuesta.message || 'Asterisk no confirmó el estado de audio solicitado.'], true);
+              this.programarRecargaConexiones();
+              return;
+            }
+            const confirmado = respuesta.data;
+            this.nodos.update(nodos => nodos.map(actual =>
+              actual.nodo_local === nodo.nodo_local && actual.nodo === nodo.nodo &&
+              actual.audio?.connection_id === connectionId
+                ? { ...actual, audio: confirmado } : actual
+            ));
+            this.programarRecargaConexiones();
+          },
+          error: err => {
+            this.audioEnCurso.set(null);
+            this.nodos.update(nodos => nodos.map(actual =>
+              actual.nodo_local === nodo.nodo_local && actual.nodo === nodo.nodo && actual.audio
+                ? { ...actual, audio: { ...actual.audio, muted: null } } : actual
+            ));
+            this.mostrarPopup('Error de audio', '', [
+              err?.error?.message || 'No se pudo confirmar el cambio de audio. Actualiza el monitor antes de reintentar.'
+            ], true);
+            this.programarRecargaConexiones();
+          }
+        });
+      }
+    );
   }
 
   /** Solicita la desconexión de un nodo, espera confirmación y verifica el resultado. */

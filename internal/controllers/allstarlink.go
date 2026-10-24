@@ -36,6 +36,7 @@ type AllStarLinkNode struct {
 	UltimaActividad *time.Time          `json:"ultima_actividad"`
 	Latencia        string              `json:"latencia,omitempty"`
 	Acciones        []AllStarLinkAction `json:"acciones,omitempty"`
+	Audio           *ConnectionAudio    `json:"audio,omitempty"`
 }
 
 type AllStarLinkAction struct {
@@ -311,6 +312,13 @@ func GetAllStarLinkNodes(c echo.Context) error {
 	resultados := make([]AllStarLinkNode, 0, len(nodesByNumber))
 	for _, nodeNumber := range nodeOrder {
 		resultados = append(resultados, *nodesByNumber[nodeNumber])
+	}
+	if claims, err := GetClaims(c); err == nil && claims.Role == "A" {
+		for _, instance := range amiInstances {
+			if instance.Node == primaryNode && serverReachable[primaryNode] {
+				addConnectionAudioStates(resultados, instance)
+			}
+		}
 	}
 	activities := loadLastNodeActivities(amiInstances)
 	for i := range resultados {

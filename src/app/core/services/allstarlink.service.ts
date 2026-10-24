@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../environment';
 import {
   AllstarlinkActivityResponse,
+  ConnectionAudio,
   AllstarlinkConnectionHistoryFilters,
   AllstarlinkConnectionHistoryResponse,
   AllstarlinkResponse,
@@ -53,5 +54,12 @@ export class AllstarlinkService {
   /** Solicita una operación real sobre Asterisk y devuelve la salida del comando. */
   ejecutarComando(request: SupermonCommandRequest): Observable<SupermonCommandResponse> {
     return this.http.post<SupermonCommandResponse>(`${environment.apiUrl}/asterisk/commands`, request);
+  }
+
+  cambiarAudio(local: string, remoto: string, connectionId: string, muted: boolean) {
+    return this.http.post<{ status: string; message?: string; data?: ConnectionAudio }>(
+      `${environment.apiUrl}/asterisk/connections/audio`,
+      { local_node: local, remote_node: remoto, connection_id: connectionId, muted }
+    );
   }
 }

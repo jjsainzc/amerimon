@@ -12,6 +12,14 @@ En **Conectar nodo remoto**, la casilla **Desconectar todos antes de conectar** 
 
 ## Instalación
 
+### Silenciar estaciones del servidor principal
+
+El administrador dispone de una bocina junto al botón de desconexión de cada enlace RPT del nodo principal. Permite bloquear el audio que esa estación envía al servidor mediante AMI `MuteAudio`, `Direction: in`, manteniendo su conexión y su escucha. No libera necesariamente un PTT bloqueado ni controla las conexiones de la estación con otros servidores.
+
+El postinstall incorpora `res_mutestream.so` a `/etc/asterisk/modules.conf` si está instalado, conservando una copia de seguridad y eliminando directivas `noload` contradictorias. No reinicia Asterisk. El usuario AMI necesita permiso para `MuteAudio` (clase `system`) y las consultas de canales. No se habilita el módulo en servidores remotos.
+
+El botón queda deshabilitado si falta soporte o no puede asociarse de forma inequívoca el enlace con su canal. Una bocina tachada indica el último mute confirmado por Asterisk; el borde discontinuo indica estado desconocido, no audio necesariamente habilitado. Los estados se guardan en memoria del backend por identificador de conexión, se pierden al reiniciar Amerimon y no detectan cambios hechos por herramientas externas. Una reconexión requiere volver a aplicar el mute. La aplicación nunca silencia automáticamente ni cambia el icono a un estado confirmado antes de recibir la aceptación AMI.
+
 Paquetes Debian disponibles para `arm64` y `amd64`:
 
 ```bash

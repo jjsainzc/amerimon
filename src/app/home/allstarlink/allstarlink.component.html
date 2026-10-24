@@ -145,7 +145,7 @@
           <span>Timeout (s)</span>
           <input type="number" min="1" max="300" step="1" [value]="timeoutConexion()" [disabled]="permanenteConexion()" aria-label="Timeout de conexión en segundos" (input)="timeoutConexion.set(+$any($event.target).value)">
         </label>
-        <button type="submit" class="allstarlink-ejecutar" [disabled]="conectando() || nodosLocales().length === 0">
+        <button type="submit" class="allstarlink-ejecutar" [disabled]="conectando() || audioEnCurso() !== null || nodosLocales().length === 0">
           {{ desconectandoAntesConexion() ? 'Desconectando nodos…' : conectando() ? 'Conectando…' : 'Conectar nodo' }}
         </button>
       </form>
@@ -279,13 +279,34 @@
                   </span></td>
                   @if (esAdmin() && nodo.protocolo?.trim().toLowerCase() !== 'sip') {
                     <td data-label="Acción" class="allstarlink-accion-celda">
+                      <span class="allstarlink-acciones-nodo">
+                      @if (grupo.nodoLocal === nodoPrincipal()) {
+                        <button type="button" class="allstarlink-desconectar allstarlink-audio"
+                          [class.muteado]="nodo.audio?.muted === true"
+                          [class.audio-desconocido]="nodo.audio?.muted == null"
+                          (click)="alternarAudio(nodo)"
+                          [disabled]="!nodo.audio?.available || nodo.pendiente || nodo.enlace?.trim().toLowerCase() !== 'established' || audioEnCurso() !== null || desconexionEnCurso() !== null || conectando()"
+                          [attr.aria-pressed]="nodo.audio?.muted == null ? null : nodo.audio?.muted"
+                          [attr.aria-label]="(nodo.audio?.muted === true ? 'Habilitar audio del nodo ' : 'Silenciar audio emitido por el nodo ') + nodo.nodo"
+                          [title]="!nodo.audio?.available ? nodo.audio?.reason || 'Control de audio no disponible' : nodo.audio?.muted === true ? 'Estación silenciada. Habilitar su audio' : nodo.audio?.muted === false ? 'Audio habilitado. Silenciar estación' : 'Estado de audio no confirmado. Silenciar estación'">
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M11 5 6 9H2v6h4l5 4Z" />
+                            @if (nodo.audio?.muted === true) {
+                              <path d="m3 3 18 18" />
+                            } @else {
+                              <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />
+                            }
+                          </svg>
+                        </button>
+                      }
                       <button type="button" class="allstarlink-desconectar"
                         (click)="desconectar(grupo.nodoLocal, nodo.nodo)"
-                        [disabled]="desconexionEnCurso() !== null"
+                        [disabled]="desconexionEnCurso() !== null || audioEnCurso() !== null || conectando()"
                         [attr.aria-label]="(desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'Desconectando nodo ' : 'Desconectar nodo ') + nodo.nodo + ' del nodo local ' + grupo.nodoLocal"
                         [title]="desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'Desconectando…' : 'Desconectar nodo'">
                         <span aria-hidden="true">×</span>
                       </button>
+                      </span>
                     </td>
                   }
                 </tr>

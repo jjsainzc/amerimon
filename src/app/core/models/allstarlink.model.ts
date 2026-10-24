@@ -1,4 +1,5 @@
 export interface AllstarlinkNode {
+  audio?: ConnectionAudio;
   protocolo: string;
   categoria?: string;
   nodo_local: string;
@@ -17,6 +18,13 @@ export interface AllstarlinkNode {
   latencia?: string;
   pendiente?: boolean;
   permanente?: boolean;
+}
+
+export interface ConnectionAudio {
+  available: boolean;
+  muted: boolean | null;
+  connection_id?: string;
+  reason?: string;
 }
 
 export interface AllstarlinkData {

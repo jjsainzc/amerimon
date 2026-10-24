@@ -71,6 +71,70 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('confirms mute and unmute only after AMI acceptance and keeps failures unknown', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      const node = {
+        nodo_local: '616262', nodo: '1964', protocolo: 'iax', enlace: 'ESTABLISHED',
+        audio: { available: true, muted: null, connection_id: 'connection-1' }
+      };
+      component.nodos.set([node]);
+      fixture.detectChanges();
+      const button = element.querySelector<HTMLButtonElement>('.allstarlink-audio')!;
+      expect(button.disabled).toBe(false);
+      expect(button.classList.contains('audio-desconocido')).toBe(true);
+      button.click();
+      http.expectNone(request => request.method === 'POST');
+      component.confirmarAccion();
+      const mute = http.expectOne(`${environment.apiUrl}/asterisk/connections/audio`);
+      expect(mute.request.body).toEqual({
+        local_node: '616262', remote_node: '1964', connection_id: 'connection-1', muted: true
+      });
+      expect(component.nodos()[0].audio?.muted).toBeNull();
+      mute.flush({ status: 'success', data: { available: true, muted: true, connection_id: 'connection-1' } });
+      fixture.detectChanges();
+      expect(button.classList.contains('muteado')).toBe(true);
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+      button.click();
+      component.confirmarAccion();
+      const unmute = http.expectOne(`${environment.apiUrl}/asterisk/connections/audio`);
+      expect(unmute.request.body.muted).toBe(false);
+      unmute.flush({ status: 'success', data: { available: true, muted: false, connection_id: 'connection-1' } });
+      fixture.detectChanges();
+      expect(button.classList.contains('muteado')).toBe(false);
+      button.click();
+      component.confirmarAccion();
+      http.expectOne(`${environment.apiUrl}/asterisk/connections/audio`).flush(
+        { message: 'MuteAudio rechazado' }, { status: 502, statusText: 'Bad Gateway' }
+      );
+      expect(component.nodos()[0].audio?.muted).toBeNull();
+      expect(component.resultadoPopup()?.error).toBe(true);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('disables mute without support and never exposes it on remote servers', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.nodos.set([
+        { nodo_local: '616262', nodo: '1964', protocolo: 'iax', audio: { available: false, muted: null, reason: 'MuteAudio no disponible' } },
+        { nodo_local: '56502', nodo: '1998', protocolo: 'iax', audio: { available: true, muted: false, connection_id: 'remote' } }
+      ]);
+      fixture.detectChanges();
+      const buttons = element.querySelectorAll<HTMLButtonElement>('.allstarlink-audio');
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].disabled).toBe(true);
+      expect(buttons[0].title).toBe('MuteAudio no disponible');
+      component.alternarAudio(component.nodos()[1]);
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
   it('preserves every connection parameter when the view is destroyed and recreated', async () => {
     const primera = await crearMonitor();
     primera.component.nodoLocal.set('56502');

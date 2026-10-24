@@ -74,12 +74,12 @@ if [ -d /run/systemd/system ]; then
     fi
 fi
 
-# Listen Live needs AGI/ChanSpy modules and dialplan contexts. Keep backups and
+# Listen Live and inbound audio control need Asterisk modules. Keep backups and
 # preserve existing Asterisk configuration; no Asterisk restart is performed.
 AST_DIR=/etc/asterisk
 if [ -d "$AST_DIR" ]; then
     MODULES_CONF="$AST_DIR/modules.conf"
-    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so app_verbose.so func_config.so func_strings.so func_logic.so func_cut.so"
+    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so app_verbose.so func_config.so func_strings.so func_logic.so func_cut.so res_mutestream.so"
 
     if [ -f "$MODULES_CONF" ]; then
         [ -e "$MODULES_CONF.bak-listen-live" ] || cp -a "$MODULES_CONF" "$MODULES_CONF.bak-listen-live"
@@ -106,7 +106,7 @@ if [ -d "$AST_DIR" ]; then
                 sed -i -E "/^[[:space:]]*(load|noload)[[:space:]]*(=>|=)[[:space:]]*$module_pattern([[:space:]]*(;.*)?)$/d" "$MODULES_CONF"
             done
             {
-                printf '\n; BEGIN AMERIMON LISTEN LIVE MODULES\n'
+                printf '; BEGIN AMERIMON LISTEN LIVE MODULES\n'
                 for module in $AVAILABLE_MODULES; do
                     printf 'load => %s\n' "$module"
                 done
@@ -114,7 +114,7 @@ if [ -d "$AST_DIR" ]; then
             } >> "$MODULES_CONF"
         fi
     else
-        echo "Aviso: no existe $MODULES_CONF; no se configuraron módulos para Listen Live." >&2
+        echo "Aviso: no existe $MODULES_CONF; no se configuraron módulos para Listen Live y control de audio." >&2
     fi
 
     EXTENSIONS_CONF="$AST_DIR/extensions.conf"
@@ -203,7 +203,16 @@ EOF
 
         if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev/null 2>&1; then
             for module in $MODULES; do
-                asterisk -rx "module load $module" >/dev/null 2>&1 || true
+                if [ "$module" = res_mutestream.so ]; then
+                    if ! asterisk -rx 'module show like res_mutestream' 2>/dev/null | grep -q '^res_mutestream\.so[[:space:]]'; then
+                        if ! asterisk -rx 'module load res_mutestream.so' >/dev/null 2>&1 ||
+                           ! asterisk -rx 'module show like res_mutestream' 2>/dev/null | grep -q '^res_mutestream\.so[[:space:]]'; then
+                            echo "Aviso: no se pudo habilitar res_mutestream.so; el control de audio permanecerá deshabilitado." >&2
+                        fi
+                    fi
+                else
+                    asterisk -rx "module load $module" >/dev/null 2>&1 || true
+                fi
             done
             asterisk -rx 'dialplan reload' >/dev/null 2>&1 || echo "Aviso: no se pudo recargar el dialplan; los cambios se aplicarán al reiniciar Asterisk." >&2
         fi

@@ -50,6 +50,7 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.POST("/asterisk/commands", controllers.ExecuteSupermonCommand, jwt, admin)
 	privada.GET("/asterisk/logs", controllers.GetAsteriskOperationLogs, jwt, admin)
 	privada.POST("/asterisk/connections", controllers.AddNodeConnection, jwt, admin)
+	privada.POST("/asterisk/connections/audio", controllers.SetConnectionAudio, jwt, admin)
 
 	// Rutas sin rol A: públicas; el token es opcional y, si es válido, identifica al usuario.
 	opt := controllers.OptionalJWTMiddleware
