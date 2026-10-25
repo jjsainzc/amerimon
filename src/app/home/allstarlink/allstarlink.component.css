@@ -336,11 +336,11 @@
   }
   .allstarlink-tabla th.allstarlink-columna-accion,
   .allstarlink-tabla td.allstarlink-accion-celda {
-    width: 3.5rem;
+    width: 4.5rem;
     min-width: 3.5rem;
-    max-width: 3.5rem;
-    padding-right: 0.125rem;
-    padding-left: 1ch;
+    max-width: 5rem;
+    padding-right: 2px;
+    padding-left: 1px;
     text-align: center;
   }
 }
@@ -402,6 +402,8 @@
   .allstarlink-tabla tbody tr > td.allstarlink-accion-celda {
     padding-top: 0;
     padding-bottom: 0;
+    padding-right: 2px;
+
     align-items: center;
   }
   .allstarlink-tabla tbody tr > td.allstarlink-columna-actividad { white-space: nowrap; }

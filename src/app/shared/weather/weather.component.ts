@@ -181,6 +181,15 @@ export class WeatherComponent implements OnInit, OnDestroy {
   }
 
   fetchWeather(location: string): void {
+    if (location.trim() != "") {
+      const partes = location.split(',');
+
+      const lat = Number(partes[0]).toFixed(6);
+      const lng = Number(partes[1]).toFixed(6);
+
+      location = `${lat}, ${lng}`;
+
+    }
     this.cancelPendingRequest();
     this.lastWeatherLocation = location.trim();
     this.mapLocation.set(location.trim());
