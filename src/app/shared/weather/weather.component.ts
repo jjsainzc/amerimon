@@ -5,6 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { WeatherService } from '../../core/services/weather.service';
 
+interface CoordenadaDMS {
+  grados: number;
+  minutos: number;
+  segundos: number;
+  hemisferio: 'N' | 'S' | 'E' | 'O';
+}
+
 @Component({
   selector: 'app-weather',
   standalone: true,
@@ -181,22 +188,22 @@ export class WeatherComponent implements OnInit, OnDestroy {
   }
 
   fetchWeather(location: string): void {
-    if (location.trim() != "") {
-      const partes = location.split(',');
-
-      const lat = Number(partes[0]).toFixed(6);
-      const lng = Number(partes[1]).toFixed(6);
-
-      location = `${lat}, ${lng}`;
-
-    }
     this.cancelPendingRequest();
-    this.lastWeatherLocation = location.trim();
-    this.mapLocation.set(location.trim());
-    this.consultedLocation.set(location.trim() || 'ubicación automática por IP');
+    const trimmedLocation = location.trim();
+    this.lastWeatherLocation = trimmedLocation;
+    this.mapLocation.set(trimmedLocation);
+
+    // Formatear location para el servicio si es lat,lon
+    let apiLocation = trimmedLocation;
+
+    // Si la ubicación contiene una coma, se asume que es latitud,longitud
+    // Asignar el valor formateado en Grados, Minutos, Segundos a consultedLocation
+    // Si no es así, se usa la ubicación tal cual
+    this.consultedLocation.set(this.formatearCoordenadasDMS(trimmedLocation));
+
     this.loading.set(true);
     this.errorMessage.set('');
-    this.weatherRequest = this.weatherService.getWeather(location, 'F').subscribe({
+    this.weatherRequest = this.weatherService.getWeather(apiLocation, 'F').subscribe({
       next: (data) => {
         this.weatherReport.set(data.trim());
         this.loading.set(false);
@@ -207,10 +214,51 @@ export class WeatherComponent implements OnInit, OnDestroy {
         console.error(error);
         this.retryTimer = setTimeout(() => {
           this.retryTimer = undefined;
-          this.fetchWeather(location);
+          this.fetchWeather(trimmedLocation);
         }, WeatherComponent.retryDelayMs);
       }
     });
+  }
+
+  private convertirAFormatoDMS(decimalStr: string, esLatitud: boolean): CoordenadaDMS {
+    const numStr = decimalStr.replace(',', '.');
+    const val = parseFloat(numStr.trim());
+
+    let hemisferio: 'N' | 'S' | 'E' | 'O';
+    if (esLatitud) {
+      hemisferio = val >= 0 ? 'N' : 'S';
+    } else {
+      hemisferio = val >= 0 ? 'E' : 'O';
+    }
+
+    const valAbs = Math.abs(val);
+    const grados = Math.floor(valAbs);
+    const minutosFloat = (valAbs - grados) * 60;
+    const minutos = Math.floor(minutosFloat);
+    const segundos = Number(((minutosFloat - minutos) * 60).toFixed(2));
+
+    return { grados, minutos, segundos, hemisferio };
+  }
+
+  private formatearCoordenadasDMS(locationStr: string): string {
+    if (!locationStr) {
+      return 'ubicación automática por IP';
+    }
+
+    const partes = locationStr.split(',');
+    // Verificamos si son coordenadas numéricas (lat, lon)
+    if (partes.length === 2 && !isNaN(Number(partes[0])) && !isNaN(Number(partes[1]))) {
+      try {
+        const latDMS = this.convertirAFormatoDMS(partes[0], true);
+        const lonDMS = this.convertirAFormatoDMS(partes[1], false);
+        return `${latDMS.grados}° ${latDMS.minutos}' ${latDMS.segundos}" ${latDMS.hemisferio}, ${lonDMS.grados}° ${lonDMS.minutos}' ${lonDMS.segundos}" ${lonDMS.hemisferio}`;
+      } catch {
+        return locationStr;
+      }
+    }
+
+    // Si el usuario introdujo un nombre de lugar (ej. "Quito"), se retorna tal cual
+    return locationStr;
   }
 
   private cancelPendingRequest(): void {
