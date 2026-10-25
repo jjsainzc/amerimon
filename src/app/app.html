@@ -49,6 +49,17 @@
       } @else {
         <button type="button" class="boton-enlace" (click)="abrirLogin()">Admin</button>
       }
+     <!-- 🌐 SECCIÓN NUEVA: Selector de Idioma con imágenes de banderas -->
+    <button type="button" class="boton-enlace selector-idioma-btn"
+            (click)="cambiarIdioma(translationService.currentLang() === 'es' ? 'en' : 'es')">
+      @if (translationService.currentLang() === 'es') {
+        <img src="assets/images/flag/en.png" alt="English" width="20" height="15" class="bandera-icono" />
+        English (EN)
+      } @else {
+        <img src="assets/images/flag/es.png" alt="Español" width="20" height="15" class="bandera-icono" />
+        Español (ES)
+      }
+    </button>
     </div>
   </div>
 </header>

@@ -10,6 +10,7 @@ import { EnlacesExternosService } from './core/services/enlaces-externos.service
 import { WeatherComponent } from './shared/weather/weather.component';
 import { AboutModalComponent } from './shared/about-modal/about-modal.component';
 import { MarkdownViewerComponent } from './shared/markdown-viewer/markdown-viewer.component';
+import { TranslationService } from './core/services/translation.service';
 
 type Modo = 'login' | 'crear' | 'cambiar';
 type ErrorHttp = { error?: { message?: string } };
@@ -62,6 +63,8 @@ export class App implements OnInit {
   readonly isAboutOpen = signal(false);
   readonly isMarkdownOpen = signal(false);
 
+  public translationService = inject(TranslationService);
+
   protected usuario = '';
   protected recordarSesion = false;
   protected password = '';
@@ -77,6 +80,11 @@ export class App implements OnInit {
   /** Abrir manual */
   abrirManual(): void {
     this.isMarkdownOpen.set(true);
+  }
+
+  /** Cambia el idioma de la aplicación. */
+  protected cambiarIdioma(lang: string): void {
+    this.translationService.loadLanguage(lang);
   }
 
   /** Abrir acerca de */
