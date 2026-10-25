@@ -1,7 +1,7 @@
 
 # 1. General
 
-## 1.1. Poner permanentemente en enlaces externo con descripcion Amerimon - Wiki y url https://github.com/jjsainzc/repo-deb/wiki/Amerimon
+## 1.1. Poner permanentemente en enlaces externo, con descripcion Amerimon - Wiki y url https://github.com/jjsainzc/repo-deb/wiki/Amerimon
 
 ## 1.2. Cada vez que se de click a una pagina poner un cuadrito con icono girando que diga "Cargando ...".
 

@@ -49,56 +49,56 @@
         </div>
       </header>
       @if (panelAdminAbierto()) {
-      <div id="allstarlink-admin-contenido">
-      <p class="allstarlink-ayuda" role="note">
-        <span class="allstarlink-modo modo-duplex">Precaución</span>
-        Estas operaciones envían comandos reales a Asterisk y pueden cambiar enlaces o el estado del sistema. Úsalas solo si conoces su efecto.
-      </p>
+        <div id="allstarlink-admin-contenido">
+        <p class="allstarlink-ayuda" role="note">
+          <span class="allstarlink-modo modo-duplex">Precaución</span>
+          Estas operaciones envían comandos reales a Asterisk y pueden cambiar enlaces o el estado del sistema. Úsalas solo si conoces su efecto.
+        </p>
 
-      @if (errorComandos()) {
-        <p class="allstarlink-error" role="alert">{{ errorComandos() }}</p>
-      } @else if (comandos().length > 0) {
-        <form class="allstarlink-formulario" (submit)="$event.preventDefault(); ejecutarComando()">
-          <label>
-            <span>Operación</span>
-            <select [value]="accionSeleccionada()" (change)="cambiarAccion($any($event.target).value)">
-              @for (comando of comandos(); track comando.id) {
-                <option [value]="comando.id">{{ comando.label }}</option>
-              }
-            </select>
-          </label>
-          <label>
-            <span>Nodo local</span>
-            <span class="clipboard-field" [appCopy]="nodoLocal()"><select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
-              <option value="" disabled>Selecciona un nodo</option>
-              @for (nodo of nodosLocales(); track nodo) {
-                <option [value]="nodo">{{ nodo }}</option>
-              }
-            </select></span>
-          </label>
-          @if (comandoSeleccionado()?.requires_remote_node) {
+        @if (errorComandos()) {
+          <p class="allstarlink-error" role="alert">{{ errorComandos() }}</p>
+        } @else if (comandos().length > 0) {
+          <form class="allstarlink-formulario" (submit)="$event.preventDefault(); ejecutarComando()">
             <label>
-              <span>Nodo remoto o indicativo</span>
-              <span class="clipboard-field" [appCopy]="nodoRemoto()"><input type="text" autocomplete="off" [value]="nodoRemoto()" (input)="nodoRemoto.set($any($event.target).value)" placeholder="Ej. 448511 o EA4ABC" required></span>
+              <span>Operación</span>
+              <select [value]="accionSeleccionada()" (change)="cambiarAccion($any($event.target).value)">
+                @for (comando of comandos(); track comando.id) {
+                  <option [value]="comando.id">{{ comando.label }}</option>
+                }
+              </select>
             </label>
-          }
-          @if (comandoSeleccionado()?.supports_permanent && comandoSeleccionado()?.id !== 'disconnect') {
-            <label class="allstarlink-permanente">
-              <input type="checkbox" [checked]="permanente()" (change)="permanente.set($any($event.target).checked)">
-              <span>Conexión permanente</span>
+            <label>
+              <span>Nodo local</span>
+              <span class="clipboard-field" [appCopy]="nodoLocal()"><select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
+                <option value="" disabled>Selecciona un nodo</option>
+                @for (nodo of nodosLocales(); track nodo) {
+                  <option [value]="nodo">{{ nodo }}</option>
+                }
+              </select></span>
             </label>
+            @if (comandoSeleccionado()?.requires_remote_node) {
+              <label>
+                <span>Nodo remoto o indicativo</span>
+                <span class="clipboard-field" [appCopy]="nodoRemoto()"><input type="text" autocomplete="off" [value]="nodoRemoto()" (input)="nodoRemoto.set($any($event.target).value)" placeholder="Ej. 448511 o EA4ABC" required></span>
+              </label>
+            }
+            @if (comandoSeleccionado()?.supports_permanent && comandoSeleccionado()?.id !== 'disconnect') {
+              <label class="allstarlink-permanente">
+                <input type="checkbox" [checked]="permanente()" (change)="permanente.set($any($event.target).checked)">
+                <span>Conexión permanente</span>
+              </label>
+            }
+            <button type="submit" class="allstarlink-ejecutar" [disabled]="ejecutando() || cargandoComandos()">
+              {{ ejecutando() ? 'Ejecutando…' : 'Ejecutar' }}
+            </button>
+          </form>
+          @if (comandoSeleccionado(); as comando) {
+            <p class="allstarlink-plantilla"><code>{{ permanente() && comando.permanent_command_template ? comando.permanent_command_template : comando.command_template }}</code></p>
           }
-          <button type="submit" class="allstarlink-ejecutar" [disabled]="ejecutando() || cargandoComandos()">
-            {{ ejecutando() ? 'Ejecutando…' : 'Ejecutar' }}
-          </button>
-        </form>
-        @if (comandoSeleccionado(); as comando) {
-          <p class="allstarlink-plantilla"><code>{{ permanente() && comando.permanent_command_template ? comando.permanent_command_template : comando.command_template }}</code></p>
+        } @else if (cargandoComandos()) {
+          <p class="allstarlink-estado" role="status">Cargando operaciones…</p>
         }
-      } @else if (cargandoComandos()) {
-        <p class="allstarlink-estado" role="status">Cargando operaciones…</p>
-      }
-      </div>
+        </div>
       }
     </section>
     <section class="allstarlink-admin allstarlink-conexion" aria-labelledby="allstarlink-conexion-titulo">
@@ -175,7 +175,13 @@
           (input)="filtroBusqueda.set($any($event.target).value)"
           placeholder="Nodo, indicativo, ubicación…" autocomplete="off">
       </label>
+      <!-- LsNodes-->
+      <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
+        (click)="abrirLsnodes()" aria-haspopup="dialog">
+        Ver LsNodes
+      </button>
     </div>
+
     <div class="allstarlink-orden-movil">
       <label>
         <span>Ordenar por</span>
@@ -204,15 +210,15 @@
     @for (grupo of gruposFiltrados(); track grupo.nodoLocal) {
       <section class="allstarlink-grupo" [class.allstarlink-grupo-principal]="grupo.nodoLocal === nodoPrincipal()" [attr.aria-label]="(grupo.nodoLocal === nodoPrincipal() ? 'Conexiones del nodo principal ' : 'Conexiones del nodo remoto ') + grupo.nodoLocal">
         <h4>
+          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><strong>{{ grupo.nodoLocal }}</strong></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} conectados</small>
           @if (grupo.nodoLocal === nodoPrincipal()) {
             <span class="allstarlink-modo modo-duplex">Nodo principal</span>
           }
-          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><strong>{{ grupo.nodoLocal }}</strong></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} conectados</small>
           @if (esAdmin() && grupo.nodoLocal === nodoPrincipal()) {
-            <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
+            <!-- <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
               (click)="abrirLsnodes()" aria-haspopup="dialog">
               Ver LsNodes
-            </button>
+            </button> -->
           }
         </h4>
         <div class="allstarlink-tabla-scroll">

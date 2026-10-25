@@ -15,7 +15,7 @@
 }
 .pie p { margin: 0; }
 .pie-version { font-variant-numeric: tabular-nums; }
-.pie-tecnologias { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .35rem .8rem; }
+.pie-tecnologias { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .35rem .6rem; }
 .pie-tecnologia { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
 .pie-tecnologia img, .pie-tecnologia svg { flex-shrink: 0; object-fit: contain; }
 .pie-sqlite { padding: 2px; border-radius: 3px; background: #111a22; }
