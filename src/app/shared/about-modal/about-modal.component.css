@@ -1,0 +1,128 @@
+:host {
+  display: block;
+}
+
+/* Fondo semitransparente oscuro */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 11, 15, 0.75);
+  backdrop-filter: blur(2px);
+  padding: 1rem;
+}
+
+/* Tarjeta principal con el estilo de tus inputs/login (#111a22 y #3a4f5e) */
+.modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: #111a22;
+  border: 1px solid #3a4f5e;
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  animation: fadeInModal 0.2s ease-out;
+  overflow: hidden;
+}
+
+/* Cabecera */
+.modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1.25rem 1rem 1.25rem;
+  border-bottom: 1px solid #3a4f5e;
+  position: relative;
+}
+
+.logo-cabecera {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  margin-bottom: 0.75rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #e5edf2;
+}
+
+/* Botón de cierre superior (inspirado en .pf-ojo) */
+.pf-cerrar {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: transparent;
+  border: 0;
+  color: #a9bac5;
+  font-size: 1.5rem;
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+}
+
+.pf-cerrar:hover, .pf-cerrar:focus-visible {
+  color: #e5edf2;
+  background: #263641;
+}
+
+/* Cuerpo del texto */
+.modal-body {
+  padding: 1.25rem;
+  font-size: 0.925rem;
+  line-height: 1.5;
+  color: #a9bac5;
+}
+
+.modal-body p {
+  margin: 0 0 0.75rem 0;
+}
+
+.modal-body p:last-child {
+  margin-bottom: 0;
+}
+
+.modal-body strong {
+  color: #e5edf2;
+}
+
+/* Pie de página y botón */
+.modal-footer {
+  padding: 0.75rem 1.25rem 1.25rem 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #263641;
+}
+
+.pf-btn {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.55rem 1rem;
+  border: 1px solid #3a4f5e;
+  border-radius: 5px;
+  background: #192734;
+  color: #e5edf2;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pf-btn:hover, .pf-btn:focus-visible {
+  background: #263641;
+  border-color: #4e687d;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

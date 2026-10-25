@@ -58,6 +58,11 @@
 
 <footer class="pie">
   <p>&copy; {{ anioActual }} Amerimon <span class="pie-version">· Versión {{ ajustesCabecera().app_version || 'no disponible' }}</span></p>
+
+  <div class="pie-enlace-acerca">
+    <button type="button" class="enlace-acerca" (click)="abrirAcercaDe()">Acerca de...</button>
+  </div>
+
   <div class="pie-tecnologias" aria-label="Tecnologías utilizadas">
     <span>Powered by</span>
     <span class="pie-tecnologia">
@@ -181,3 +186,8 @@
     </form>
   </div>
 }
+
+<!-- Componente Popup de Acerca de -->
+<app-about-modal
+  [isOpen]="isAboutOpen()"
+  (closed)="isAboutOpen.set(false)" />

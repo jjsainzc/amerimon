@@ -1,0 +1,29 @@
+@if (isOpen()) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+
+      <!-- Cabecera con la imagen -->
+      <div class="modal-header">
+        <img class="logo-cabecera" src="assets/images/amerimon.png" alt="Amerimon Logo" aria-hidden="true" />
+        <h2>Acerca de la aplicación</h2>
+        <button class="pf-cerrar" (click)="close()" aria-label="Cerrar">&times;</button>
+      </div>
+
+      <!-- Contenido del aviso legal -->
+      <div class="modal-body">
+        <p>
+          Esta aplicación se distribuye tal como está, sin garantías de ningún tipo, ya sean explícitas o implícitas.
+        </p>
+        <p>
+          Es de <strong>libre uso</strong>, pero usted la utiliza <strong>bajo su propia responsabilidad</strong>. Los creadores no asumen ninguna responsabilidad por daños directos o indirectos derivados de su uso.
+        </p>
+      </div>
+
+      <!-- Pie del modal -->
+      <div class="modal-footer">
+        <button class="pf-btn" (click)="close()">Entendido</button>
+      </div>
+
+    </div>
+  </div>
+}

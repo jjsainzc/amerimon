@@ -8,12 +8,13 @@ import { PasswordFieldComponent } from './shared/password-field/password-field.c
 import { EnlaceExterno } from './core/models/enlace-externo.model';
 import { EnlacesExternosService } from './core/services/enlaces-externos.service';
 import { WeatherComponent } from './shared/weather/weather.component';
+import { AboutModalComponent } from './shared/about-modal/about-modal.component';
 
 type Modo = 'login' | 'crear' | 'cambiar';
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
+  imports: [ AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -57,6 +58,8 @@ export class App implements OnInit {
   protected readonly cargandoEnlaces = signal(false);
   protected readonly errorEnlaces = signal('');
 
+  readonly isAboutOpen = signal(false);
+
   protected usuario = '';
   protected recordarSesion = false;
   protected password = '';
@@ -67,6 +70,11 @@ export class App implements OnInit {
   /** Carga al iniciar la aplicación la configuración visible de la cabecera. */
   ngOnInit(): void {
     this.cargarAjustesCabecera();
+  }
+
+  /** Abrir acerca de */
+  abrirAcercaDe(): void {
+    this.isAboutOpen.set(true);
   }
 
   /** Presenta el texto de título adecuado al modo actual del diálogo de acceso. */
