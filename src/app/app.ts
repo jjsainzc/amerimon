@@ -9,12 +9,13 @@ import { EnlaceExterno } from './core/models/enlace-externo.model';
 import { EnlacesExternosService } from './core/services/enlaces-externos.service';
 import { WeatherComponent } from './shared/weather/weather.component';
 import { AboutModalComponent } from './shared/about-modal/about-modal.component';
+import { MarkdownViewerComponent } from './shared/markdown-viewer/markdown-viewer.component';
 
 type Modo = 'login' | 'crear' | 'cambiar';
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  imports: [ AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
+  imports: [ MarkdownViewerComponent, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -59,6 +60,7 @@ export class App implements OnInit {
   protected readonly errorEnlaces = signal('');
 
   readonly isAboutOpen = signal(false);
+  readonly isMarkdownOpen = signal(false);
 
   protected usuario = '';
   protected recordarSesion = false;
@@ -70,6 +72,11 @@ export class App implements OnInit {
   /** Carga al iniciar la aplicación la configuración visible de la cabecera. */
   ngOnInit(): void {
     this.cargarAjustesCabecera();
+  }
+
+  /** Abrir manual */
+  abrirManual(): void {
+    this.isMarkdownOpen.set(true);
   }
 
   /** Abrir acerca de */

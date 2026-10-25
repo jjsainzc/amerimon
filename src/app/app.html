@@ -39,6 +39,7 @@
               <a routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">Nodos privados</a>
               <button type="button" (click)="abrirEdicionCabecera()">Personalizar cabecera</button>
               <button type="button" (click)="abrirCambio()">Cambiar contraseña</button>
+              <button type="button" (click)="abrirManual(); cerrarMenu()">Manual Técnico</button>
             </nav>
           }
         </div>
@@ -190,4 +191,14 @@
 <!-- Componente Popup de Acerca de -->
 <app-about-modal
   [isOpen]="isAboutOpen()"
-  (closed)="isAboutOpen.set(false)" />
+  (closed)="isAboutOpen.set(false)">
+</app-about-modal>
+
+<!-- Componente Popup del Manual -->
+<app-markdown-viewer
+  [open]="isMarkdownOpen()"
+  markdownUrl="assets/docs/manual-operacion-tecnica.md"
+  title="Contenido"
+  eyebrow="DOCUMENTACIÓN"
+  (closed)="isMarkdownOpen.set(false)">
+</app-markdown-viewer>
