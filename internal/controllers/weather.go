@@ -198,7 +198,7 @@ func getWeather(locationRaw string, temperatureMode string) (string, error) {
 		mph := ws * 2.23694
 		kmh := ws * 3.6
 		dir := toCardinal(wd)
-		windStr := fmt.Sprintf("Wind %.0f mph / %.0f km/h %s", mph, kmh, dir)
+		windStr := fmt.Sprintf("Wind: %.0f mph - %.0f km/h %s", mph, kmh, dir)
 		if wg > 0 {
 			gustMph := wg * 2.23694
 			windStr += fmt.Sprintf(" (gust %.0f)", gustMph)
@@ -208,7 +208,7 @@ func getWeather(locationRaw string, temperatureMode string) (string, error) {
 
 	if pmsl > 0 {
 		inhg := pmsl * 0.02953
-		seg2 += fmt.Sprintf(" / %.2f inHG", inhg)
+		seg2 += fmt.Sprintf(" / P: %.1f hPa - %.2f inHG", pmsl, inhg)
 	}
 
 	// NWS Alerts
