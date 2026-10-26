@@ -9,6 +9,7 @@ import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
 import { NetCalculatorPopupComponent } from '../../../shared/net-calculator-popup/net-calculator-popup.component';
 import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 
 
@@ -41,7 +42,7 @@ export function calcularRedIPv4(value: string): string | null {
 @Component({
   selector: 'app-primary-node',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent, CopyValueDirective],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './primary-node.component.html',
   styleUrl: './primary-node.component.css'
 })

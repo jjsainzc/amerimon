@@ -5,8 +5,12 @@ import { provideRouter } from '@angular/router';
 import { calcularRedIPv4, PrimaryNodeComponent } from './primary-node.component';
 import { environment } from '../../../core/environment';
 import { NodeAccessDocument, isNodeAccessDocument } from '../../../core/services/primary-node.service';
+import { TranslationService } from '../../../core/services/translation.service';
+import es from '../../../../../public/assets/i18n/es.json';
+import en from '../../../../../public/assets/i18n/en.json';
 
 const url = `${environment.apiUrl}/primary-node`;
+const translations: Record<string, Record<string, string>> = { es, en };
 const config = { node: '616265', callsign: 'TEST1', password_set: true, password: 'test_password', path: '/test/rpt.conf' };
 
 describe('Primary node administration', () => {
@@ -23,6 +27,7 @@ describe('Primary node administration', () => {
     const fixture = TestBed.createComponent(PrimaryNodeComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne('./assets/i18n/es.json').flush(translations['es']);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ node: config.node, entries: [] });
     http.expectOne(`${url}/ami`).flush(amiResponse);
@@ -31,6 +36,24 @@ describe('Primary node administration', () => {
     fixture.detectChanges();
     return { fixture, http, component: fixture.componentInstance, element: fixture.nativeElement as HTMLElement };
   }
+
+  it('translates the full template and substitutes node values when the language changes', async () => {
+    const { fixture, http, component, element } = await crear();
+    expect(element.textContent).toContain('Lista de acceso del nodo 616265');
+    component.confirmando.set(true);
+    component.numero = '616267';
+    const loading = TestBed.inject(TranslationService).loadLanguage('en');
+    http.expectOne('./assets/i18n/en.json').flush(translations['en']);
+    await loading;
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Access list for node 616265');
+    expect(element.textContent).toContain('The configuration for node 616265 will be saved as 616267.');
+    expect(element.textContent).toContain('The backend needs local AMI access.');
+    expect(element.querySelector('button[title="Open advanced network calculator"]')).not.toBeNull();
+    expect(element.textContent).not.toContain('{{');
+    http.verify();
+    fixture.destroy();
+  });
 
   it('calculates IPv4 networks from prefixes or dotted masks', () => {
     expect(calcularRedIPv4('192.168.1.37/24')).toBe('192.168.1.0/24');
@@ -241,6 +264,7 @@ describe('Primary node administration', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne('./assets/i18n/es.json').flush(translations['es']);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ message: 'AMI no disponible' }, { status: 503, statusText: 'Unavailable' });
     http.expectOne(`${url}/ami`).flush({

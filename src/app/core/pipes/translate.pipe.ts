@@ -1,4 +1,4 @@
-import { Pipe, PipeTransform, inject, computed } from '@angular/core';
+import { Pipe, PipeTransform, inject } from '@angular/core';
 import { TranslationService } from '../services/translation.service';
 
 @Pipe({
@@ -8,11 +8,14 @@ import { TranslationService } from '../services/translation.service';
 export class TranslatePipe implements PipeTransform {
   private translationService = inject(TranslationService);
 
-  transform(key: string): string {
+  transform(key: string, params?: Record<string, string | number>): string {
     // Registramos la dependencia de la señal reactiva
     this.translationService.currentLang();
 
     // Retornamos la traducción
-    return this.translationService.translate(key);
+    const translation = this.translationService.translate(key);
+    if (!params) { return translation; }
+    return translation.replace(/\{\{\s*(\w+)\s*\}\}/g, (placeholder: string, name: string) =>
+      Object.hasOwn(params, name) ? String(params[name]) : placeholder);
   }
 }
