@@ -23,6 +23,7 @@ import { indicativoQrz } from '../../core/validators/callsign.validator';
 import { FavoritosPopupComponent } from '../../shared/favoritos-popup/favoritos-popup.component';
 import { ScrollTopComponent } from '../../shared/scroll-top/scroll-top.component';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
+import { TranslationService } from '../../core/services/translation.service';
 
 type CampoOrden = 'protocolo' | 'nodo' | 'callsign' | 'informacion' | 'ubicacion' | 'enlace' | 'direccion' | 'actividad' | 'conectado' | 'modo';
 type SolicitudConexion = Readonly<SupermonCommandRequest & {
@@ -43,6 +44,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
+
+  // Para hacer translate dentro de los ts
+  private readonly translation = inject(TranslationService);
 
   readonly nodos = signal<AllstarlinkNode[]>([]);
   readonly actividades = signal<AllstarlinkActivity[]>([]);
@@ -137,7 +141,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
 
     for (const nodo of conexionesVisibles) {
-      const nodoLocal = nodo.nodo_local || 'Sin nodo local';
+      const nodoLocal = nodo.nodo_local || this.translation.translate('SIN_NODO_LOCAL');
       const conexiones = porNodoLocal.get(nodoLocal) ?? [];
       conexiones.push(nodo);
       porNodoLocal.set(nodoLocal, conexiones);
@@ -364,15 +368,15 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.comandos.set(comandos);
         this.accionSeleccionada.set(comandos[0]?.id ?? '');
         if (respuesta?.status !== 'success') {
-          this.errorComandos.set(respuesta?.message || 'No se pudieron cargar las operaciones.');
+          this.errorComandos.set(respuesta?.message || this.translation.translate('NO_SE_PUDIERON_CARGAR_LAS_OPERACIONES'));
         }
         this.cargandoComandos.set(false);
       },
       error: err => {
         this.cargandoComandos.set(false);
         this.errorComandos.set(err?.name === 'TimeoutError'
-          ? 'El servidor no respondió a tiempo.'
-          : err?.error?.message || 'No se pudieron cargar las operaciones.');
+          ? this.translation.translate('SERVIDOR_NO_RESPONDIO_A_TIEMPO')
+          : err?.error?.message || this.translation.translate('NO_SE_PUDIERON_CARGAR_LAS_OPERACIONES'));
       }
     });
   }
@@ -384,8 +388,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const remoteNode = this.nodoRemoto().trim();
     if (!comando || !/^\d+$/.test(localNode) ||
         (comando.requires_remote_node && !this.esNodoRemotoValido(remoteNode))) {
-      this.errorEjecucion.set('Ingresa un nodo local numérico y un número de nodo o indicativo remoto válido.');
-      this.mostrarPopup('Operación no ejecutada', '', [this.errorEjecucion()], true);
+      this.errorEjecucion.set(this.translation.translate('INGRESA_UN_NODO_LOCAL_NUMERICO_Y_UN_NODO_REMOTO_VALIDO'));
+      this.mostrarPopup(this.translation.translate('OPERACION_NO_EJECUTADA'), '', [this.errorEjecucion()], true);
       return;
     }
 
@@ -397,8 +401,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     };
     if (this.requiereConfirmacion()) {
       this.solicitarConfirmacion(
-        'Confirmar operación',
-        `Se ejecutará "${comando.label}" en el nodo ${localNode}${remoteNode ? ` hacia ${remoteNode}` : ''}.`,
+        this.translation.translate('CONFIRMAR_OPERACION'),
+        this.translation.translate('SE_EJECUTARA_LA_OPERACION_EN_EL_NODO', {
+          accion: comando.label,
+          local: localNode,
+          destino: remoteNode ? this.translation.translate('HACIA_EL_NODO', { remoto: remoteNode }) : ''
+        }),
         () => this.ejecutarOperacion(comando, request)
       );
       return;
@@ -419,16 +427,16 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultado.set(respuesta.data);
           this.mostrarPopup(comando.label, respuesta.data.command, respuesta.data.lines);
         } else {
-          this.errorEjecucion.set(respuesta?.message || 'No se pudo ejecutar la operación.');
-          this.mostrarPopup('Error de operación', '', [this.errorEjecucion()], true);
+          this.errorEjecucion.set(respuesta?.message || this.translation.translate('NO_SE_PUDO_EJECUTAR_LA_OPERACION'));
+          this.mostrarPopup(this.translation.translate('ERROR_DE_OPERACION'), '', [this.errorEjecucion()], true);
         }
       },
       error: err => {
         this.ejecutando.set(false);
         this.errorEjecucion.set(err?.name === 'TimeoutError'
-          ? 'El servidor no respondió a tiempo.'
-          : err?.error?.message || 'No se pudo ejecutar la operación.');
-        this.mostrarPopup('Error de operación', '', [this.errorEjecucion()], true);
+          ? this.translation.translate('SERVIDOR_NO_RESPONDIO_A_TIEMPO')
+          : err?.error?.message || this.translation.translate('NO_SE_PUDO_EJECUTAR_LA_OPERACION'));
+        this.mostrarPopup(this.translation.translate('ERROR_DE_OPERACION'), '', [this.errorEjecucion()], true);
       }
     });
   }
@@ -438,8 +446,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const local = this.nodoLocal().trim();
     const remoto = this.nodoRemotoConexion().trim();
     if (!this.esAdmin() || !/^\d+$/.test(local) || !this.esNodoRemotoValido(remoto)) {
-      this.resultadoConexion.set({ texto: 'Selecciona un servidor e ingresa un número de nodo o indicativo válido.', error: true });
-      this.mostrarPopup('Conexión no ejecutada', '', [this.resultadoConexion()!.texto], true);
+      this.resultadoConexion.set({ texto: this.translation.translate('SELECCIONA_UN_SERVIDOR_E_INGRESA_UN_NODO_REMOTO_VALIDO'), error: true });
+      this.mostrarPopup(this.translation.translate('CONEXION_NO_EJECUTADA'), '', [this.resultadoConexion()!.texto], true);
       return;
     }
 
@@ -448,7 +456,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const permanente = this.permanenteConexion();
     const timeoutSegundos = Math.min(300, Math.max(1, Math.floor(Number(this.timeoutConexion()) || 15)));
     this.timeoutConexion.set(timeoutSegundos);
-    const tipoConexion = permanente ? 'permanente' : 'temporal';
+    const tipoConexion = this.translation.translate(permanente ? 'TIPO_CONEXION_PERMANENTE' : 'TIPO_CONEXION_TEMPORAL');
     if (!this.validarServidorOperacion(local)) { return; }
     const request: SolicitudConexion = {
       local_node: local,
@@ -459,8 +467,16 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       ...(this.desconectarAntesConexion() ? { disconnect_before_connect: true } : {})
     };
     this.solicitarConfirmacion(
-      'Confirmar conexión',
-      `${request.disconnect_before_connect ? `Se desconectarán todos los nodos del servidor ${local}. ` : ''}Conectar el nodo ${remoto} a ${local} en modo ${modoLabel} (${tipoConexion}).`,
+      this.translation.translate('CONFIRMAR_CONEXION'),
+      this.translation.translate('CONFIRMACION_DE_CONEXION', {
+        desconectar: request.disconnect_before_connect
+          ? this.translation.translate('SE_DESCONECTARAN_TODOS_LOS_NODOS_DEL_SERVIDOR', { local }) + ' '
+          : '',
+        remoto,
+        local,
+        modo: this.translation.translate(modo === 'connect' ? 'TRANSCEIVE' : modo === 'monitor' ? 'MONITOR' : 'LOCAL_MONITOR'),
+        tipo: tipoConexion
+      }),
       () => this.ejecutarConexion(request, modoLabel)
     );
   }
@@ -490,9 +506,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         if (request.disconnect_before_connect || respuesta?.status === 'success') { this.programarRecargaConexiones(); }
         this.resultadoConexion.set(respuesta?.status === 'success' && respuesta.data
           ? { texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
-          : { texto: respuesta?.message || 'No se pudo conectar el nodo.', error: true });
+          : { texto: respuesta?.message || this.translation.translate('NO_SE_PUDO_CONECTAR_EL_NODO'), error: true });
         this.mostrarPopup(
-          this.resultadoConexion()!.error ? 'Error de conexión' : 'Conexión solicitada',
+          this.resultadoConexion()!.error ?  this.translation.translate('ERROR_DE_CONEXION') : this.translation.translate('CONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoConexion()!.texto],
           this.resultadoConexion()!.error
@@ -505,11 +521,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         if (request.disconnect_before_connect) { this.programarRecargaConexiones(); }
         this.resultadoConexion.set({
           texto: err?.name === 'TimeoutError'
-            ? 'El servidor no respondió a tiempo.'
-            : err?.error?.message || err?.message || 'No se pudo conectar el nodo.',
+            ? this.translation.translate('SERVIDOR_NO_RESPONDIO_A_TIEMPO')
+            : err?.error?.message || err?.message || this.translation.translate('NO_SE_PUDO_CONECTAR_EL_NODO'),
           error: true
         });
-        this.mostrarPopup('Error de conexión', '', [this.resultadoConexion()!.texto], true);
+        this.mostrarPopup(this.translation.translate('ERROR_DE_CONEXION'), '', [this.resultadoConexion()!.texto], true);
       }
     });
   }
@@ -518,7 +534,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     if (respuesta.status !== 'success' || !respuesta.data?.tablas?.some(tabla =>
       tabla.nodo_local === local && tabla.servidor_conectado
     ) || !Array.isArray(respuesta.data.resultados)) {
-      throw new Error(respuesta.message || `No se pudo consultar la lista de nodos conectados del servidor ${local}.`);
+      throw new Error(respuesta.message || this.translation.translate('NO_SE_PUDO_CONSULTAR_LA_LISTA_DE_NODOS_DEL_SERVIDOR', { local }));
     }
     return [...new Set(respuesta.data.resultados
       .filter(nodo => nodo.nodo_local === local && nodo.protocolo?.trim().toLowerCase() !== 'sip')
@@ -538,7 +554,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           timeout({ each: 10_000 }),
           tap(respuesta => {
             if (respuesta.status !== 'success') {
-              throw new Error(respuesta.message || `No se pudo desconectar el nodo ${remoto} del servidor ${local}.`);
+              throw new Error(respuesta.message || this.translation.translate('NO_SE_PUDO_DESCONECTAR_EL_NODO_DEL_SERVIDOR', { remoto, local }));
             }
             this.quitarConexionPendiente(local, remoto);
           })
@@ -558,10 +574,10 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
 
   private validarServidorOperacion(local: string): boolean {
     if (this.esAdmin() && this.nodosLocales().includes(local)) { return true; }
-    this.mostrarPopup('Operación no ejecutada', '', [
+    this.mostrarPopup( this.translation.translate('OPERACION_NO_EJECUTADA'), '', [
       this.esAdmin()
-        ? `El servidor local ${local} ya no está disponible. Selecciona un servidor y vuelve a confirmar la operación.`
-        : 'Se requiere una sesión de administrador para ejecutar la operación.'
+        ? this.translation.translate('EL_SERVIDOR_LOCAL_YA_NO_ESTA_DISPONIBLE', { local })
+        :  this.translation.translate('SE_REQUIERE_SESION_ADMINISTRADOR')
     ], true);
     return false;
   }
@@ -575,10 +591,10 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const muted = audio.muted !== true;
     const connectionId = audio.connection_id;
     this.solicitarConfirmacion(
-      muted ? 'Silenciar estación' : 'Habilitar audio de la estación',
+      muted ? this.translation.translate('SILENCIAR_AUDIO_DE_ESTACION') : this.translation.translate('HABILITAR_AUDIO_DE_ESTACION'),
       muted
-        ? `Impedir que el audio del nodo ${nodo.nodo} se retransmita desde el servidor ${nodo.nodo_local}. La estación podrá seguir escuchando.`
-        : `Permitir de nuevo el audio emitido por el nodo ${nodo.nodo} en el servidor ${nodo.nodo_local}.`,
+        ? this.translation.translate('IMPEDIR_QUE_EL_AUDIO_DEL_NODO_SE_RETRANSMITA')
+        : this.translation.translate('PERMITIR_QUE_EL_AUDIO_DEL_NODO_SE_RETRANSMITA'),
       () => {
         if (!this.validarServidorOperacion(nodo.nodo_local) || this.audioEnCurso() || this.conectando() || this.desconexionEnCurso()) { return; }
         this.audioEnCurso.set(`${nodo.nodo_local}-${nodo.nodo}`);
@@ -589,7 +605,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
             this.audioEnCurso.set(null);
             if (respuesta.status !== 'success' || respuesta.data?.muted !== muted ||
                 respuesta.data.connection_id !== connectionId) {
-              this.mostrarPopup('Error de audio', '', [respuesta.message || 'Asterisk no confirmó el estado de audio solicitado.'], true);
+              this.mostrarPopup(this.translation.translate('ERROR_DE_AUDIO'), '', [respuesta.message || this.translation.translate('ASTERISK_NO_CONFIRMO_ESTADO_DE_AUDIO')], true);
               this.programarRecargaConexiones();
               return;
             }
@@ -607,8 +623,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
               actual.nodo_local === nodo.nodo_local && actual.nodo === nodo.nodo && actual.audio
                 ? { ...actual, audio: { ...actual.audio, muted: null } } : actual
             ));
-            this.mostrarPopup('Error de audio', '', [
-              err?.error?.message || 'No se pudo confirmar el cambio de audio. Actualiza el monitor antes de reintentar.'
+            this.mostrarPopup(this.translation.translate('ERROR_DE_AUDIO'), '', [
+              err?.error?.message || this.translation.translate('ASTERISK_NO_CONFIRMO_EL_CAMBIO_DE_AUDIO')
             ], true);
             this.programarRecargaConexiones();
           }
@@ -629,9 +645,10 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const clave = `${local}-${remoto}`;
     if (this.desconexionEnCurso()) { return; }
     if (!confirmado) {
+      // Para hacer translate dentro de los ts
       this.solicitarConfirmacion(
-        'Confirmar desconexión',
-        `Desconectar el nodo ${remoto} del nodo local ${local}.`,
+        this.translation.translate('CONFIRMAR_DESCONEXION'),
+        this.translation.translate('DESCONECTAR_EL_NODO_REMOTO_DEL NODO_LOCAL', { remoto, local }),
         () => this.desconectar(local, remoto, true)
       );
       return;
@@ -655,9 +672,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         }
         this.resultadoDesconexion.set(respuesta?.status === 'success' && respuesta.data
           ? { clave, texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
-          : { clave, texto: respuesta?.message || 'No se pudo desconectar el nodo.', error: true });
+          : { clave, texto: respuesta?.message || this.translation.translate('NO_SE_PUDO_DESCONECTAR_EL_NODO'), error: true });
         this.mostrarPopup(
-          this.resultadoDesconexion()!.error ? 'Error de desconexión' : 'Desconexión solicitada',
+          this.resultadoDesconexion()!.error ? this.translation.translate('ERROR_DE_DESCONEXION') : this.translation.translate('DESCONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoDesconexion()!.texto],
           this.resultadoDesconexion()!.error
@@ -668,11 +685,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.resultadoDesconexion.set({
           clave,
           texto: err?.name === 'TimeoutError'
-            ? 'El servidor no respondió a tiempo.'
-            : err?.error?.message || 'No se pudo desconectar el nodo.',
+            ? this.translation.translate('SERVIDOR_NO_RESPONDIO_A_TIEMPO')
+            : err?.error?.message || this.translation.translate('NO_SE_PUDO_DESCONECTAR_EL_NODO'),
           error: true
         });
-        this.mostrarPopup('Error de desconexión', '', [this.resultadoDesconexion()!.texto], true);
+        this.mostrarPopup(this.translation.translate('ERROR_DE_DESCONEXION'), '', [this.resultadoDesconexion()!.texto], true);
       }
     });
   }
@@ -790,7 +807,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     switch (this.categoriaNodo(nodo)) {
       case 'iaxrpt': return 'IAXRPT';
       case 'echolink': return 'EchoLink';
-      case 'nodo_privado': return 'Privado';
+      case 'nodo_privado': return this.translation.translate('PRIVADO');
       case 'sip': return 'SIP';
       default: return 'IAX';
     }
@@ -863,7 +880,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           for (const tabla of tablas) { this.consultarServidor(tabla.nodo_local, forzar); }
         } else {
           this.limpiarDatosNodos();
-          this.error.set(respuesta?.message || 'No se pudo cargar el listado de nodos.');
+          this.error.set(respuesta?.message || this.translation.translate('NO_SE_PUDO_CARGAR_EL_LISTADO_DE_NODOS'));
         }
         this.finalizarCarga();
         this.programarSondeoPermanente();
@@ -873,10 +890,10 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.finalizarCarga();
         this.consultado.set(true);
         this.error.set(err?.name === 'TimeoutError'
-          ? 'El servidor no respondió a tiempo.'
+          ? this.translation.translate('SERVIDOR_NO_RESPONDIO_A_TIEMPO')
           : err?.status === 0
-            ? 'No se pudo conectar con el servidor.'
-            : err?.error?.message || 'No se pudo cargar el listado de nodos.');
+            ? this.translation.translate('NO_SE_PUDO_CONECTAR_CON_EL_SERVIDOR')
+            : err?.error?.message || this.translation.translate('NO_SE_PUDO_CARGAR_EL_LISTADO_DE_NODOS'));
         this.programarSondeoPermanente();
         this.revisarDesconexionesEnVerificacion();
       }
@@ -914,7 +931,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       next: respuesta => {
         const tabla = respuesta.data?.tablas?.find(tabla => tabla.nodo_local === local);
         if (respuesta.status !== 'success' || !tabla?.servidor_conectado) {
-          this.falloServidor(local, respuesta.message || `No se pudo conectar con el servidor del nodo ${local}.`);
+          this.falloServidor(local, respuesta.message || this.translation.translate('NO_SE_PUDO_CONECTAR_CON_EL_SERVIDOR_DEL_NODO', { local }));
           return;
         }
         this.erroresServidor.update(errores => {
@@ -933,8 +950,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.falloServidor(local, err?.name === 'TimeoutError'
-          ? `El servidor del nodo ${local} no respondió a tiempo.`
-          : err?.error?.message || `No se pudo conectar con el servidor del nodo ${local}.`);
+          ? this.translation.translate('EL_SERVIDOR_DEL_NODO_NO_RESPONDIO_A_TIEMPO', { local })
+          : err?.error?.message || this.translation.translate('NO_SE_PUDO_CONECTAR_CON_EL_SERVIDOR_DEL_NODO', { local }));
         this.finalizarConsultaServidor(local);
       },
       complete: () => this.finalizarConsultaServidor(local)
@@ -1021,4 +1038,5 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       this.temporizador = setInterval(() => this.cargar(), intervalo);
     }
   }
+
 }

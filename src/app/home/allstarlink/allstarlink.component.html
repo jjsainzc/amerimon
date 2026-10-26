@@ -20,7 +20,7 @@
       </label>
       <button type="button" class="allstarlink-actualizar accion-estandar" (click)="cargar()" [disabled]="cargando()">
         <i class="fa-solid fa-rotate" aria-hidden="true"></i>
-        {{ cargando() ? 'Actualizando…' : ('ACTUALIZAR_AHORA' | translate) }}
+        {{ cargando() ? ('ACTUALIZANDO' | translate) : ('ACTUALIZAR_AHORA' | translate) }}
       </button>
     </div>
   </header>
@@ -89,7 +89,7 @@
               </label>
             }
             <button type="submit" class="allstarlink-ejecutar" [disabled]="ejecutando() || cargandoComandos()">
-              {{ ejecutando() ? 'Ejecutando…' : ('EJECUTAR' | translate) }}
+              {{ ejecutando() ? ('EJECUTANDO' | translate) : ('EJECUTAR' | translate) }}
             </button>
           </form>
           @if (comandoSeleccionado(); as comando) {
@@ -146,7 +146,7 @@
           <input type="number" min="1" max="300" step="1" [value]="timeoutConexion()" [disabled]="permanenteConexion()" aria-label="Timeout de conexión en segundos" (input)="timeoutConexion.set(+$any($event.target).value)">
         </label>
         <button type="submit" class="allstarlink-ejecutar" [disabled]="conectando() || audioEnCurso() !== null || nodosLocales().length === 0">
-          {{ desconectandoAntesConexion() ? 'Desconectando nodos…' : conectando() ? 'Conectando…' : ('CONECTAR_NODO' | translate) }}
+          {{ (desconectandoAntesConexion() ? 'DESCONECTANDO_NODO' : conectando() ? 'CONECTANDO_NODO' : 'CONECTAR_NODO') | translate }}
         </button>
       </form>
     </section>
@@ -199,8 +199,8 @@
         </select>
       </label>
       <button type="button" (click)="alternarDireccionOrden()"
-        [attr.aria-label]="'Orden ' + (direccionOrden() === 'asc' ? 'ascendente' : 'descendente')"
-        [title]="direccionOrden() === 'asc' ? 'Orden ascendente' : 'Orden descendente'">
+        [attr.aria-label]="(direccionOrden() === 'asc' ? 'ORDEN_ASCENDENTE' : 'ORDEN_DESCENDENTE') | translate"
+        [title]="(direccionOrden() === 'asc' ? 'ORDEN_ASCENDENTE' : 'ORDEN_DESCENDENTE') | translate">
         {{ direccionOrden() === 'asc' ? '↑' : '↓' }}
       </button>
     </div>
@@ -291,8 +291,8 @@
                           (click)="alternarAudio(nodo)"
                           [disabled]="!nodo.audio?.available || nodo.pendiente || nodo.enlace?.trim().toLowerCase() !== 'established' || audioEnCurso() !== null || desconexionEnCurso() !== null || conectando()"
                           [attr.aria-pressed]="nodo.audio?.muted == null ? null : nodo.audio?.muted"
-                          [attr.aria-label]="(nodo.audio?.muted === true ? 'Habilitar audio del nodo ' : 'Silenciar audio emitido por el nodo ') + nodo.nodo"
-                          [title]="!nodo.audio?.available ? nodo.audio?.reason || 'Control de audio no disponible' : nodo.audio?.muted === true ? 'Estación silenciada. Habilitar su audio' : nodo.audio?.muted === false ? 'Audio habilitado. Silenciar estación' : 'Estado de audio no confirmado. Silenciar estación'">
+                          [attr.aria-label]="(nodo.audio?.muted === true ? 'HABILITAR_AUDIO_NODO' : 'SILENCIAR_AUDIO_NODO') | translate:{nodo: nodo.nodo}"
+                          [title]="!nodo.audio?.available ? nodo.audio?.reason || ('CONTROL_AUDIO_NO_DISPONIBLE' | translate) : nodo.audio?.muted === true ? ('AUDIO_ESTACION_SILENCIADA_HABILITAR' | translate) : nodo.audio?.muted === false ? ('AUDIO_HABILITADO_SILENCIAR_ESTACION' | translate) : ('AUDIO_ESTADO_NO_CONFIRMADO_SILENCIAR' | translate)">
                           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d="M11 5 6 9H2v6h4l5 4Z" />
                             @if (nodo.audio?.muted === true) {
@@ -306,8 +306,8 @@
                       <button type="button" class="allstarlink-desconectar"
                         (click)="desconectar(grupo.nodoLocal, nodo.nodo)"
                         [disabled]="desconexionEnCurso() !== null || audioEnCurso() !== null || conectando()"
-                        [attr.aria-label]="(desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'Desconectando nodo ' : 'Desconectar nodo ') + nodo.nodo + ' del nodo local ' + grupo.nodoLocal"
-                        [title]="desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'Desconectando…' : 'Desconectar nodo'">
+                        [attr.aria-label]="(desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'DESCONECTANDO_NODO_DEL_NODO_LOCAL' : 'DESCONECTAR_NODO_DEL_NODO_LOCAL') | translate:{remoto: nodo.nodo, local: grupo.nodoLocal}"
+                        [title]="(desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'DESCONECTANDO_NODO' : 'DESCONECTAR_NODO') | translate">
                         <span aria-hidden="true">×</span>
                       </button>
                       </span>
@@ -345,7 +345,7 @@
       </header>
       <div class="allstarlink-resultado">
         @if (popup.comando) {
-          <p><strong>{{ 'COMANDO_NBSP_NBSP' | translate }}</strong> <code>{{ popup.comando }}</code></p>
+          <p><strong>{{ 'COMANDO:' | translate }}</strong> <code>{{ popup.comando }}</code></p>
         }
         <pre>{{ popup.lineas.join('\n') }}</pre>
       </div>
