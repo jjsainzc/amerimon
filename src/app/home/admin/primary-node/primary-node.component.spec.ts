@@ -27,10 +27,12 @@ describe('Primary node administration', () => {
     const fixture = TestBed.createComponent(PrimaryNodeComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    const languageLoaded = TestBed.inject(TranslationService).loadLanguage('es');
     http.expectOne('./assets/i18n/es.json').flush(translations['es']);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ node: config.node, entries: [] });
     http.expectOne(`${url}/ami`).flush(amiResponse);
+    await languageLoaded;
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
