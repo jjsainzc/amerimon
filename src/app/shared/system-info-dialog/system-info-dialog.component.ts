@@ -4,11 +4,12 @@ import { Component, inject, output, signal } from '@angular/core';
 import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { SystemInfo } from '../../core/models/system-info.model';
 import { SystemAction, SystemControlResponse, SystemInfoService } from '../../core/services/system-info.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-system-info-dialog',
   standalone: true,
-  imports: [CommonModule, CopyValueDirective],
+  imports: [CommonModule, CopyValueDirective, TranslatePipe],
   templateUrl: './system-info-dialog.component.html',
   styleUrl: './system-info-dialog.component.css',
 })
@@ -29,9 +30,9 @@ export class SystemInfoDialogComponent {
   /** Devuelve el texto que el administrador debe escribir antes de enviar una operación destructiva. */
   textoConfirmacion(action: SystemAction | null): string {
     switch (action) {
-      case 'asterisk_restart': return 'REINICIAR ASTERISK';
-      case 'linux_reboot': return 'REINICIAR LINUX';
-      case 'linux_poweroff': return 'APAGAR LINUX';
+      case 'asterisk_restart': return 'RESTART ASTERISK';
+      case 'linux_reboot': return 'REBOOT LINUX';
+      case 'linux_poweroff': return 'POWER OFF LINUX';
       default: return '';
     }
   }

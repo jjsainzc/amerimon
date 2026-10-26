@@ -2,12 +2,12 @@
   <section class="sys-dialog" role="dialog" aria-modal="true" aria-labelledby="sys-titulo" (click)="$event.stopPropagation()" (keydown)="cerrarConEscape($event)" tabindex="-1">
     <header class="sys-dialog-cabecera">
       <div>
-        <h2 id="sys-titulo">Sistema del servidor</h2>
-        <p>Estado, recursos y hardware</p>
+        <h2 id="sys-titulo">{{ 'SISTEMA_DEL_SERVIDOR' | translate }}</h2>
+        <p>{{ 'ESTADO_RECURSOS_Y_HARDWARE' | translate }}</p>
       </div>
       <div class="sys-dialog-acciones">
         <button type="button" class="sys-actualizar" (click)="cargar()" [disabled]="cargando()">
-          {{ cargando() ? 'Actualizando…' : 'Actualizar' }}
+          {{ cargando() ? ("ACTUALIZANDO" | translate) : ("ACTUALIZAR" | translate) }}
         </button>
         <button type="button" class="sys-cerrar" aria-label="Cerrar" (click)="cerrar.emit()">×</button>
       </div>
@@ -17,34 +17,40 @@
     @if (cargando() && !informacion()) { <p class="sys-cargando" role="status">Consultando información del servidor…</p> }
 
     <section class="sys-mantenimiento" aria-labelledby="sys-mantenimiento-titulo">
-      <h3 id="sys-mantenimiento-titulo">Mantenimiento del servidor</h3>
-      <p>Estas acciones interrumpen llamadas, enlaces y escuchas activas. Reiniciar o apagar Linux también desconecta esta web.</p>
+      <h3 id="sys-mantenimiento-titulo">{{ 'MANTENIMIENTO_DEL_SERVIDOR' | translate }}</h3>
+      <p>{{ 'ACCIONES_INTERRUMPEN_COMUNICACIONES' | translate }}</p>
       <div class="sys-control-botones">
-        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('asterisk_restart')">Reiniciar Asterisk</button>
-        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_reboot')">Reiniciar Linux</button>
-        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_poweroff')">Apagar Linux</button>
+        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('asterisk_restart')">{{ 'REINICIAR_ASTERISK' | translate }}</button>
+        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_reboot')">{{ 'REINICIAR_LINUX' | translate }}</button>
+        <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_poweroff')">{{ 'APAGAR_LINUX' | translate }}</button>
       </div>
       @if (accion(); as action) {
         <div class="sys-confirmacion">
-          <p>Se interrumpirán todas las comunicaciones del servidor.</p>
-          @if (action !== 'asterisk_restart') {
-            <p>La acción se programará dentro de un minuto. Apagar Linux puede requerir acceso físico para volver a encenderlo.</p>
+          <p>{{ 'SE_INTERRUMPIRAN_TODAS_LAS_COMUNICACIONES_DEL_SERVIDOR' | translate }}</p>
+          @if (action == 'linux_poweroff') {
+            <p>{{ 'ACCION_PROGRAMADA_APAGAR_LINUX' | translate }}</p>
           }
-          <label for="sys-confirmacion">Escribe <strong>{{ textoConfirmacion(action) }}</strong> para confirmar:</label>
+          @if (action == 'linux_reboot') {
+            <p>{{ 'ACCION_PROGRAMADA_REINICIAR_LINUX' | translate }}</p>
+          }
+          @if (action == 'asterisk_restart') {
+            <p>{{ 'ACCION_PROGRAMADA_REINICIAR_ASTERISK' | translate }}</p>
+          }
+          <label for="sys-confirmacion">{{ 'ESCRIBE_TEXTO_CONFIRMACION' | translate }} <strong>{{ textoConfirmacion(action) }}</strong> {{ 'PARA_CONFIRMAR' | translate }}:</label>
           <input #confirmationInput id="sys-confirmacion" type="text" autocomplete="off" [value]="confirmacion()" (input)="confirmacion.set(confirmationInput.value)" [disabled]="ejecutando()">
           <div class="sys-control-botones">
-            <button type="button" class="sys-peligro" [disabled]="ejecutando() || confirmacion() !== textoConfirmacion(action)" (click)="ejecutar()">{{ ejecutando() ? 'Ejecutando y verificando…' : 'Confirmar acción' }}</button>
+            <button type="button" class="sys-peligro" [disabled]="ejecutando() || confirmacion() !== textoConfirmacion(action)" (click)="ejecutar()">{{ ejecutando() ? ('EJECUTANDO_Y_VERIFICANDO' | translate) : ('CONFIRMAR_ACCION' | translate) }}</button>
             <button type="button" class="sys-actualizar" [disabled]="ejecutando()" (click)="accion.set(null)">Cancelar</button>
           </div>
         </div>
       }
-      @if (ejecutando()) { <p role="status">Mantenimiento en curso. La verificación puede tardar aproximadamente un minuto.</p> }
+      @if (ejecutando()) { <p role="status">{{ 'MANTENIMIENTO_EN_CURSO' | translate }} {{ 'LA_VERIFICACION_PUEDE_TARDAR_APROXIMADAMENTE_UN_MINUTO' | translate }}</p> }
       @if (errorControl()) { <p class="sys-error" role="alert">{{ errorControl() }}</p> }
       @if (resultado(); as result) {
         @if (result.status === 'success') { <p class="sys-resultado" role="status">{{ result.message }}</p> }
         @for (detail of result.data.details; track $index) { <p class="sys-control-detalle">{{ detail }}</p> }
         @if (result.data.warnings) {
-          <div class="sys-advertencia" role="alert"><strong>Advertencias del diagnóstico</strong><pre>{{ result.data.warnings }}</pre></div>
+          <div class="sys-advertencia" role="alert"><strong>{{ 'ADVERTENCIAS_DEL_DIAGNOSTICO' | translate }}</strong><pre>{{ result.data.warnings }}</pre></div>
         }
       }
     </section>
@@ -54,72 +60,72 @@
         <article class="sys-tarjeta sys-tarjeta-destacada">
           <h3>Asterisk</h3>
           <strong>{{ info.asterisk_version || 'No disponible' }}</strong>
-          <span>Versión del servidor de radio</span>
+          <span>{{ 'VERSION_DEL_SERVIDOR_DE_RADIO' | translate }}</span>
         </article>
         <article class="sys-tarjeta">
-          <h3>Temperatura</h3>
+          <h3>{{ 'TEMPERATURA' | translate }}</h3>
           @for (lectura of info.temperature; track lectura.zona) {
             <div class="sys-lectura"><strong>{{ lectura.celsius | number:'1.1-1' }} °C</strong><span>{{ lectura.tipo || lectura.zona }}</span></div>
-          } @empty { <strong>No disponible</strong> }
+          } @empty { <strong>{{ 'NO_DISPONIBLE' | translate }}</strong> }
         </article>
         <article class="sys-tarjeta">
-          <h3>Voltaje</h3>
-          <strong>{{ info.voltage || 'No disponible' }}</strong>
-          <span>{{ info.os.os_arch || 'Arquitectura no detectada' }}</span>
+          <h3>{{ 'VOLTAJE' | translate }}</h3>
+          <strong>{{ info.voltage || ('NO_DISPONIBLE' | translate) }}</strong>
+          <span>{{ info.os.os_arch || ('ARQUITECTURA_NO_DETECTADA' | translate) }}</span>
         </article>
         <article class="sys-tarjeta">
-          <h3>CPU</h3>
+          <h3>{{ 'CPU' | translate }}</h3>
           <strong>{{ info.cpu.used || '—' }}</strong>
-          <span>{{ info.cpu.model || 'Modelo no disponible' }}</span>
+          <span>{{ info.cpu.model || ('MODELO_NO_DISPONIBLE' | translate) }}</span>
           <span>{{ info.cpu.cores }} núcleos · {{ info.cpu.logicals }} lógicos · {{ info.cpu.speed }}</span>
-          <span>Carga 1/5/15 min: {{ info.cpu.load1 | number:'1.2-2' }} / {{ info.cpu.load5 | number:'1.2-2' }} / {{ info.cpu.load15 | number:'1.2-2' }}</span>
+          <span>{{ 'CARGA_1_5_15_MIN' | translate }} {{ info.cpu.load1 | number:'1.2-2' }} / {{ info.cpu.load5 | number:'1.2-2' }} / {{ info.cpu.load15 | number:'1.2-2' }}</span>
         </article>
         <article class="sys-tarjeta">
-          <h3>Memoria</h3>
+          <h3>{{ 'MEMORIA' | translate }}</h3>
           <strong>{{ info.mem.used_percent || '—' }}</strong>
           <div class="sys-barra"><span [style.width.%]="porcentaje(info.mem.used_percent)"></span></div>
           <span>{{ info.mem.used }} de {{ info.mem.total }}</span>
           <span>{{ info.mem.available }} disponibles</span>
         </article>
         <article class="sys-tarjeta">
-          <h3>Sistema operativo</h3>
-          <strong>{{ info.os.hostname || 'Host desconocido' }}</strong>
+          <h3>{{ 'SISTEMA_OPERATIVO' | translate }}</h3>
+          <strong>{{ info.os.hostname || ('HOST_DESCONOCIDO' | translate) }}</strong>
           <span>{{ info.os.distribution }} {{ info.os.version }}</span>
           <span>{{ info.os.platform }} · {{ info.os.os_arch }}</span>
           <span>Kernel {{ info.os.kernel }}</span>
           <span>Activo {{ info.os.uptime }}</span>
         </article>
         <article class="sys-tarjeta">
-          <h3>Almacenamiento</h3>
+          <h3>{{ 'ALMACENAMIENTO' | translate }}</h3>
           @for (disco of info.storage; track disco.mountpoint) {
             <div class="sys-sublectura">
               <strong>{{ disco.mountpoint }} · {{ disco.used_percent }}</strong>
               <div class="sys-barra" role="meter" [attr.aria-label]="'Almacenamiento usado en ' + disco.mountpoint" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="porcentaje(disco.used_percent)">
                 <span [style.width.%]="porcentaje(disco.used_percent)"></span>
               </div>
-              <span>{{ disco.free }} libres de {{ disco.total }}</span>
+              <span>{{ disco.free }} {{ 'LIBRES_DE' | translate }} {{ disco.total }}</span>
               <span>{{ disco.fs_type }} · Swap {{ disco.swap }}</span>
             </div>
           } @empty { <span>Sin datos de almacenamiento.</span> }
         </article>
         <article class="sys-tarjeta">
-          <h3>Red</h3>
+          <h3>{{ 'RED' | translate }}</h3>
           @for (interfaz of info.network; track interfaz.device) {
             <div class="sys-sublectura"><strong>{{ interfaz.device }} · {{ interfaz.status }}</strong>
               @for (ip of interfaz.ip_address; track $index) { <span [appCopy]="ip">{{ ip }}</span> } @empty { <span>Sin IP</span> }
               <span>MAC {{ interfaz.mac_address || '—' }}</span></div>
-          } @empty { <span>Sin interfaces de red.</span> }
+          } @empty { <span>{{ 'SIN_INTERFACES_DE_RED' | translate }}</span> }
         </article>
         <article class="sys-tarjeta">
-          <h3>Tráfico acumulado</h3>
-          <div class="sys-lectura"><span>Recibido</span><strong>{{ (info.traffic.bytes_recv / 1000000) | number:'1.2-2' }} MB</strong></div>
-          <div class="sys-lectura"><span>Enviado</span><strong>{{ (info.traffic.bytes_sent / 1000000) | number:'1.2-2' }} MB</strong></div>
+          <h3>{{'TRAFICO_ACUMULADO' | translate}}</h3>
+          <div class="sys-lectura"><span>{{ 'RECIBIDO' | translate }}</span><strong>{{ (info.traffic.bytes_recv / 1000000) | number:'1.2-2' }} MB</strong></div>
+          <div class="sys-lectura"><span>{{ 'ENVIADO' | translate }}</span><strong>{{ (info.traffic.bytes_sent / 1000000) | number:'1.2-2' }} MB</strong></div>
         </article>
         <article class="sys-tarjeta sys-tarjeta-procesos">
-          <h3>Procesos con mayor uso de CPU</h3>
+          <h3>{{ 'PROCESOS_CON_MAYOR_USO_DE_CPU' | translate }}</h3>
           @for (proceso of info.top_proc; track proceso.PID) {
             <div class="sys-lectura"><span>{{ proceso.Nombre }} ({{ proceso.PID }})</span><strong>{{ proceso.CPUPercent | number:'1.0-2' }}%</strong></div>
-          } @empty { <span>Sin procesos activos destacados.</span> }
+          } @empty { <span>{{ 'SIN_PROCESOS_ACTIVOS_DESTACADOS' | translate }}</span> }
         </article>
       </div>
     }

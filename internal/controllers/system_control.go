@@ -139,9 +139,9 @@ func (s systemControl) handle(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "message": "Solicitud inválida"})
 	}
 	confirmations := map[string]string{
-		"asterisk_restart": "REINICIAR ASTERISK",
-		"linux_reboot":     "REINICIAR LINUX",
-		"linux_poweroff":   "APAGAR LINUX",
+		"asterisk_restart": "RESTART ASTERISK",
+		"linux_reboot":     "REBOOT LINUX",
+		"linux_poweroff":   "POWER OFF LINUX",
 	}
 	expected, ok := confirmations[request.Action]
 	if !ok || request.Confirmation != expected {
