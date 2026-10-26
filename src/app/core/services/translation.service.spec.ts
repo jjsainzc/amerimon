@@ -51,6 +51,21 @@ describe('TranslationService', () => {
     expect(service.translate('TITLE')).toBe('Configuration');
   });
 
+  it('interpolates both supported placeholder formats and preserves missing parameters', async () => {
+    const loading = service.loadLanguage('es');
+    http.expectOne('./assets/i18n/es.json').flush({
+      DOLLAR: 'Nodo ${node}',
+      BRACES: 'Nodo {{ node }}',
+      MIXED: '${node} / {{ count }} / ${missing}',
+    });
+    await loading;
+
+    expect(service.translate('DOLLAR', { node: 123 })).toBe('Nodo 123');
+    expect(service.translate('BRACES', { node: '456' })).toBe('Nodo 456');
+    expect(service.translate('MIXED', { node: '789', count: 2 })).toBe('789 / 2 / ${missing}');
+    expect(service.translate('UNKNOWN', { node: '123' })).toBe('UNKNOWN');
+  });
+
   it('does not replace the latest selection with a late response, but caches it', async () => {
     const spanish = service.loadLanguage('es');
     const english = service.loadLanguage('en');

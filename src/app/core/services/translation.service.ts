@@ -48,8 +48,12 @@ export class TranslationService {
     }
   }
 
-  // Función para obtener la traducción de una clave
-  translate(key: string): string {
-    return this.translations[key] || key;
+  translate(key: string, params?: Record<string, string | number>): string {
+    const translation = this.translations[key] || key;
+    if (!params) { return translation; }
+    return translation.replace(/\$\{\s*(\w+)\s*\}|\{\{\s*(\w+)\s*\}\}/g, (placeholder, dollarName, braceName) => {
+      const name = dollarName ?? braceName;
+      return name !== undefined && Object.hasOwn(params, name) ? String(params[name]) : placeholder;
+    });
   }
 }

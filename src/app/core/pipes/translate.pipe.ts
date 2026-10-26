@@ -12,10 +12,6 @@ export class TranslatePipe implements PipeTransform {
     // Registramos la dependencia de la señal reactiva
     this.translationService.currentLang();
 
-    // Retornamos la traducción
-    const translation = this.translationService.translate(key);
-    if (!params) { return translation; }
-    return translation.replace(/\{\{\s*(\w+)\s*\}\}/g, (placeholder: string, name: string) =>
-      Object.hasOwn(params, name) ? String(params[name]) : placeholder);
+    return this.translationService.translate(key, params);
   }
 }
