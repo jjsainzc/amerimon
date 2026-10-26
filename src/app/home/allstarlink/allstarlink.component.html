@@ -1,26 +1,26 @@
 <section class="allstarlink" aria-labelledby="allstarlink-titulo">
   <header class="allstarlink-cabecera">
     <div>
-      <p class="allstarlink-eyebrow">ALLSTARLINK</p>
-      <h3 id="allstarlink-titulo">Monitor de conexiones</h3>
-      <p class="allstarlink-ayuda">Consulta el estado de los enlaces y los nodos conectados, agrupados por servidor local.</p>
+      <p class="allstarlink-eyebrow">{{ 'ALLSTARLINK' | translate }}</p>
+      <h3 id="allstarlink-titulo">{{ 'MONITOR_DE_CONEXIONES' | translate }}</h3>
+      <p class="allstarlink-ayuda">{{ 'CONSULTA_EL_ESTADO_DE_LOS_ENLACES_Y_LOS_NODOS_CONECTADOS_AGRUPADOS_POR_SERVIDOR_LOCAL' | translate }}</p>
     </div>
     <div class="allstarlink-controles">
       <label class="allstarlink-intervalo">
-        <span>Actualizar cada</span>
+        <span>{{ 'ACTUALIZAR_CADA' | translate }}</span>
         <select [value]="intervaloMs()" (change)="cambiarIntervalo($any($event.target).value)">
-          <option value="0">Desactivado</option>
-          <option value="5000">5 segundos</option>
-          <option value="10000">10 segundos</option>
-          <option value="15000">15 segundos</option>
-          <option value="30000">30 segundos</option>
-          <option value="60000">1 minuto</option>
-          <option value="300000">5 minutos</option>
+          <option value="0">{{ 'DESACTIVADO' | translate }}</option>
+          <option value="5000">{{ '5_SEGUNDOS' | translate }}</option>
+          <option value="10000">{{ '10_SEGUNDOS' | translate }}</option>
+          <option value="15000">{{ '15_SEGUNDOS' | translate }}</option>
+          <option value="30000">{{ '30_SEGUNDOS' | translate }}</option>
+          <option value="60000">{{ '1_MINUTO' | translate }}</option>
+          <option value="300000">{{ '5_MINUTOS' | translate }}</option>
         </select>
       </label>
       <button type="button" class="allstarlink-actualizar accion-estandar" (click)="cargar()" [disabled]="cargando()">
         <i class="fa-solid fa-rotate" aria-hidden="true"></i>
-        {{ cargando() ? 'Actualizando…' : 'Actualizar ahora' }}
+        {{ cargando() ? 'Actualizando…' : ('ACTUALIZAR_AHORA' | translate) }}
       </button>
     </div>
   </header>
@@ -32,26 +32,26 @@
     <section id="allstarlink-admin-panel" class="allstarlink-admin" aria-labelledby="allstarlink-admin-titulo">
       <header class="allstarlink-admin-cabecera">
         <div>
-          <p class="allstarlink-eyebrow">ADMINISTRACIÓN</p>
-          <h3 id="allstarlink-admin-titulo">Operaciones Asterisk</h3>
+          <p class="allstarlink-eyebrow">{{ 'ADMINISTRACION' | translate }}</p>
+          <h3 id="allstarlink-admin-titulo">{{ 'OPERACIONES_ASTERISK' | translate }}</h3>
         </div>
         <div class="allstarlink-admin-acciones">
           @if (panelAdminAbierto()) {
             <button type="button" class="allstarlink-actualizar accion-estandar" (click)="cargarComandos()" [disabled]="cargandoComandos()">
               <i class="fa-solid fa-rotate" aria-hidden="true"></i>
-              {{ cargandoComandos() ? 'Cargando…' : 'Recargar operaciones' }}
+              {{ cargandoComandos() ? ('CARGANDO' | translate) : ('RECARGAR_OPERACIONES' | translate) }}
             </button>
           }
           <button type="button" class="allstarlink-actualizar" (click)="alternarPanelAdmin()"
             [attr.aria-expanded]="panelAdminAbierto()" aria-controls="allstarlink-admin-contenido">
-            {{ panelAdminAbierto() ? 'Ocultar operaciones' : 'Mostrar operaciones' }}
+            {{ panelAdminAbierto() ? ('OCULTAR_OPERACIONES' | translate) : ('MOSTRAR_OPERACIONES' | translate) }}
           </button>
         </div>
       </header>
       @if (panelAdminAbierto()) {
         <div id="allstarlink-admin-contenido">
         <p class="allstarlink-ayuda" role="note">
-          <span class="allstarlink-modo modo-duplex">Precaución</span>
+          <span class="allstarlink-modo modo-duplex">{{ 'PRECAUCION' | translate }}</span>
           Estas operaciones envían comandos reales a Asterisk y pueden cambiar enlaces o el estado del sistema. Úsalas solo si conoces su efecto.
         </p>
 
@@ -60,7 +60,7 @@
         } @else if (comandos().length > 0) {
           <form class="allstarlink-formulario" (submit)="$event.preventDefault(); ejecutarComando()">
             <label>
-              <span>Operación</span>
+              <span>{{ 'OPERACION' | translate }}</span>
               <select [value]="accionSeleccionada()" (change)="cambiarAccion($any($event.target).value)">
                 @for (comando of comandos(); track comando.id) {
                   <option [value]="comando.id">{{ comando.label }}</option>
@@ -68,9 +68,9 @@
               </select>
             </label>
             <label>
-              <span>Nodo local</span>
+              <span>{{ 'NODO_LOCAL' | translate }}</span>
               <span class="clipboard-field" [appCopy]="nodoLocal()"><select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
-                <option value="" disabled>Selecciona un nodo</option>
+                <option value="" disabled>{{ 'SELECCIONA_UN_NODO' | translate }}</option>
                 @for (nodo of nodosLocales(); track nodo) {
                   <option [value]="nodo">{{ nodo }}</option>
                 }
@@ -78,25 +78,25 @@
             </label>
             @if (comandoSeleccionado()?.requires_remote_node) {
               <label>
-                <span>Nodo remoto o indicativo</span>
+                <span>{{ 'NODO_REMOTO_O_INDICATIVO' | translate }}</span>
                 <span class="clipboard-field" [appCopy]="nodoRemoto()"><input type="text" autocomplete="off" [value]="nodoRemoto()" (input)="nodoRemoto.set($any($event.target).value)" placeholder="Ej. 448511 o EA4ABC" required></span>
               </label>
             }
             @if (comandoSeleccionado()?.supports_permanent && comandoSeleccionado()?.id !== 'disconnect') {
               <label class="allstarlink-permanente">
                 <input type="checkbox" [checked]="permanente()" (change)="permanente.set($any($event.target).checked)">
-                <span>Conexión permanente</span>
+                <span>{{ 'CONEXION_PERMANENTE' | translate }}</span>
               </label>
             }
             <button type="submit" class="allstarlink-ejecutar" [disabled]="ejecutando() || cargandoComandos()">
-              {{ ejecutando() ? 'Ejecutando…' : 'Ejecutar' }}
+              {{ ejecutando() ? 'Ejecutando…' : ('EJECUTAR' | translate) }}
             </button>
           </form>
           @if (comandoSeleccionado(); as comando) {
             <p class="allstarlink-plantilla"><code>{{ permanente() && comando.permanent_command_template ? comando.permanent_command_template : comando.command_template }}</code></p>
           }
         } @else if (cargandoComandos()) {
-          <p class="allstarlink-estado" role="status">Cargando operaciones…</p>
+          <p class="allstarlink-estado" role="status">{{ 'CARGANDO_OPERACIONES' | translate }}</p>
         }
         </div>
       }
@@ -104,64 +104,64 @@
     <section class="allstarlink-admin allstarlink-conexion" aria-labelledby="allstarlink-conexion-titulo">
       <header class="allstarlink-admin-cabecera">
         <div>
-          <p class="allstarlink-eyebrow">CONEXIÓN</p>
-          <h3 id="allstarlink-conexion-titulo">Conectar nodo remoto</h3>
+          <p class="allstarlink-eyebrow">{{ 'CONEXION' | translate }}</p>
+          <h3 id="allstarlink-conexion-titulo">{{ 'CONECTAR_NODO_REMOTO' | translate }}</h3>
         </div>
         <label class="allstarlink-permanente allstarlink-desconectar-antes">
           <input type="checkbox" [checked]="desconectarAntesConexion()" (change)="desconectarAntesConexion.set($any($event.target).checked)" [disabled]="conectando()">
-          <span>Desconectar todos antes de conectar</span>
+          <span>{{ 'DESCONECTAR_TODOS_ANTES_DE_CONECTAR' | translate }}</span>
         </label>
       </header>
       <form class="allstarlink-formulario" (submit)="$event.preventDefault(); conectarNodo()">
         <label>
-          <span>Servidor local</span>
+          <span>{{ 'SERVIDOR_LOCAL' | translate }}</span>
           <span class="clipboard-field" [appCopy]="nodoLocal()"><select name="local_node" [ngModel]="nodoLocal()" (ngModelChange)="nodoLocal.set($event)" required>
-            <option value="" disabled>Selecciona un servidor</option>
+            <option value="" disabled>{{ 'SELECCIONA_UN_SERVIDOR' | translate }}</option>
             @for (nodo of nodosLocales(); track nodo) {
               <option [value]="nodo">{{ nodo }}</option>
             }
           </select></span>
         </label>
         <label>
-          <span>Número del nodo remoto</span>
+          <span>{{ 'NUMERO_DEL_NODO_REMOTO' | translate }}</span>
           <span class="allstarlink-nodo-fila">
             <span class="clipboard-field" [appCopy]="nodoRemotoConexion()"><input type="text" autocomplete="off" [value]="nodoRemotoConexion()" (input)="nodoRemotoConexion.set($any($event.target).value)" placeholder="Ej. 448511" required></span>
-            <button type="button" class="allstarlink-favoritos" (click)="favoritosAbierto.set(true)">Favoritos</button>
+            <button type="button" class="allstarlink-favoritos" (click)="favoritosAbierto.set(true)">{{ 'FAVORITOS' | translate }}</button>
           </span>
         </label>
         <label>
-          <span>Modo</span>
+          <span>{{ 'MODO' | translate }}</span>
           <select [value]="modoConexion()" (change)="modoConexion.set($any($event.target).value)">
-            <option value="connect">Transceive</option>
-            <option value="monitor">Monitor</option>
-            <option value="localmonitor">Local Monitor</option>
+            <option value="connect">{{ 'TRANSCEIVE' | translate }}</option>
+            <option value="monitor">{{ 'MONITOR' | translate }}</option>
+            <option value="localmonitor">{{ 'LOCAL_MONITOR' | translate }}</option>
           </select>
         </label>
         <label class="allstarlink-permanente">
           <input type="checkbox" [checked]="permanenteConexion()" (change)="permanenteConexion.set($any($event.target).checked)">
-          <span>Conexión permanente</span>
+          <span>{{ 'CONEXION_PERMANENTE' | translate }}</span>
         </label>
         <label style="flex: 0 0 5.5rem">
-          <span>Timeout (s)</span>
+          <span>{{ 'TIMEOUT_S' | translate }}</span>
           <input type="number" min="1" max="300" step="1" [value]="timeoutConexion()" [disabled]="permanenteConexion()" aria-label="Timeout de conexión en segundos" (input)="timeoutConexion.set(+$any($event.target).value)">
         </label>
         <button type="submit" class="allstarlink-ejecutar" [disabled]="conectando() || audioEnCurso() !== null || nodosLocales().length === 0">
-          {{ desconectandoAntesConexion() ? 'Desconectando nodos…' : conectando() ? 'Conectando…' : 'Conectar nodo' }}
+          {{ desconectandoAntesConexion() ? 'Desconectando nodos…' : conectando() ? 'Conectando…' : ('CONECTAR_NODO' | translate) }}
         </button>
       </form>
     </section>
   }
   @if (cargando() && grupos().length === 0) {
-    <p class="allstarlink-estado" role="status">Consultando conexiones…</p>
+    <p class="allstarlink-estado" role="status">{{ 'CONSULTANDO_CONEXIONES' | translate }}</p>
   } @else if (consultado() && !error() && grupos().length === 0) {
-    <p class="allstarlink-estado">No hay servidores configurados para monitorear.</p>
+    <p class="allstarlink-estado">{{ 'NO_HAY_SERVIDORES_CONFIGURADOS_PARA_MONITOREAR' | translate }}</p>
   } @else {
     <div class="allstarlink-filtros">
       @if (mostrarSelectorServidor()) {
         <label class="allstarlink-filtro-servidor">
-          <span>Mostrar servidor</span>
+          <span>{{ 'MOSTRAR_SERVIDOR' | translate }}</span>
           <span class="clipboard-field" [appCopy]="servidorSeleccionado() === 'todos' ? '' : servidorSeleccionado()"><select aria-label="Mostrar servidor" [value]="servidorSeleccionado()" (change)="servidorSeleccionado.set($any($event.target).value)">
-            <option value="todos">Todos</option>
+            <option value="todos">{{ 'TODOS' | translate }}</option>
             @for (servidor of servidoresDisponibles(); track servidor) {
               <option [value]="servidor">{{ servidor }}</option>
             }
@@ -169,7 +169,7 @@
         </label>
       }
       <label class="allstarlink-busqueda">
-        <span>Buscar conexiones</span>
+        <span>{{ 'BUSCAR_CONEXIONES' | translate }}</span>
         <span class="allstarlink-busqueda-lupa" aria-hidden="true">🔍</span>
         <input type="search" [value]="filtroBusqueda()"
           (input)="filtroBusqueda.set($any($event.target).value)"
@@ -178,24 +178,24 @@
       <!-- LsNodes-->
       <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
         (click)="abrirLsnodes()" aria-haspopup="dialog">
-        Ver LsNodes
+        {{ 'VER_LSNODES' | translate }}
       </button>
     </div>
 
     <div class="allstarlink-orden-movil">
       <label>
-        <span>Ordenar por</span>
+        <span>{{ 'ORDENAR_POR' | translate }}</span>
         <select [value]="campoOrden()" (change)="ordenarPor($any($event.target).value)">
-          <option value="actividad">Última actividad</option>
-          <option value="protocolo">Protocolo</option>
-          <option value="nodo">Nodo</option>
-          <option value="callsign">Callsign</option>
-          <option value="informacion">Información</option>
-          <option value="ubicacion">Ubicación</option>
-          <option value="enlace">Enlace</option>
-          <option value="direccion">Dirección</option>
-          <option value="conectado">Conectado</option>
-          <option value="modo">Modo</option>
+          <option value="actividad">{{ 'ULTIMA_ACTIVIDAD' | translate }}</option>
+          <option value="protocolo">{{ 'PROTOCOLO' | translate }}</option>
+          <option value="nodo">{{ 'NODO' | translate }}</option>
+          <option value="callsign">{{ 'CALLSIGN' | translate }}</option>
+          <option value="informacion">{{ 'INFORMACION' | translate }}</option>
+          <option value="ubicacion">{{ 'UBICACION' | translate }}</option>
+          <option value="enlace">{{ 'ENLACE' | translate }}</option>
+          <option value="direccion">{{ 'DIRECCION' | translate }}</option>
+          <option value="conectado">{{ 'CONECTADO' | translate }}</option>
+          <option value="modo">{{ 'MODO' | translate }}</option>
         </select>
       </label>
       <button type="button" (click)="alternarDireccionOrden()"
@@ -205,36 +205,30 @@
       </button>
     </div>
     @if (filtroBusqueda().trim() && gruposFiltrados().length === 0) {
-      <p class="allstarlink-estado" role="status">No se encontraron conexiones.</p>
+      <p class="allstarlink-estado" role="status">{{ 'NO_SE_ENCONTRARON_CONEXIONES' | translate }}</p>
     } @else {
     @for (grupo of gruposFiltrados(); track grupo.nodoLocal) {
       <section class="allstarlink-grupo" [class.allstarlink-grupo-principal]="grupo.nodoLocal === nodoPrincipal()" [attr.aria-label]="(grupo.nodoLocal === nodoPrincipal() ? 'Conexiones del nodo principal ' : 'Conexiones del nodo remoto ') + grupo.nodoLocal">
         <h4>
-          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><strong>{{ grupo.nodoLocal }}</strong></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} conectados</small>
+          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><strong>{{ grupo.nodoLocal }}</strong></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} {{ 'CONECTADOS' | translate }}</small>
           @if (grupo.nodoLocal === nodoPrincipal()) {
-            <span class="allstarlink-modo modo-duplex">Nodo principal</span>
-          }
-          @if (esAdmin() && grupo.nodoLocal === nodoPrincipal()) {
-            <!-- <button type="button" class="allstarlink-actualizar allstarlink-lsnodes-abrir"
-              (click)="abrirLsnodes()" aria-haspopup="dialog">
-              Ver LsNodes
-            </button> -->
+            <span class="allstarlink-modo modo-duplex">{{ 'NODO_PRINCIPAL' | translate }}</span>
           }
         </h4>
         <div class="allstarlink-tabla-scroll">
           <table class="allstarlink-tabla-base allstarlink-tabla">
             <thead>
               <tr>
-                <th scope="col" class="allstarlink-columna-protocolo"  [attr.aria-sort]="campoOrden() === 'protocolo' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('protocolo')">Tipo<span aria-hidden="true">{{ campoOrden() === 'protocolo' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-nodo" [attr.aria-sort]="campoOrden() === 'nodo' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('nodo')">Nodo<span aria-hidden="true">{{ campoOrden() === 'nodo' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-callsign" [attr.aria-sort]="campoOrden() === 'callsign' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('callsign')">Callsign<span aria-hidden="true">{{ campoOrden() === 'callsign' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-informacion" [attr.aria-sort]="campoOrden() === 'informacion' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('informacion')">Información<span aria-hidden="true">{{ campoOrden() === 'informacion' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-ubicacion" [attr.aria-sort]="campoOrden() === 'ubicacion' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('ubicacion')">Ubicación<span aria-hidden="true">{{ campoOrden() === 'ubicacion' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-enlace" [attr.aria-sort]="campoOrden() === 'enlace' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('enlace')">Enlace<span aria-hidden="true">{{ campoOrden() === 'enlace' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" [attr.aria-sort]="campoOrden() === 'direccion' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('direccion')">Dirección<span aria-hidden="true">{{ campoOrden() === 'direccion' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-actividad" [attr.aria-sort]="campoOrden() === 'actividad' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('actividad')">Última actividad<span aria-hidden="true">{{ campoOrden() === 'actividad' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-conectado" [attr.aria-sort]="campoOrden() === 'conectado' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('conectado')">Conectado<span aria-hidden="true">{{ campoOrden() === 'conectado' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
-                <th scope="col" class="allstarlink-columna-modo" [attr.aria-sort]="campoOrden() === 'modo' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('modo')">Modo<span aria-hidden="true">{{ campoOrden() === 'modo' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-protocolo" [attr.aria-sort]="campoOrden() === 'protocolo' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('protocolo')">{{ 'TIPO' | translate }}<span aria-hidden="true">{{ campoOrden() === 'protocolo' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-nodo" [attr.aria-sort]="campoOrden() === 'nodo' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('nodo')">{{ 'NODO' | translate }}<span aria-hidden="true">{{ campoOrden() === 'nodo' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-callsign" [attr.aria-sort]="campoOrden() === 'callsign' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('callsign')">{{ 'CALLSIGN' | translate }}<span aria-hidden="true">{{ campoOrden() === 'callsign' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-informacion" [attr.aria-sort]="campoOrden() === 'informacion' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('informacion')">{{ 'INFORMACION' | translate }}<span aria-hidden="true">{{ campoOrden() === 'informacion' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-ubicacion" [attr.aria-sort]="campoOrden() === 'ubicacion' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('ubicacion')">{{ 'UBICACION' | translate }}<span aria-hidden="true">{{ campoOrden() === 'ubicacion' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-enlace" [attr.aria-sort]="campoOrden() === 'enlace' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('enlace')">{{ 'ENLACE' | translate }}<span aria-hidden="true">{{ campoOrden() === 'enlace' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" [attr.aria-sort]="campoOrden() === 'direccion' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('direccion')">{{ 'DIRECCION' | translate }}<span aria-hidden="true">{{ campoOrden() === 'direccion' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-actividad" [attr.aria-sort]="campoOrden() === 'actividad' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('actividad')">{{ 'ULTIMA_ACTIVIDAD' | translate }}<span aria-hidden="true">{{ campoOrden() === 'actividad' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-conectado" [attr.aria-sort]="campoOrden() === 'conectado' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('conectado')">{{ 'CONECTADO' | translate }}<span aria-hidden="true">{{ campoOrden() === 'conectado' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
+                <th scope="col" class="allstarlink-columna-modo" [attr.aria-sort]="campoOrden() === 'modo' ? (direccionOrden() === 'asc' ? 'ascending' : 'descending') : 'none'"><button type="button" class="allstarlink-orden-columna" (click)="ordenarPor('modo')">{{ 'MODO' | translate }}<span aria-hidden="true">{{ campoOrden() === 'modo' ? (direccionOrden() === 'asc' ? ' ↑' : ' ↓') : '' }}</span></button></th>
                 @if (esAdmin()) {
                   <th scope="col" class="allstarlink-columna-accion" aria-label="Acción"></th>
                 }
@@ -244,7 +238,7 @@
               @if (grupo.nodos.length === 0) {
                 <tr>
                   <td [class.allstarlink-error]="!grupo.servidorConectado" [attr.colspan]="esAdmin() ? 11 : 10">
-                    {{ grupo.servidorConectado ? 'No hay nodos conectados' : erroresServidor()[grupo.nodoLocal] ? erroresServidor()[grupo.nodoLocal] + ' Reintentando en segundo plano…' : 'Conectando en segundo plano…' }}
+                    {{ grupo.servidorConectado ? ('NO_HAY_NODOS_CONECTADOS' | translate) : erroresServidor()[grupo.nodoLocal] ? erroresServidor()[grupo.nodoLocal] + ' Reintentando en segundo plano…' : 'Conectando en segundo plano…' }}
                   </td>
                 </tr>
               }
@@ -335,8 +329,8 @@
       aria-modal="true" aria-labelledby="allstarlink-lsnodes-titulo" (click)="$event.stopPropagation()"
       (keydown.escape)="cerrarLsnodes()" tabindex="-1">
       <header class="allstarlink-admin-cabecera">
-        <h3 id="allstarlink-lsnodes-titulo">LsNodes — <span [appCopy]="nodoPrincipal()">{{ nodoPrincipal() }}</span></h3>
-        <button type="button" class="allstarlink-actualizar" (click)="cerrarLsnodes()">Cerrar</button>
+        <h3 id="allstarlink-lsnodes-titulo">{{ 'LSNODES' | translate }} <span [appCopy]="nodoPrincipal()">{{ nodoPrincipal() }}</span></h3>
+        <button type="button" class="allstarlink-actualizar" (click)="cerrarLsnodes()">{{ 'CERRAR' | translate }}</button>
       </header>
       <iframe class="allstarlink-lsnodes-frame" [src]="lsnodesUrl()" title="Estado LsNodes del nodo principal"></iframe>
     </section>
@@ -347,11 +341,11 @@
     <section class="allstarlink-admin allstarlink-popup" role="dialog" aria-modal="true" aria-labelledby="allstarlink-popup-titulo" (click)="$event.stopPropagation()" (keydown.escape)="cerrarPopup()" tabindex="-1">
       <header class="allstarlink-admin-cabecera">
         <h3 id="allstarlink-popup-titulo" [class.allstarlink-error]="popup.error">{{ popup.titulo }}</h3>
-        <button type="button" class="allstarlink-actualizar" (click)="cerrarPopup()">Cerrar</button>
+        <button type="button" class="allstarlink-actualizar" (click)="cerrarPopup()">{{ 'CERRAR' | translate }}</button>
       </header>
       <div class="allstarlink-resultado">
         @if (popup.comando) {
-          <p><strong>Comando:&nbsp;&nbsp;</strong> <code>{{ popup.comando }}</code></p>
+          <p><strong>{{ 'COMANDO_NBSP_NBSP' | translate }}</strong> <code>{{ popup.comando }}</code></p>
         }
         <pre>{{ popup.lineas.join('\n') }}</pre>
       </div>
@@ -366,8 +360,8 @@
       </header>
       <p>{{ confirmacion.mensaje }}</p>
       <div class="allstarlink-admin-cabecera">
-        <button type="button" class="allstarlink-actualizar" (click)="cancelarConfirmacion()">Cancelar</button>
-        <button type="button" class="allstarlink-ejecutar" (click)="confirmarAccion()">Confirmar</button>
+        <button type="button" class="allstarlink-actualizar" (click)="cancelarConfirmacion()">{{ 'CANCELAR' | translate }}</button>
+        <button type="button" class="allstarlink-ejecutar" (click)="confirmarAccion()">{{ 'CONFIRMAR' | translate }}</button>
       </div>
     </section>
   </div>

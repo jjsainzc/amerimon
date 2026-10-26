@@ -6,11 +6,12 @@ import { AsteriskLogService, AsteriskOperationLog } from '../../../core/services
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { TablePaginationComponent } from '../../../shared/table-pagination/table-pagination.component';
 import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-asterisk-logs',
   standalone: true,
-  imports: [DatePipe, AdminVolverComponent, TablePaginationComponent, ScrollTopComponent, CopyValueDirective],
+  imports: [DatePipe, AdminVolverComponent, TablePaginationComponent, ScrollTopComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './asterisk-logs.component.html',
   styleUrl: './asterisk-logs.component.css',
 })

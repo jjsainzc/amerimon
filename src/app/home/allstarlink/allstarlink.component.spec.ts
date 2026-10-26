@@ -6,6 +6,7 @@ import { environment } from '../../core/environment';
 import { vi } from 'vitest';
 import { signal } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 const nodesUrl = `${environment.apiUrl}/allstarlink/nodes`;
 const tablas = ['616265', '700001'].map(nodo_local => ({
@@ -15,7 +16,7 @@ const tablas = ['616265', '700001'].map(nodo_local => ({
 describe('Allstarlink connection target safety', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [AllstarlinkComponent],
+      imports: [ TranslatePipe, AllstarlinkComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),

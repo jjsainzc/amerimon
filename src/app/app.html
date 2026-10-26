@@ -8,38 +8,66 @@
       </div>
     </div>
     <app-weather class="clima-cabecera" [ubicacionConfigurada]="ubicacionClima()"></app-weather>
+
+    <!-- 🌐 Selector de idioma en formato combo (Select) -->
+    <div class="sesion admin-desplegable idioma-desplegable">
+      <button type="button" class="boton-enlace admin-desplegable-boton"
+              aria-haspopup="true" [attr.aria-expanded]="idiomaMenuAbierto()"
+              (click)="alternarMenuIdioma()">
+        @if (translationService.currentLang() === 'es') {
+          <img src="assets/images/flags/es.png" alt="Español" width="20" height="15" class="bandera-icono" /> Español ▾
+        } @else {
+          <img src="assets/images/flags/us.png" alt="English" width="20" height="15" class="bandera-icono" /> English ▾
+        }
+      </button>
+
+      @if (idiomaMenuAbierto()) {
+        <nav class="admin-desplegable-panel" aria-label="Seleccionar idioma">
+          <button type="button" class="opcion-idioma" (click)="seleccionarIdioma('es')">
+            <img src="assets/images/flags/es.png" alt="Español" width="20" height="15" class="bandera-icono" /> Español
+          </button>
+          <button type="button" class="opcion-idioma" (click)="seleccionarIdioma('en')">
+            <img src="assets/images/flags/us.png" alt="English" width="20" height="15" class="bandera-icono" /> English
+          </button>
+        </nav>
+      }
+    </div>
+
     <button type="button" class="hamburguesa" aria-label="Menú" aria-controls="menu-principal"
             [attr.aria-expanded]="menuAbierto()" (click)="alternarMenu()">
       <span aria-hidden="true"></span>
     </button>
+
   </div>
 
   <div class="menu" id="menu-principal" [class.abierto]="menuAbierto()">
     <nav class="enlaces" aria-label="Navegación principal">
       <a routerLink="/allstarlink" routerLinkActive="activo" (click)="cerrarMenu()">AllStarLink</a>
       <a routerLink="/listen-live" routerLinkActive="activo" (click)="cerrarMenu()">Listen Live</a>
-      <button type="button" (click)="abrirEnlaces()" aria-haspopup="dialog" [attr.aria-expanded]="enlacesAbiertos()">Enlaces externos</button>
+      <button type="button" (click)="abrirEnlaces()" aria-haspopup="dialog" [attr.aria-expanded]="enlacesAbiertos()">{{ 'ENLACES_EXTERNOS' | translate }}</button>
     </nav>
 
     <div class="sesion">
+
+
       @if (esAdmin()) {
-        <button type="button" class="boton-enlace" (click)="abrirSistema()">Sistema</button>
-        <a class="boton-enlace" routerLink="/admin/favoritos" routerLinkActive="activo" (click)="cerrarMenu()">Favoritos</a>
-        <a class="boton-enlace" routerLink="/admin/enlaces-externos" routerLinkActive="activo" (click)="cerrarMenu()">Administrar enlaces</a>
+        <button type="button" class="boton-enlace" (click)="abrirSistema()">{{ 'SISTEMA' | translate }}</button>
+        <a class="boton-enlace" routerLink="/admin/favoritos" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'FAVORITOS' | translate }}</a>
+        <a class="boton-enlace" routerLink="/admin/enlaces-externos" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'ADMINISTRAR_ENLACES' | translate }}</a>
         <div class="admin-desplegable">
           <button type="button" class="boton-enlace admin-desplegable-boton"
                   aria-haspopup="true" [attr.aria-expanded]="adminMenuAbierto()"
-                  (click)="alternarMenuAdmin()">Más opciones <span aria-hidden="true">▾</span></button>
+                  (click)="alternarMenuAdmin()">{{ 'MAS_OPCIONES' | translate }}<span aria-hidden="true">▾</span></button>
           @if (adminMenuAbierto() || menuAbierto()) {
             <nav class="admin-desplegable-panel" aria-label="Más opciones de administración">
-              <a routerLink="/admin/allstarlink-historial" routerLinkActive="activo" (click)="cerrarMenu()">Historial</a>
-              <a routerLink="/admin/asterisk-logs" routerLinkActive="activo" (click)="cerrarMenu()">Registros Asterisk</a>
-              <a routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">Nodos Allmon</a>
-              <a routerLink="/admin/primary-node" routerLinkActive="activo" (click)="cerrarMenu()">Nodo principal</a>
-              <a routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">Nodos privados</a>
-              <button type="button" (click)="abrirEdicionCabecera()">Personalizar cabecera</button>
-              <button type="button" (click)="abrirCambio()">Cambiar contraseña</button>
-              <button type="button" (click)="abrirManual(); cerrarMenu()">Manual Técnico</button>
+              <a routerLink="/admin/allstarlink-historial" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'HISTORIAL' | translate }}</a>
+              <a routerLink="/admin/asterisk-logs" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'REGISTROS_ASTERISK' | translate }}</a>
+              <a routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODOS_ALLMON' | translate }}</a>
+              <a routerLink="/admin/primary-node" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODO_PRINCIPAL' | translate }}</a>
+              <a routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODOS_PRIVADOS' | translate }}</a>
+              <button type="button" (click)="abrirEdicionCabecera()">{{ 'PERSONALIZAR_CABECERA' | translate }}</button>
+              <button type="button" (click)="abrirCambio()">{{ 'CAMBIAR_CONTRASENA' | translate }}</button>
+              <button type="button" (click)="abrirManual(); cerrarMenu()">{{ 'MANUAL_TECNICO' | translate }}</button>
             </nav>
           }
         </div>
@@ -49,17 +77,9 @@
       } @else {
         <button type="button" class="boton-enlace" (click)="abrirLogin()">Admin</button>
       }
-     <!-- 🌐 SECCIÓN NUEVA: Selector de Idioma con imágenes de banderas -->
-    <button type="button" class="boton-enlace selector-idioma-btn"
-            (click)="cambiarIdioma(translationService.currentLang() === 'es' ? 'en' : 'es')">
-      @if (translationService.currentLang() === 'es') {
-        <img src="assets/images/flag/en.png" alt="English" width="20" height="15" class="bandera-icono" />
-        English (EN)
-      } @else {
-        <img src="assets/images/flag/es.png" alt="Español" width="20" height="15" class="bandera-icono" />
-        Español (ES)
-      }
-    </button>
+
+
+
     </div>
   </div>
 </header>
@@ -72,7 +92,7 @@
   <p>&copy; {{ anioActual }} Amerimon <span class="pie-version">· Versión {{ ajustesCabecera().app_version || 'no disponible' }}</span></p>
 
   <div class="pie-enlace-acerca">
-    <button type="button" class="enlace-acerca" (click)="abrirAcercaDe()">Acerca de...</button>
+    <button type="button" class="enlace-acerca" (click)="abrirAcercaDe()">{{ 'ACERCA_DE' | translate }}</button>
   </div>
 
   <div class="pie-tecnologias" aria-label="Tecnologías utilizadas">

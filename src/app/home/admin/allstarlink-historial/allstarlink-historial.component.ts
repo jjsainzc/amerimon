@@ -15,13 +15,14 @@ import { UtcToLocalPipe } from '../../../core/pipes/utc-to-local.pipe';
 import { IsIpPipe } from '../../../core/pipes/is-ip.pipe';
 import { GeoIpLinkComponent } from '../../../shared/geoip-link/geoip-link.component';
 import { TablePaginationComponent } from '../../../shared/table-pagination/table-pagination.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 type CampoOrden = 'local_node' | 'remote_node' | 'remote_ip' | 'remote_callsign' | 'remote_description' | 'connection_type' | 'first_seen_at' | 'disconnected_at' | 'duration';
 
 @Component({
   selector: 'app-allstarlink-historial',
   standalone: true,
-  imports: [UtcToLocalPipe, ReactiveFormsModule, AdminVolverComponent, PrintButtonComponent, ScrollTopComponent, IsIpPipe, GeoIpLinkComponent, TablePaginationComponent, CopyValueDirective],
+  imports: [UtcToLocalPipe, ReactiveFormsModule, AdminVolverComponent, PrintButtonComponent, ScrollTopComponent, IsIpPipe, GeoIpLinkComponent, TablePaginationComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './allstarlink-historial.component.html',
   styleUrl: './allstarlink-historial.component.css'
 })

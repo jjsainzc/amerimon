@@ -2,17 +2,17 @@
   <app-admin-volver />
   <header class="logs-cabecera">
     <div>
-      <p class="logs-eyebrow">ADMINISTRACIÓN · ASTERISK</p>
-      <h1>Registro de operaciones</h1>
-      <p>Solicitudes, respuestas AMI y confirmación de enlaces.</p>
+      <p class="logs-eyebrow">{{ 'ADMINISTRACION_ASTERISK' | translate }}</p>
+      <h1>{{ 'REGISTRO_DE_OPERACIONES' | translate }}</h1>
+      <p>{{ 'SOLICITUDES_RESPUESTAS_AMI_Y_CONFIRMACION_DE_ENLACES' | translate }}</p>
     </div>
     <button type="button" class="logs-actualizar accion-estandar" (click)="cargar()" [disabled]="cargando()">
-      {{ cargando() ? 'Actualizando…' : 'Actualizar' }}
+      {{ cargando() ? ('CARGANDO' | translate) : ('ACTUALIZAR' | translate) }}
     </button>
   </header>
 
   @if (error()) { <p class="logs-error" role="alert">{{ error() }}</p> }
-  @if (cargando()) { <p class="logs-estado" role="status">Consultando operaciones Asterisk…</p> }
+  @if (cargando()) { <p class="logs-estado" role="status">{{ 'CONSULTANDO_OPERACIONES_ASTERISK' | translate }}</p> }
 
   @if (!cargando() && !error()) {
     <app-table-pagination placement="top" [showPageSize]="true" [showSearch]="true"
@@ -27,8 +27,14 @@
         <table class="allstarlink-tabla-base logs-tabla">
           <thead>
             <tr>
-              <th>Fecha y hora</th><th>Acción</th><th>Nodo local</th><th>Nodo remoto</th>
-              <th>Modo</th><th>Comando</th><th>Resultado</th><th>Duración</th>
+              <th>{{ 'FECHA_Y_HORA' | translate }}</th>
+              <th>{{ 'ACCION' | translate }}</th>
+              <th>{{ 'NODO_LOCAL' | translate }}</th>
+              <th>{{ 'NODO_REMOTO' | translate }}</th>
+              <th>{{ 'MODO' | translate }}</th>
+              <th>{{ 'COMANDO' | translate }}</th>
+              <th>{{ 'RESULTADO' | translate }}</th>
+              <th>{{ 'DURACION' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -38,11 +44,11 @@
                 <td>{{ registro.action }}</td>
                 <td><span [appCopy]="registro.local_node">{{ registro.local_node || '—' }}</span></td>
                 <td><span [appCopy]="registro.remote_node">{{ registro.remote_node || '—' }}</span></td>
-                <td>{{ registro.mode || '—' }}{{ registro.permanent ? ' · Permanente' : '' }}</td>
+                <td>{{ registro.mode || '—' }}{{ registro.permanent ? ' · ' + ('CONEXION_PERMANENTE' | translate) : '' }}</td>
                 <td><code [title]="registro.command">{{ registro.command || '—' }}</code></td>
                 <td>
                   <span class="logs-resultado" [class]="'logs-resultado resultado-' + registro.result">{{ etiquetaResultado(registro.result) }}</span>
-                  @if (registro.details) { <details class="logs-detalle"><summary>Detalle</summary><p>{{ registro.details }}</p></details> }
+                  @if (registro.details) { <details class="logs-detalle"><summary>{{ 'DETALLE' | translate }}</summary><p>{{ registro.details }}</p></details> }
                 </td>
                 <td>{{ registro.duration_ms }} ms</td>
               </tr>

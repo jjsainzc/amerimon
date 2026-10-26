@@ -20,7 +20,7 @@
 .logs-tabla th:nth-child(5), .logs-tabla td:nth-child(5) { width: 75px;  } /* Modo */
 .logs-tabla th:nth-child(6), .logs-tabla td:nth-child(6) { width: auto;   } /* Comando */
 .logs-tabla th:nth-child(7), .logs-tabla td:nth-child(7) { width: 110px; } /* Resultado */
-.logs-tabla th:nth-child(8), .logs-tabla td:nth-child(8) { width: 80px;  } /* Duración */
+.logs-tabla th:nth-child(8), .logs-tabla td:nth-child(8) { width: calc(85px + 3ch); } /* Duración */
 
 .logs-tabla code { display: block; max-width: 100%; overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
 .logs-resultado { display: inline-block; padding: .18rem .4rem; border: 1px solid #455b68; border-radius: 4px; color: #dce5eb; font-size: .74rem; white-space: nowrap; }

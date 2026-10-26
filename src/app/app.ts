@@ -11,12 +11,13 @@ import { WeatherComponent } from './shared/weather/weather.component';
 import { AboutModalComponent } from './shared/about-modal/about-modal.component';
 import { MarkdownViewerComponent } from './shared/markdown-viewer/markdown-viewer.component';
 import { TranslationService } from './core/services/translation.service';
+import { TranslatePipe } from './core/pipes/translate.pipe';
 
 type Modo = 'login' | 'crear' | 'cambiar';
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  imports: [ MarkdownViewerComponent, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
+  imports: [ TranslatePipe, MarkdownViewerComponent, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -64,6 +65,7 @@ export class App implements OnInit {
   readonly isMarkdownOpen = signal(false);
 
   public translationService = inject(TranslationService);
+  public idiomaMenuAbierto = signal<boolean>(false);
 
   protected usuario = '';
   protected recordarSesion = false;
@@ -72,9 +74,17 @@ export class App implements OnInit {
   protected repetir = '';
   private ultimaPosicionScroll = 0;
 
+  constructor(translationService: TranslationService) {}
+
   /** Carga al iniciar la aplicación la configuración visible de la cabecera. */
   ngOnInit(): void {
     this.cargarAjustesCabecera();
+
+    // Puedes verificar el idioma actual que tiene el servicio o forzar uno por defecto
+    const idiomaInicial = this.translationService.currentLang() || 'es';
+
+    // Opcional: Si quieres asegurar que cargue explícitamente al iniciar
+    this.translationService.loadLanguage(idiomaInicial);
   }
 
   /** Abrir manual */
@@ -83,7 +93,15 @@ export class App implements OnInit {
   }
 
   /** Cambia el idioma de la aplicación. */
-  protected cambiarIdioma(lang: string): void {
+  alternarMenuIdioma() {
+    this.idiomaMenuAbierto.update(v => !v);
+  }
+
+  seleccionarIdioma(lang: string) {
+    // 1. Cambiamos el estado del menú inmediatamente
+    this.idiomaMenuAbierto.set(false);
+
+    // 2. Llamamos al servicio para cargar el idioma
     this.translationService.loadLanguage(lang);
   }
 

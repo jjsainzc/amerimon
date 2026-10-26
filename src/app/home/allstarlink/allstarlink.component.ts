@@ -22,6 +22,7 @@ import { environment } from '../../core/environment';
 import { indicativoQrz } from '../../core/validators/callsign.validator';
 import { FavoritosPopupComponent } from '../../shared/favoritos-popup/favoritos-popup.component';
 import { ScrollTopComponent } from '../../shared/scroll-top/scroll-top.component';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 type CampoOrden = 'protocolo' | 'nodo' | 'callsign' | 'informacion' | 'ubicacion' | 'enlace' | 'direccion' | 'actividad' | 'conectado' | 'modo';
 type SolicitudConexion = Readonly<SupermonCommandRequest & {
@@ -32,7 +33,7 @@ type SolicitudConexion = Readonly<SupermonCommandRequest & {
 @Component({
   selector: 'app-allstarlink',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective],
+  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './allstarlink.component.html',
   styleUrl: './allstarlink.component.css'
 })
