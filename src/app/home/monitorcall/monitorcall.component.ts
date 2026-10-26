@@ -9,11 +9,12 @@ import { MarkdownViewerComponent } from '../../shared/markdown-viewer/markdown-v
 import { UtcToLocalPipe } from '../../core/pipes/utc-to-local.pipe';
 import { GeoIpLinkComponent } from '../../shared/geoip-link/geoip-link.component';
 import { ConfirmacionDialogComponent } from '../../shared/confirmacion-dialog/confirmacion-dialog.component';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-monitor-call',
   standalone: true,
-  imports: [UtcToLocalPipe, LoadingIndicatorComponent, MarkdownViewerComponent, ConfirmacionDialogComponent, GeoIpLinkComponent, CopyValueDirective],
+  imports: [UtcToLocalPipe, LoadingIndicatorComponent, MarkdownViewerComponent, ConfirmacionDialogComponent, GeoIpLinkComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './monitorcall.component.html',
   styleUrl: './monitorcall.component.css'
 })

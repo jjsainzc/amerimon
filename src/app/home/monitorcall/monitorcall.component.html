@@ -95,7 +95,7 @@
   }
 
   @if (cargandoSesiones() && sesiones().length === 0) {
-    <app-loading-indicator message="Cargando sesiones…" layout="centered" />
+    <app-loading-indicator [message]="'CARGANDO_SESIONES' | translate" layout="centered" />
   } @else if (sesiones().length === 0) {
     <p class="monitor-vacio">No hay usuarios conectados.</p>
   } @else {
@@ -134,9 +134,9 @@
 
 <app-confirmacion-dialog
   [open]="sesionPendiente() !== null"
-  title="Desconectar escucha"
-  [message]="sesionPendiente() ? '¿Desconectar la escucha de ' + (sesionPendiente()!.callsign || sesionPendiente()!.nombre || 'este usuario') + '?' : ''"
-  confirmLabel="Desconectar"
+  [title]="'DESCONECTAR_ESCUCHA' | translate"
+  [message]="sesionPendiente() ? ('CONFIRMAR_DESCONECTAR_ESCUCHA' | translate:{usuario: sesionPendiente()!.callsign || sesionPendiente()!.nombre || ('ESTE_USUARIO' | translate)}) : ''"
+  [confirmLabel]="'DESCONECTAR' | translate"
   (confirmed)="confirmarDesconexion()"
   (cancelled)="cancelarDesconexion()" />
 
