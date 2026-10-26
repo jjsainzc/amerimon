@@ -1,5 +1,5 @@
-<div class="sys-overlay" (click)="cerrar.emit()">
-  <section class="sys-dialog" role="dialog" aria-modal="true" aria-labelledby="sys-titulo" (click)="$event.stopPropagation()" (keydown)="cerrarConEscape($event)" tabindex="-1">
+<div class="sys-overlay">
+  <section class="sys-dialog" role="dialog" aria-modal="true" aria-labelledby="sys-titulo">
     <header class="sys-dialog-cabecera">
       <div>
         <h2 id="sys-titulo">{{ 'SISTEMA_DEL_SERVIDOR' | translate }}</h2>

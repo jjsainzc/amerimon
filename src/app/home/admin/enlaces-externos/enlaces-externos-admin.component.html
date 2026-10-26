@@ -43,8 +43,8 @@
 </main>
 
 @if (formularioAbierto()) {
-  <div class="ea-overlay" (click)="cerrarFormulario()">
-    <section class="ea-dialogo" role="dialog" aria-modal="true" aria-labelledby="ea-form-titulo" (click)="$event.stopPropagation()">
+  <div class="ea-overlay">
+    <section class="ea-dialogo" role="dialog" aria-modal="true" aria-labelledby="ea-form-titulo">
       <button type="button" class="ea-cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="cerrarFormulario()">×</button>
       <h2 id="ea-form-titulo">{{ (editandoId() === null ? 'NUEVO_ENLACE_EXTERNO' : 'EDITAR_ENLACE_EXTERNO') | translate }}</h2>
       @if (error()) { <p class="ea-mensaje ea-error" role="alert">{{ error() }}</p> }

@@ -1,4 +1,4 @@
-import { Component, forwardRef, input, signal } from '@angular/core';
+import { Component, forwardRef, input, output, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
@@ -21,6 +21,7 @@ export class PasswordFieldComponent implements ControlValueAccessor {
   readonly valor = signal('');
   readonly visible = signal(false);
   readonly deshabilitado = signal(false);
+  readonly visibilityChange = output<boolean>();
 
   private onChange: (v: string) => void = () => {};
   protected onTouched: () => void = () => {};
@@ -29,6 +30,13 @@ export class PasswordFieldComponent implements ControlValueAccessor {
   alEscribir(v: string): void {
     this.valor.set(v);
     this.onChange(v);
+  }
+
+  /** Toggles password visibility and informs consumers that coordinate related fields. */
+  toggleVisibility(): void {
+    const visible = !this.visible();
+    this.visible.set(visible);
+    this.visibilityChange.emit(visible);
   }
 
   /** Recibe el valor del formulario sin emitir un nuevo cambio hacia él. */

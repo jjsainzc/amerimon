@@ -7,15 +7,16 @@ import { PasswordFieldComponent } from './password-field.component';
 @Component({
   standalone: true,
   imports: [FormsModule, PasswordFieldComponent],
+  styles: ['.campo-password { display: grid; }'],
   template: `
     <form>
       <div>
         <label for="new-password">Nueva contraseña</label>
-        <app-password-field inputId="new-password" name="nueva" [(ngModel)]="nueva" />
+        <app-password-field inputId="new-password" name="nueva" [(ngModel)]="nueva" (visibilityChange)="nuevaVisible = $event" />
       </div>
-      <div>
+      <div class="campo-password" [style.display]="nuevaVisible ? 'none' : 'grid'">
         <label for="repeat-password">Repetir contraseña</label>
-        <app-password-field inputId="repeat-password" name="repetir" [(ngModel)]="repetir" />
+        <app-password-field inputId="repeat-password" name="repetir" [(ngModel)]="repetir" [required]="!nuevaVisible" />
       </div>
       <p role="status">{{ nueva === repetir ? 'coinciden' : 'no coinciden' }}</p>
     </form>
@@ -24,6 +25,7 @@ import { PasswordFieldComponent } from './password-field.component';
 class PasswordFieldHostComponent {
   nueva = 'nueva-clave-123';
   repetir = 'otra-clave-456';
+  nuevaVisible = false;
 }
 
 describe('PasswordFieldComponent', () => {
@@ -41,20 +43,24 @@ describe('PasswordFieldComponent', () => {
     fixture.detectChanges();
   });
 
-  it('keeps confirmation visible and preserves both values when revealing the new password', () => {
+  it('hides confirmation while revealing the new password and preserves its value for validation', () => {
     const element = fixture.nativeElement as HTMLElement;
     const nueva = element.querySelector<HTMLInputElement>('#new-password')!;
-    const repetir = element.querySelector<HTMLInputElement>('#repeat-password')!;
 
     element.querySelector<HTMLButtonElement>('app-password-field[name="nueva"] button')?.click();
     fixture.detectChanges();
 
     expect(nueva.type).toBe('text');
     expect(nueva.value).toBe('nueva-clave-123');
-    expect(element.querySelector('#repeat-password')).not.toBeNull();
-    expect(repetir.value).toBe('otra-clave-456');
+    const repeatContainer = element.querySelector('#repeat-password')?.closest('div')!;
+    expect(getComputedStyle(repeatContainer).display).toBe('none');
     expect(element.querySelector('[role="status"]')?.textContent).toContain('no coinciden');
 
+    element.querySelector<HTMLButtonElement>('app-password-field[name="nueva"] button')?.click();
+    fixture.detectChanges();
+    const repetir = element.querySelector<HTMLInputElement>('#repeat-password')!;
+    expect(getComputedStyle(repeatContainer).display).toBe('grid');
+    expect(repetir.value).toBe('otra-clave-456');
     repetir.value = 'nueva-clave-123';
     repetir.dispatchEvent(new Event('input', { bubbles: true }));
     fixture.detectChanges();

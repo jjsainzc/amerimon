@@ -1,6 +1,6 @@
 @if (ip(); as ipActual) {
-  <div class="geoip-overlay" (click)="cerrar()">
-    <section class="geoip-dialogo" role="dialog" aria-modal="true" aria-labelledby="geoip-titulo" (click)="$event.stopPropagation()">
+  <div class="geoip-overlay">
+    <section class="geoip-dialogo" role="dialog" aria-modal="true" aria-labelledby="geoip-titulo">
       <button type="button" class="geoip-cerrar" [attr.aria-label]="'CERRAR_GEOLOCALIZACION' | translate" (click)="cerrar()">&times;</button>
       <p class="geoip-eyebrow">{{ 'GEOLOCALIZACION_IP' | translate }}</p>
       <h2 id="geoip-titulo"><span [appCopy]="ipActual">{{ ipActual }}</span></h2>

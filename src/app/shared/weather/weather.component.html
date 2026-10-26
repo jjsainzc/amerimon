@@ -29,7 +29,7 @@
   <button type="button" class="weather-change" aria-haspopup="dialog" (click)="openLocationDialog(locationDialog)"><span aria-hidden="true">↻</span> {{ 'CAMBIAR_UBICACION' | translate }}</button>
 </div>
 
-<dialog #locationDialog class="location-dialog" aria-labelledby="weather-location-title" (close)="closeLocationDialog()">
+<dialog #locationDialog class="location-dialog" aria-labelledby="weather-location-title" (cancel)="$event.preventDefault()" (close)="closeLocationDialog()">
   <h2 id="weather-location-title">{{ 'CAMBIAR_UBICACION' | translate }}</h2>
   <button type="button" class="location-close" aria-label="{{ 'CERRAR' | translate }}" (click)="locationDialog.close()">×</button>
   <p>{{ 'CAMBIO_TEMPORAL' | translate }}</p>

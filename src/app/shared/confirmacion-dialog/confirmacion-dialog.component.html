@@ -1,6 +1,6 @@
 @if (open) {
-  <div class="confirmacion-overlay" (click)="onBackdropClick($event)">
-    <section class="confirmacion-dialogo" role="alertdialog" aria-modal="true" aria-labelledby="confirmacion-titulo" aria-describedby="confirmacion-mensaje" (click)="$event.stopPropagation()">
+  <div class="confirmacion-overlay">
+    <section class="confirmacion-dialogo" role="alertdialog" aria-modal="true" aria-labelledby="confirmacion-titulo" aria-describedby="confirmacion-mensaje">
       <div class="confirmacion-icono" aria-hidden="true">!</div>
       <div class="confirmacion-contenido">
         <h2 id="confirmacion-titulo">{{ title || ('CONFIRMAR_ACCION' | translate) }}</h2>

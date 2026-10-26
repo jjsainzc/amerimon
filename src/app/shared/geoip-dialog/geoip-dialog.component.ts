@@ -1,4 +1,4 @@
-import { Component, HostListener, effect, inject, input, output, signal } from '@angular/core';
+import { Component, effect, inject, input, output, signal } from '@angular/core';
 import { timeout } from 'rxjs';
 import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { GeoData, GeoIpService } from '../../core/services/geoip.service';
@@ -58,9 +58,4 @@ export class GeoIpDialogComponent {
     this.closed.emit();
   }
 
-  /** Cierra con Escape únicamente si hay una IP seleccionada. */
-  @HostListener('document:keydown.escape')
-  cerrarConEscape(): void {
-    if (this.ip()) { this.cerrar(); }
-  }
 }

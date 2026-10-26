@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -136,11 +136,5 @@ export class MarkdownViewerComponent implements OnChanges {
     } finally {
       if (generation === this.loadGeneration) this.loading.set(false);
     }
-  }
-
-  /** Solicita el cierre con Escape si el visor está abierto. */
-  @HostListener('document:keydown.escape')
-  closeOnEscape(): void {
-    if (this.open) this.close();
   }
 }

@@ -99,11 +99,4 @@ export class SystemInfoDialogComponent {
     return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : 0;
   }
 
-  /** Emite el cierre con Escape y evita que la tecla alcance otros diálogos. */
-  cerrarConEscape(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
-      event.stopPropagation();
-      this.cerrar.emit();
-    }
-  }
 }
