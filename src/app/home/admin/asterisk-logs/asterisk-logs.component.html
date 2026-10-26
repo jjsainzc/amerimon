@@ -17,9 +17,9 @@
   @if (!cargando() && !error()) {
     <app-table-pagination placement="top" [showPageSize]="true" [showSearch]="true"
       [pageSize]="itemsPorPagina()" [currentPage]="pagina()" [totalPages]="totalPaginas()"
-      [searchText]="busqueda()" searchLabel="Buscar operaciones Asterisk"
-      searchPlaceholder="Buscar nodo, acción, comando o error…"
-      [summaryText]="registros().length + ' operaciones · ' + filtrados().length + ' coinciden'"
+      [searchText]="busqueda()" [searchLabel]="'BUSCAR_OPERACIONES_ASTERISK' | translate"
+      [searchPlaceholder]="'BUSCAR_OPERACIONES_ASTERISK_PLACEHOLDER' | translate"
+      [summaryText]="'RESUMEN_OPERACIONES_ASTERISK' | translate:{total: registros().length, coinciden: filtrados().length}"
       (pageSizeChange)="cambiarTamano($event)" (searchChange)="buscar($event)" />
 
     @if (paginados().length) {
