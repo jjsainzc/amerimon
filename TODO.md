@@ -18,7 +18,11 @@
 ```
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
-## 2.3. Ver como hacerle bilingue.
+## 2.3. Completar traducción.
+
+# 3. Bugs
+
+ 
 
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 

@@ -16,6 +16,7 @@ import { IsIpPipe } from '../../../core/pipes/is-ip.pipe';
 import { GeoIpLinkComponent } from '../../../shared/geoip-link/geoip-link.component';
 import { TablePaginationComponent } from '../../../shared/table-pagination/table-pagination.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { TranslationService } from '../../../core/services/translation.service';
 
 type CampoOrden = 'local_node' | 'remote_node' | 'remote_ip' | 'remote_callsign' | 'remote_description' | 'connection_type' | 'first_seen_at' | 'disconnected_at' | 'duration';
 
@@ -29,6 +30,7 @@ type CampoOrden = 'local_node' | 'remote_node' | 'remote_ip' | 'remote_callsign'
 export class AllstarlinkHistorialComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly service = inject(AllstarlinkService);
+  private readonly translation = inject(TranslationService);
 
   readonly filtroForm = this.fb.nonNullable.group({
     local_node: '',
@@ -127,7 +129,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
 
     const filtro = this.filtroForm.getRawValue();
     if (filtro.from && filtro.to && filtro.from > filtro.to) {
-      this.error.set('La fecha inicial no puede ser posterior a la fecha final.');
+      this.error.set(this.translation.translate('FECHA_INICIAL_NO_PUEDE_SER_POSTERIOR'));
       return;
     }
 
@@ -152,7 +154,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
           ? respuesta.data.filter(conexion => !!conexion.disconnected_at)
           : []);
         if (respuesta?.status !== 'success') {
-          this.error.set(respuesta?.message || 'No se pudo consultar el historial de conexiones.');
+          this.error.set(respuesta?.message || this.translation.translate('NO_SE_PUDO_CONSULTAR_EL_HISTORIAL'));
         }
       },
       error: (err: HttpErrorResponse) => {
@@ -213,7 +215,7 @@ export class AllstarlinkHistorialComponent implements OnInit {
   /** Formatea la duración transcurrida entre conexión y desconexión. */
   duracionConexion(conexion: AllstarlinkConnectionHistory): string {
     const duracion = this.duracionMs(conexion);
-    if (duracion === null) { return '—'; }
+    if (duracion === null) { return this.translation.translate('NO_DISPONIBLE'); }
 
     let segundos = Math.floor(duracion / 1000);
     const dias = Math.floor(segundos / 86_400);
@@ -223,10 +225,12 @@ export class AllstarlinkHistorialComponent implements OnInit {
     const minutos = Math.floor(segundos / 60);
     segundos %= 60;
     const partes: string[] = [];
-    if (dias) { partes.push(`${dias} d`); }
-    if (horas) { partes.push(`${horas} h`); }
-    if (minutos) { partes.push(`${minutos} min`); }
-    if (segundos || partes.length === 0) { partes.push(`${segundos} s`); }
+    if (dias) { partes.push(this.translation.translate('DURACION_DIAS', { valor: dias })); }
+    if (horas) { partes.push(this.translation.translate('DURACION_HORAS', { valor: horas })); }
+    if (minutos) { partes.push(this.translation.translate('DURACION_MINUTOS', { valor: minutos })); }
+    if (segundos || partes.length === 0) {
+      partes.push(this.translation.translate('DURACION_SEGUNDOS', { valor: segundos }));
+    }
     return partes.join(' ');
   }
 
@@ -297,9 +301,9 @@ export class AllstarlinkHistorialComponent implements OnInit {
 
   /** Convierte errores HTTP frecuentes en mensajes comprensibles para la vista. */
   private mensajeError(err: HttpErrorResponse): string {
-    if (err.status === 0) { return 'No se pudo conectar con el servidor.'; }
-    if (err.status === 401) { return 'Tu sesión expiró. Vuelve a iniciar sesión.'; }
-    if (err.status === 403) { return 'No tienes privilegios de administrador.'; }
-    return err.error?.message || `No se pudo cargar el historial (${err.status}).`;
+    if (err.status === 0) { return this.translation.translate('NO_SE_PUDO_CONECTAR_CON_EL_SERVIDOR'); }
+    if (err.status === 401) { return this.translation.translate('SESION_EXPIRADA_VUELVE_A_INICIAR'); }
+    if (err.status === 403) { return this.translation.translate('SIN_PRIVILEGIOS_ADMINISTRADOR'); }
+    return err.error?.message || this.translation.translate('NO_SE_PUDO_CARGAR_HISTORIAL', { estado: err.status });
   }
 }

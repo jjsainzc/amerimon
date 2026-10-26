@@ -8,7 +8,7 @@
       <p>{{ 'NODOS_QUE_SE_CONECTARON_Y_SUS_HORAS_DE_CONEXION_Y_DESCONEXION' | translate }}</p>
     </div>
     <div class="historial-cabecera-acciones">
-      <app-print-button label="Imprimir" [disabled]="cargando() || !consultado() || !!error() || conexionesFiltradas().length === 0"
+      <app-print-button [label]="'IMPRIMIR' | translate" [disabled]="cargando() || !consultado() || !!error() || conexionesFiltradas().length === 0"
         (beforePrint)="prepararImpresion()" />
       <button type="button" class="historial-btn historial-btn-principal accion-estandar" data-print-hide (click)="cargar()" [disabled]="cargando()">
         <i class="fa-solid fa-rotate" aria-hidden="true"></i>
@@ -20,11 +20,11 @@
   <form class="historial-filtros" data-print-hide [formGroup]="filtroForm" (ngSubmit)="cargar()">
     <label>
       <span>{{ 'NODO_LOCAL' | translate }}</span>
-      <span class="clipboard-field" [appCopy]="filtroForm.controls.local_node.value"><input type="search" inputmode="numeric" placeholder="Ej. 616260" formControlName="local_node" /></span>
+      <span class="clipboard-field" [appCopy]="filtroForm.controls.local_node.value"><input type="search" inputmode="numeric" [placeholder]="'EJEMPLO_NODO_LOCAL' | translate" formControlName="local_node" /></span>
     </label>
     <label>
       <span>{{ 'NODO_REMOTO' | translate }}</span>
-      <span class="clipboard-field" [appCopy]="filtroForm.controls.remote_node.value"><input type="search" inputmode="numeric" placeholder="Ej. 616265" formControlName="remote_node" /></span>
+      <span class="clipboard-field" [appCopy]="filtroForm.controls.remote_node.value"><input type="search" inputmode="numeric" [placeholder]="'EJEMPLO_NODO_REMOTO' | translate" formControlName="remote_node" /></span>
     </label>
     <label>
       <span>{{ 'DESDE' | translate }}</span>
@@ -50,9 +50,9 @@
   @if (!cargando() && consultado() && !error()) {
     <app-table-pagination placement="top" [showPageSize]="true" [showSearch]="true"
       [pageSize]="itemsPorPagina()" [currentPage]="pagina()" [totalPages]="totalPaginas()"
-      [searchText]="busqueda()" searchLabel=""
-      searchPlaceholder="Buscar nodo, IP, indicativo o fecha…"
-      [summaryText]="conexiones().length + ' conexiones · mostrando ' + desdeRegistro() + '–' + hastaRegistro() + ' de ' + conexionesFiltradas().length"
+      [searchText]="busqueda()" [searchLabel]="'BUSCAR_EN_TABLA' | translate"
+      [searchPlaceholder]="'BUSCAR_NODO_IP_INDICATIVO_FECHA' | translate"
+      [summaryText]="'RESUMEN_CONEXIONES_PAGINADAS' | translate:{total: conexiones().length, desde: desdeRegistro(), hasta: hastaRegistro(), filtradas: conexionesFiltradas().length}"
       (pageSizeChange)="cambiarItemsPorPagina($event)" (searchChange)="buscar($event)" />
 
     @if (conexionesPaginadas().length > 0) {
@@ -60,14 +60,14 @@
         <table class="allstarlink-tabla-base historial-tabla">
           <thead>
             <tr>
-              <th class="historial-protocolo" [attr.aria-sort]="atributoOrden('connection_type')"><button type="button" class="historial-ordenar" (click)="ordenarPor('connection_type')">{{ 'TIPO_INDICADORORDEN_CONNECTION_TYPE' | translate }}</button></th>
-              <th class="historial-nodo" [attr.aria-sort]="atributoOrden('remote_node')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_node')">{{ 'NODO_REMOTO_INDICADORORDEN_REMOTE_NODE' | translate }}</button></th>
-              <th [attr.aria-sort]="atributoOrden('remote_ip')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_ip')">{{ 'IP_REMOTA_INDICADORORDEN_REMOTE_IP' | translate }}</button></th>
-              <th class="historial-callsign" [attr.aria-sort]="atributoOrden('remote_callsign')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_callsign')">{{ 'INDICATIVO_REMOTO_INDICADORORDEN_REMOTE_CALLSIGN' | translate }}</button></th>
-              <th [attr.aria-sort]="atributoOrden('remote_description')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_description')">{{ 'DESCRIPCION_REMOTA_INDICADORORDEN_REMOTE_DESCRIPTION' | translate }}</button></th>
-              <th [attr.aria-sort]="atributoOrden('first_seen_at')"><button type="button" class="historial-ordenar" (click)="ordenarPor('first_seen_at')">{{ 'CONECTADO_INDICADORORDEN_FIRST_SEEN_AT' | translate }}</button></th>
-              <th [attr.aria-sort]="atributoOrden('disconnected_at')"><button type="button" class="historial-ordenar" (click)="ordenarPor('disconnected_at')">{{ 'DESCONECTADO_INDICADORORDEN_DISCONNECTED_AT' | translate }}</button></th>
-              <th [attr.aria-sort]="atributoOrden('duration')"><button type="button" class="historial-ordenar" (click)="ordenarPor('duration')">{{ 'DURACION_INDICADORORDEN_DURATION' | translate }}</button></th>
+              <th class="historial-protocolo" [attr.aria-sort]="atributoOrden('connection_type')"><button type="button" class="historial-ordenar" (click)="ordenarPor('connection_type')">{{ 'TIPO_INDICADORORDEN_CONNECTION_TYPE' | translate }}<span aria-hidden="true">{{ indicadorOrden('connection_type') }}</span></button></th>
+              <th class="historial-nodo" [attr.aria-sort]="atributoOrden('remote_node')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_node')">{{ 'NODO_REMOTO_INDICADORORDEN_REMOTE_NODE' | translate }}<span aria-hidden="true">{{ indicadorOrden('remote_node') }}</span></button></th>
+              <th [attr.aria-sort]="atributoOrden('remote_ip')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_ip')">{{ 'IP_REMOTA_INDICADORORDEN_REMOTE_IP' | translate }}<span aria-hidden="true">{{ indicadorOrden('remote_ip') }}</span></button></th>
+              <th class="historial-callsign" [attr.aria-sort]="atributoOrden('remote_callsign')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_callsign')">{{ 'INDICATIVO_REMOTO_INDICADORORDEN_REMOTE_CALLSIGN' | translate }}<span aria-hidden="true">{{ indicadorOrden('remote_callsign') }}</span></button></th>
+              <th [attr.aria-sort]="atributoOrden('remote_description')"><button type="button" class="historial-ordenar" (click)="ordenarPor('remote_description')">{{ 'DESCRIPCION_REMOTA_INDICADORORDEN_REMOTE_DESCRIPTION' | translate }}<span aria-hidden="true">{{ indicadorOrden('remote_description') }}</span></button></th>
+              <th [attr.aria-sort]="atributoOrden('first_seen_at')"><button type="button" class="historial-ordenar" (click)="ordenarPor('first_seen_at')">{{ 'CONECTADO_INDICADORORDEN_FIRST_SEEN_AT' | translate }}<span aria-hidden="true">{{ indicadorOrden('first_seen_at') }}</span></button></th>
+              <th [attr.aria-sort]="atributoOrden('disconnected_at')"><button type="button" class="historial-ordenar" (click)="ordenarPor('disconnected_at')">{{ 'DESCONECTADO_INDICADORORDEN_DISCONNECTED_AT' | translate }}<span aria-hidden="true">{{ indicadorOrden('disconnected_at') }}</span></button></th>
+              <th [attr.aria-sort]="atributoOrden('duration')"><button type="button" class="historial-ordenar" (click)="ordenarPor('duration')">{{ 'DURACION_INDICADORORDEN_DURATION' | translate }}<span aria-hidden="true">{{ indicadorOrden('duration') }}</span></button></th>
             </tr>
           </thead>
           <tbody>
@@ -79,15 +79,15 @@
                 </th></tr>
               }
               <tr>
-                <td><span [class]="'historial-tipo ' + claseTipoConexion(conexion.connection_type)">{{ etiquetaTipoConexion(conexion.connection_type) }}</span></td>
-                <td class="historial-nodo">
+                <td [attr.data-label]="'TIPO' | translate"><span [class]="'historial-tipo ' + claseTipoConexion(conexion.connection_type)">{{ etiquetaTipoConexion(conexion.connection_type) }}</span></td>
+                <td [attr.data-label]="'NODO_REMOTO' | translate" class="historial-nodo">
                   <span [appCopy]="conexion.remote_node">
                   @if (urlEstadisticasNodo(conexion.remote_node, conexion.connection_type); as url) {
                     <a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_node }}</a>
                   } @else { {{ conexion.remote_node }} }
                   </span>
                 </td>
-                <td>
+                <td [attr.data-label]="'IP_REMOTA' | translate">
                   @if (conexion.remote_ip; as ip ) {
                     @if (ip | isIp) {
                       <app-geoip-link [ip]="ip" [label]="ip" />
@@ -95,19 +95,19 @@
                     @else { -- }
                   }
                 </td>
-                <td>
+                <td [attr.data-label]="'INDICATIVO_REMOTO' | translate">
                   @if (urlQrz(conexion.remote_callsign); as url) {
                     <span [appCopy]="conexion.remote_callsign"><a [href]="url" target="_blank" rel="noopener noreferrer">{{ conexion.remote_callsign }}</a></span>
                   } @else { <span [appCopy]="conexion.remote_callsign">{{ conexion.remote_callsign || '—' }}</span> }
                 </td>
-                <td class="historial-descripcion">{{ conexion.remote_description || '—' }}</td>
-                <td><time [attr.datetime]="conexion.first_seen_at">{{ conexion.first_seen_at | utcToLocal:'yyyy-MM-dd HH:mm:ss' }}</time></td>
-                <td>
+                <td [attr.data-label]="'DESCRIPCION' | translate" class="historial-descripcion">{{ conexion.remote_description || '—' }}</td>
+                <td [attr.data-label]="'CONECTADO' | translate"><time [attr.datetime]="conexion.first_seen_at">{{ conexion.first_seen_at | utcToLocal:'yyyy-MM-dd HH:mm:ss' }}</time></td>
+                <td [attr.data-label]="'DESCONECTADO' | translate">
                   @if (conexion.disconnected_at) {
                     <time [attr.datetime]="conexion.disconnected_at">{{ conexion.disconnected_at | utcToLocal:'yyyy-MM-dd HH:mm:ss' }}</time>
                   } @else { — }
                 </td>
-                <td class="historial-duracion">{{ duracionConexion(conexion) }}</td>
+                <td [attr.data-label]="'DURACION' | translate" class="historial-duracion">{{ duracionConexion(conexion) }}</td>
               </tr>
             }
           </tbody>
