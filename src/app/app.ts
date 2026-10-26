@@ -53,6 +53,7 @@ export class App implements OnInit {
   protected subtituloCabecera = '';
   protected ubicacionClimaCabecera = '';
   protected readonly modo = signal<Modo>('login');
+  protected readonly nuevaContrasenaVisible = signal(false);
   protected readonly error = signal('');
   protected readonly aviso = signal('');
   protected readonly enviando = signal(false);
@@ -110,11 +111,11 @@ export class App implements OnInit {
     this.isAboutOpen.set(true);
   }
 
-  /** Presenta el texto de título adecuado al modo actual del diálogo de acceso. */
+  /** Devuelve la clave del título adecuado al modo actual del diálogo de acceso. */
   protected readonly titulo = computed(() =>
-    this.modo() === 'crear' ? 'Definir contraseña de administrador'
-      : this.modo() === 'cambiar' ? 'Cambiar contraseña'
-      : 'Acceso de administrador'
+    this.modo() === 'crear' ? 'DEFINIR_CONTRASENA_ADMINISTRADOR'
+      : this.modo() === 'cambiar' ? 'CAMBIAR_CONTRASENA'
+      : 'ACCESO_ADMINISTRADOR'
   );
 
   /** Alterna la visibilidad del menú principal. */
@@ -144,12 +145,11 @@ export class App implements OnInit {
     this.ultimaPosicionScroll = posicion;
   }
 
-  /** Cierra el menú y el panel de enlaces al pulsar Escape. */
+  /** Cierra los menús al pulsar Escape. */
   @HostListener('document:keydown.escape')
   protected cerrarMenu(): void {
     this.menuAbierto.set(false);
     this.adminMenuAbierto.set(false);
-    this.enlacesAbiertos.set(false);
   }
 
   /** Abre los enlaces externos y carga los destinos activos desde el servicio. */
@@ -180,7 +180,7 @@ export class App implements OnInit {
     this.modo.set('login');
     this.auth.configurada().subscribe({
       next: (r) => this.modo.set(r.configured ? 'login' : 'crear'),
-      error: () => this.error.set('No se pudo consultar el estado del servidor'),
+      error: () => this.error.set('ERROR_CONSULTAR_ESTADO_SERVIDOR'),
     });
   }
 
@@ -254,18 +254,18 @@ export class App implements OnInit {
     const modo = this.modo();
 
     if (modo !== 'login' && this.nueva.length < 8) {
-      this.error.set('La nueva contraseña debe tener al menos 8 caracteres');
+      this.error.set('ERROR_CONTRASENA_MINIMO_8_CARACTERES');
       return;
     }
     if (modo !== 'login' && this.nueva !== this.repetir) {
-      this.error.set('Las contraseñas no coinciden');
+      this.error.set('ERROR_CONTRASENAS_NO_COINCIDEN');
       return;
     }
 
     this.enviando.set(true);
     const alFallar = (e: ErrorHttp) => {
       this.enviando.set(false);
-      this.error.set(e.error?.message ?? 'No se pudo completar la operación');
+      this.error.set(e.error?.message ?? 'ERROR_COMPLETAR_OPERACION');
     };
 
     if (modo === 'login') {
@@ -283,6 +283,7 @@ export class App implements OnInit {
   /** Borra contraseñas y restaura el usuario y la casilla desde la preferencia persistente. */
   private limpiar(): void {
     this.password = this.nueva = this.repetir = '';
+    this.nuevaContrasenaVisible.set(false);
     this.usuario = this.auth.usuarioRecordado();
     this.recordarSesion = this.auth.recordarSesion();
     this.error.set('');

@@ -117,8 +117,8 @@
 </footer>
 
 @if (enlacesAbiertos()) {
-  <div class="fondo" (click)="enlacesAbiertos.set(false)">
-    <section class="dialogo enlaces-dialogo" role="dialog" aria-modal="true" aria-labelledby="enlaces-titulo" (click)="$event.stopPropagation()">
+  <div class="fondo">
+    <section class="dialogo enlaces-dialogo" role="dialog" aria-modal="true" aria-labelledby="enlaces-titulo">
       <button type="button" class="cerrar" aria-label="Cerrar" (click)="enlacesAbiertos.set(false)">&times;</button>
       <h2 id="enlaces-titulo">Enlaces externos</h2>
       @if (cargandoEnlaces()) {
@@ -148,8 +148,8 @@
 }
 
 @if (edicionCabeceraAbierta()) {
-  <div class="fondo" (click)="edicionCabeceraAbierta.set(false)">
-    <form class="dialogo dialogo-cabecera" role="dialog" aria-modal="true" aria-labelledby="cabecera-titulo" (ngSubmit)="guardarCabecera()" (click)="$event.stopPropagation()">
+  <div class="fondo">
+    <form class="dialogo dialogo-cabecera" role="dialog" aria-modal="true" aria-labelledby="cabecera-titulo" (ngSubmit)="guardarCabecera()">
       <button type="button" class="cerrar" aria-label="Cerrar" (click)="edicionCabeceraAbierta.set(false)">&times;</button>
       <h2 id="cabecera-titulo">Personalizar cabecera</h2>
       <label>Título
@@ -174,45 +174,49 @@
 @if (dialogoAbierto()) {
   <div class="fondo">
     <form class="dialogo" role="dialog" aria-modal="true" (ngSubmit)="enviar()">
-      <button type="button" class="cerrar" aria-label="Cerrar" (click)="cerrar()">&times;</button>
+      <button type="button" class="cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="cerrar()">&times;</button>
       <img class="login-logo" src="assets/images/amerimon.png" alt="Amerimon" />
-      <h2>{{ titulo() }}</h2>
+      <h2>{{ titulo() | translate }}</h2>
 
       @if (modo() === 'login' || modo() === 'crear') {
         <label>
-          Usuario
+          {{ 'USUARIO' | translate }}
           <input type="text" name="usuario" [(ngModel)]="usuario" autocomplete="username" required />
         </label>
       }
       @if (modo() === 'login' || modo() === 'cambiar') {
         <div class="campo-password">
-          <label for="dialogo-password">{{ modo() === 'cambiar' ? 'Contraseña actual' : 'Contraseña' }}</label>
+          <label for="dialogo-password">{{ (modo() === 'cambiar' ? 'CONTRASENA_ACTUAL' : 'CONTRASENA') | translate }}</label>
           <app-password-field inputId="dialogo-password" name="password" [(ngModel)]="password" autocomplete="current-password" [required]="true" />
         </div>
       }
       @if (modo() === 'crear' || modo() === 'cambiar') {
         <div class="campo-password">
-          <label for="dialogo-nueva">Nueva contraseña</label>
-          <app-password-field inputId="dialogo-nueva" name="nueva" [(ngModel)]="nueva" autocomplete="new-password" [minlength]="8" [required]="true" />
+          <label for="dialogo-nueva">{{ 'NUEVA_CONTRASENA' | translate }}</label>
+          <app-password-field inputId="dialogo-nueva" name="nueva" [(ngModel)]="nueva" autocomplete="new-password" [minlength]="8" [required]="true"
+            (visibilityChange)="nuevaContrasenaVisible.set($event)" />
         </div>
-        <div class="campo-password">
-          <label for="dialogo-repetir">Repetir contraseña</label>
-          <app-password-field inputId="dialogo-repetir" name="repetir" [(ngModel)]="repetir" autocomplete="new-password" [required]="true" />
+      }
+      @if (modo() === 'crear' || modo() === 'cambiar') {
+        <div class="campo-password" [style.display]="nuevaContrasenaVisible() ? 'none' : 'grid'">
+          <label for="dialogo-repetir">{{ 'REPETIR_CONTRASENA' | translate }}</label>
+          <app-password-field inputId="dialogo-repetir" name="repetir" [(ngModel)]="repetir" autocomplete="new-password"
+            [required]="!nuevaContrasenaVisible()" />
         </div>
       }
       @if (modo() === 'login' || modo() === 'crear') {
         <label class="recordar-sesion">
           <input type="checkbox" name="recordarSesion" [(ngModel)]="recordarSesion" />
-          Recordar usuario, contraseña y sesión en este dispositivo
+          {{ 'RECORDAR_USUARIO_CONTRASENA_SESION_EN_DISPOSITIVO' | translate }}
         </label>
       }
 
-      @if (error()) { <p class="error">{{ error() }}</p> }
+      @if (error()) { <p class="error">{{ error() | translate }}</p> }
       @if (aviso()) { <p class="ok">{{ aviso() }}</p> }
 
       <div class="acciones">
         <button type="submit" [disabled]="enviando()">
-          {{ modo() === 'login' ? 'Entrar' : modo() === 'crear' ? 'Guardar y entrar' : 'Cambiar' }}
+          {{ (modo() === 'login' ? 'ENTRAR' : modo() === 'crear' ? 'GUARDAR_Y_ENTRAR' : 'CAMBIAR') | translate }}
         </button>
       </div>
     </form>

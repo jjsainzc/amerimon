@@ -324,10 +324,9 @@
   }
 </section>
 @if (esAdmin() && lsnodesAbierto()) {
-  <div class="allstarlink-popup-overlay allstarlink-lsnodes-overlay" (click)="cerrarLsnodes()">
+  <div class="allstarlink-popup-overlay allstarlink-lsnodes-overlay">
     <section class="allstarlink-admin allstarlink-popup allstarlink-lsnodes-popup" role="dialog"
-      aria-modal="true" aria-labelledby="allstarlink-lsnodes-titulo" (click)="$event.stopPropagation()"
-      (keydown.escape)="cerrarLsnodes()" tabindex="-1">
+      aria-modal="true" aria-labelledby="allstarlink-lsnodes-titulo">
       <header class="allstarlink-admin-cabecera">
         <h3 id="allstarlink-lsnodes-titulo">{{ 'LSNODES' | translate }} <span [appCopy]="nodoPrincipal()">{{ nodoPrincipal() }}</span></h3>
         <button type="button" class="allstarlink-actualizar" (click)="cerrarLsnodes()">{{ 'CERRAR' | translate }}</button>
@@ -337,8 +336,8 @@
   </div>
 }
 @if (resultadoPopup(); as popup) {
-  <div class="allstarlink-popup-overlay" (click)="cerrarPopup()">
-    <section class="allstarlink-admin allstarlink-popup" role="dialog" aria-modal="true" aria-labelledby="allstarlink-popup-titulo" (click)="$event.stopPropagation()" (keydown.escape)="cerrarPopup()" tabindex="-1">
+  <div class="allstarlink-popup-overlay">
+    <section class="allstarlink-admin allstarlink-popup" role="dialog" aria-modal="true" aria-labelledby="allstarlink-popup-titulo">
       <header class="allstarlink-admin-cabecera">
         <h3 id="allstarlink-popup-titulo" [class.allstarlink-error]="popup.error">{{ popup.titulo }}</h3>
         <button type="button" class="allstarlink-actualizar" (click)="cerrarPopup()">{{ 'CERRAR' | translate }}</button>
@@ -353,8 +352,8 @@
   </div>
 }
 @if (confirmacionPendiente(); as confirmacion) {
-  <div class="allstarlink-popup-overlay" (click)="cancelarConfirmacion()">
-    <section class="allstarlink-admin allstarlink-popup" role="alertdialog" aria-modal="true" aria-labelledby="allstarlink-confirmacion-titulo" (click)="$event.stopPropagation()" (keydown.escape)="cancelarConfirmacion()" tabindex="-1">
+  <div class="allstarlink-popup-overlay">
+    <section class="allstarlink-admin allstarlink-popup" role="alertdialog" aria-modal="true" aria-labelledby="allstarlink-confirmacion-titulo">
       <header class="allstarlink-admin-cabecera">
         <h3 id="allstarlink-confirmacion-titulo">{{ confirmacion.titulo }}</h3>
       </header>

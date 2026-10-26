@@ -68,7 +68,7 @@ export class ListenLiveService {
       );
     } catch (e: any) {
       await this.stopListening();
-      this.error.set(e?.error?.message ?? 'No se pudo iniciar la escucha');
+      this.error.set(e?.error?.message ?? 'ERROR_INICIAR_ESCUCHA');
       return;
     }
 
@@ -83,7 +83,7 @@ export class ListenLiveService {
       ws = new WebSocket(wsUrl);
     } catch {
       await this.stopListening();
-      this.error.set('No se pudo abrir la conexión de audio');
+      this.error.set('ERROR_ABRIR_CONEXION_AUDIO');
       return;
     }
     ws.binaryType = 'arraybuffer';
@@ -101,14 +101,14 @@ export class ListenLiveService {
         try {
           this.playChunk(event.data as ArrayBuffer);
         } catch {
-          this.error.set('No se pudo procesar el audio recibido');
+          this.error.set('ERROR_PROCESAR_AUDIO_RECIBIDO');
           void this.stopListening().finally(resolve);
         }
       };
 
       ws.onerror = () => {
         if (this.ws !== ws) { return; }
-        this.error.set('Error en la conexión de audio');
+        this.error.set('ERROR_CONEXION_AUDIO');
         void this.stopListening().finally(() => resolve());
       };
 
@@ -175,7 +175,7 @@ export class ListenLiveService {
         await this.sessions.cerrar(sessionId);
         this.sessionRevision.update(revision => revision + 1);
       } catch {
-        this.error.set('La escucha se detuvo, pero no se pudo cerrar su registro');
+        this.error.set('ERROR_CERRAR_REGISTRO_ESCUCHA');
       }
     }
   }

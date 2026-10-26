@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, effect, inject, signal } from '@angular/core';
 import { CopyValueDirective } from '../../shared/copy-value/copy-value.directive';
 import { ListenLiveService } from '../../core/services/listenlive.service';
 import { ListenLiveSessionsService } from '../../core/services/listenlive-sessions.service';
@@ -94,7 +94,7 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
     try {
       await this.sessionsService.desconectar(sesion.listenliveid);
     } catch {
-      this.errorSesiones.set('No se pudo desconectar la sesión.');
+      this.errorSesiones.set('ERROR_DESCONECTAR_SESION');
     }
     await this.cargarSesiones();
   }
@@ -110,7 +110,7 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
         !sesion.fecha_fin && (currentUserId === null || sesion.userid !== currentUserId)
       ));
     } catch {
-      this.errorSesiones.set('No se pudo cargar el reporte de escuchas.');
+      this.errorSesiones.set('ERROR_CARGAR_REPORTE_ESCUCHAS');
     } finally {
       this.cargandoSesiones.set(false);
     }
@@ -124,12 +124,6 @@ export class MonitorCallComponent implements OnInit, OnDestroy {
   /** Cierra el manual de ayuda. */
   protected cerrarManual(): void {
     this.manualAbierto.set(false);
-  }
-
-  /** Cierra el manual cuando se pulsa Escape en el documento. */
-  @HostListener('document:keydown.escape')
-  cerrarManualConEscape(): void {
-    this.cerrarManual();
   }
 
   /** Detiene cualquier escucha al destruir el componente. */

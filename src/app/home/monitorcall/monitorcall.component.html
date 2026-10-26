@@ -1,22 +1,22 @@
 <section class="monitor-card">
   <p class="monitor-eyebrow">ASTERISK</p>
-  <h3>Tráfico en vivo</h3>
-  <p class="monitor-ayuda">Listen Live recibe el audio del nodo principal configurado en Asterisk.</p>
+  <h3>{{ 'TRAFICO_EN_VIVO' | translate }}</h3>
+  <p class="monitor-ayuda">{{ 'LISTEN_LIVE_AUDIO_NODO_PRINCIPAL' | translate }}</p>
 
   @if (listenService.isListening()) {
     <p class="monitor-estado" aria-live="polite">
       <span class="monitor-punto" aria-hidden="true"></span>
-      Escuchando {{ ext() === 'nodo' ? 'el nodo local' : 'extensión ' + ext() }}
+      {{ (ext() === 'nodo' ? 'ESCUCHANDO_NODO_LOCAL' : 'ESCUCHANDO_EXTENSION') | translate:{extension: ext()} }}
     </p>
     <div class="monitor-medidor">
       <div class="monitor-medidor-cabecera">
-        <span>Nivel de audio</span>
+        <span>{{ 'NIVEL_DE_AUDIO' | translate }}</span>
         <strong>{{ listenService.audioLevelDb().toFixed(1) }} dBFS</strong>
       </div>
       <div
         class="monitor-medidor-pista"
         role="meter"
-        aria-label="Nivel de audio recibido"
+        [attr.aria-label]="'NIVEL_AUDIO_RECIBIDO' | translate"
         aria-valuemin="-60"
         aria-valuemax="0"
         [attr.aria-valuenow]="listenService.audioLevelDb().toFixed(1)"
@@ -31,11 +31,11 @@
       </div>
     </div>
     <button type="button" class="monitor-btn monitor-btn-detener" (click)="stop()">
-      Detener
+      {{ 'DETENER' | translate }}
     </button>
   } @else {
     <label class="monitor-campo" style="display: none;" for="ext-monitor">
-      <span>Extensión</span>
+      <span>{{ 'EXTENSION' | translate }}</span>
       <input
         #extInput
         id="ext-monitor"
@@ -58,7 +58,7 @@
       /* [disabled]="!extValida() || listenService.connecting()" */
       [disabled]="true"
       >
-      {{ listenService.connecting() ? 'Conectando…' : '' }}
+      {{ listenService.connecting() ? ('CONECTANDO' | translate) : '' }}
     </button>
     <button
       type="button"
@@ -70,58 +70,61 @@
   }
 
   <button type="button" class="monitor-btn monitor-btn-como-funciona" (click)="abrirManual()">
-    ¿Cómo funciona?
+    {{ 'COMO_FUNCIONA_LISTEN_LIVE' | translate }}
   </button>
 
-  @if (listenService.error()) {
-    <p class="monitor-error" role="alert">{{ listenService.error() }}</p>
+  @if (listenService.error(); as error) {
+    <p class="monitor-error" role="alert">{{ error | translate }}</p>
   }
 </section>
 
 <section class="monitor-sesiones" aria-labelledby="sesiones-titulo">
   <header class="monitor-sesiones-cabecera">
     <div>
-      <h3 id="sesiones-titulo">Reporte de escuchas</h3>
-      <p>Sesiones de usuarios conectados, la tabla no se actualiza automáticamente, debe hacerlo manual</p>
+      <h3 id="sesiones-titulo">{{ 'REPORTE_DE_ESCUCHAS' | translate }}</h3>
+      <p>{{ 'SESIONES_DE_USUARIOS_CONECTADOS_LA_TABLA_NO_SE_ACTUALIZA_AUTOMATICAMENTE_DEBE_HACERLO_MANUAL' | translate }}</p>
     </div>
     <button type="button" class="monitor-actualizar accion-estandar" (click)="actualizarMonitor()" [disabled]="cargandoSesiones() || listenService.asteriskStatus() === 'checking'">
       <i class="fa-solid fa-rotate" aria-hidden="true"></i>
-      {{ cargandoSesiones() || listenService.asteriskStatus() === 'checking' ? 'Actualizando…' : 'Actualizar' }}
+      {{ (cargandoSesiones() || listenService.asteriskStatus() === 'checking' ? 'ACTUALIZANDO' : 'ACTUALIZAR') | translate }}
     </button>
   </header>
 
-  @if (errorSesiones()) {
-    <p class="monitor-error" role="alert">{{ errorSesiones() }}</p>
+  @if (errorSesiones(); as error) {
+    <p class="monitor-error" role="alert">{{ error | translate }}</p>
   }
 
   @if (cargandoSesiones() && sesiones().length === 0) {
     <app-loading-indicator [message]="'CARGANDO_SESIONES' | translate" layout="centered" />
   } @else if (sesiones().length === 0) {
-    <p class="monitor-vacio">No hay usuarios conectados.</p>
+    <p class="monitor-vacio">{{ 'NO_HAY_USUARIOS_CONECTADOS' | translate }}</p>
   } @else {
     <div class="monitor-tabla-contenedor">
       <table class="monitor-tabla">
         <thead>
           <tr>
             <th scope="col">ID</th>
-            <th scope="col">IP de origen</th>
-            <th scope="col">Inicio</th>
-            @if (esAdmin()) { <th scope="col">Acciones</th> }
+            <th scope="col">{{ 'IP_DE_ORIGEN' | translate }}</th>
+            <th scope="col">{{ 'INICIO' | translate }}</th>
+            @if (esAdmin()) { <th scope="col">{{ 'ACCIONES' | translate }}</th> }
           </tr>
         </thead>
         <tbody>
           @for (sesion of sesiones(); track sesion.listenliveid) {
             <tr>
               <td data-label="ID">{{ sesion.userid ?? '—' }}</td>
-              <td data-label="IP de origen">
+              <td [attr.data-label]="'IP_DE_ORIGEN' | translate">
                 @if (sesion.ip_origen && esAdmin()) {
                   <app-geoip-link [ip]="sesion.ip_origen" [label]="sesion.ip_origen" />
                 } @else { <span [appCopy]="sesion.ip_origen">{{ sesion.ip_origen || '—' }}</span> }
               </td>
-              <td data-label="Inicio"><time [attr.datetime]="sesion.fecha_inicio">{{ sesion.fecha_inicio | utcToLocal:'dd/MM/yyyy HH:mm:ss' }}</time></td>
+              <td [attr.data-label]="'INICIO' | translate"><time [attr.datetime]="sesion.fecha_inicio">{{ sesion.fecha_inicio | utcToLocal:'dd/MM/yyyy HH:mm:ss' }}</time></td>
               @if (esAdmin()) {
-                <td data-label="Acciones">
-                  <button type="button" class="monitor-desconectar" [disabled]="!sesion.uuid" (click)="pedirDesconexion(sesion)" [attr.aria-label]="'Desconectar sesión ' + sesion.listenliveid" title="Desconectar">⏻ Desconectar</button>
+                <td [attr.data-label]="'ACCIONES' | translate">
+                  <button type="button" class="monitor-desconectar" [disabled]="!sesion.uuid" (click)="pedirDesconexion(sesion)"
+                    [attr.aria-label]="'DESCONECTAR_SESION_ID' | translate:{id: sesion.listenliveid}" [title]="'DESCONECTAR' | translate">
+                    {{ 'DESCONECTAR' | translate }}
+                  </button>
                 </td>
               }
             </tr>
