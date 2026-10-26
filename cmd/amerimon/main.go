@@ -5,10 +5,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -33,6 +37,78 @@ func env(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func ObtenerContenidoURL(url string) (string, error) {
+	// 1. Realizar la petición HTTP GET
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("error al realizar la petición: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 2. Verificar que el código de estado sea exitoso (200 OK)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("error en la respuesta HTTP: estado %d", resp.StatusCode)
+	}
+
+	// 3. Leer el contenido del cuerpo
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error al leer el contenido: %w", err)
+	}
+
+	// 4. Convertir los bytes a string y retornar
+	return string(bodyBytes), nil
+}
+
+// SortNU procesa un texto multilínea en memoria simulando "sort -nu"
+func SortNU(input string) (string, error) {
+	// 1. Dividir el texto en líneas
+	lines := strings.Split(input, "\n")
+
+	// Mapa para almacenar números únicos (evita duplicados de forma eficiente)
+	uniqueNumbers := make(map[int]bool)
+	var nonNumericLines []string // Por si hay líneas que no son números puros
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue // Omitir líneas vacías si es necesario
+		}
+
+		// Intentar convertir la línea a entero (equivalente al orden numérico -n)
+		num, err := strconv.Atoi(trimmed)
+		if err != nil {
+			// Si la línea no es un número (ej. texto plano o metadatos),
+			// puedes decidir guardarla o ignorarla. Aquí la guardamos al final.
+			nonNumericLines = append(nonNumericLines, trimmed)
+			continue
+		}
+
+		uniqueNumbers[num] = true
+	}
+	// 2. Extraer las claves del mapa y ordenarlas numéricamente
+	var sortedNums []int
+	for num := range uniqueNumbers {
+		sortedNums = append(sortedNums, num)
+	}
+	sort.Ints(sortedNums)
+
+	// 3. Reconstruir el texto de salida
+	var resultBuilder strings.Builder
+	for _, num := range sortedNums {
+		resultBuilder.WriteString(strconv.Itoa(num))
+		resultBuilder.WriteByte('\n')
+	}
+
+	// (Opcional) Si tenías líneas no numéricas, las puedes agregar al final
+	for _, line := range nonNumericLines {
+		resultBuilder.WriteString(line)
+		resultBuilder.WriteByte('\n')
+	}
+
+	return resultBuilder.String(), nil
 }
 
 // main configura la aplicación, inicia el servidor HTTP y coordina su apagado ordenado.
@@ -95,6 +171,39 @@ func main() {
 
 	audioManager := config.NewAudioStreamManager()
 	go config.StartAudioListener(fmt.Sprintf("127.0.0.1:%d", config.CurrentAMI().ListenPort), audioManager)
+
+	/** Chequear que el file astdb exista en el path correcto y si no crearlo */
+	rutaArchivoSupermon := "/var/www/html/supermon/astdb.txt"
+	rutaArchivo := config.App.Sources.AstDBPath
+	pass := false
+	if info, err := os.Stat(rutaArchivo); err != nil {
+		if (info != nil && info.IsDir()) || os.IsNotExist(err) {
+
+			// buscar si el file esta en la ruta por defecto de supermon y crear un symlink si es necesario
+			if rutaArchivo != rutaArchivoSupermon {
+				if info, err := os.Stat(rutaArchivoSupermon); err == nil && !info.IsDir() {
+					if err := os.Symlink(rutaArchivoSupermon, rutaArchivo); err != nil {
+						log.Print(err.Error())
+					} else {
+						pass = true
+					}
+				}
+			}
+
+			if !pass {
+				// bajar el contenido del sitio de allstarlink
+				if config.App.Sources.AstDBUrl == "" {
+					config.App.Sources.AstDBUrl = "https://allmondb.allstarlink.org/allmondb.php"
+				}
+				contenido, _ := ObtenerContenidoURL(config.App.Sources.AstDBUrl)
+				if resultado, err := SortNU(contenido); err == nil {
+					if err := os.WriteFile(rutaArchivo, []byte(resultado), 0644); err != nil {
+						log.Print(err.Error())
+					}
+				}
+			}
+		}
+	}
 
 	e := echo.New()
 	e.HideBanner = true
