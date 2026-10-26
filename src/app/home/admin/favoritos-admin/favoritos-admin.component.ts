@@ -7,12 +7,14 @@ import { AstdbCoincidencia, Favorito, FavoritoEntrada } from '../../../core/mode
 import { FavoritosService } from '../../../core/services/favoritos.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
+import { TranslationService } from '../../../core/services/translation.service';
 import { LoadingIndicatorComponent } from '../../../shared/loading-indicator/loading-indicator.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-favoritos-admin',
   standalone: true,
-  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, LoadingIndicatorComponent, CopyValueDirective],
+  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, LoadingIndicatorComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './favoritos-admin.component.html',
   styleUrl: './favoritos-admin.component.css'
 })
@@ -20,6 +22,7 @@ export class FavoritosAdminComponent implements OnInit {
   private readonly svc = inject(FavoritosService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly translation = inject(TranslationService);
   private readonly solicitudesBusqueda = new Subject<string | null>();
 
   readonly favoritos = signal<Favorito[]>([]);
@@ -75,14 +78,14 @@ export class FavoritosAdminComponent implements OnInit {
       if (results === null) { return; }
       this.coincidencias.set(results.slice(0, 50));
       if (results.length > 50) {
-        this.avisoBusqueda.set(`Se encontraron ${results.length} nodos. Solo se muestran los primeros 50 para evitar sobrecargar el navegador. Detalla más la búsqueda para reducir la cantidad de resultados.`);
+        this.avisoBusqueda.set(this.translation.translate('RESULTADOS_NODOS_LIMITADOS', { total: results.length }));
       }
       if (results.length === 1) {
         this.elegirCoincidencia(results[0]);
       } else if (results.length > 1) {
-        this.estadoBusqueda.set(`Se encontraron ${results.length} nodos. Elige el destino deseado.`);
+        this.estadoBusqueda.set(this.translation.translate('RESULTADOS_NODOS_ELIGE_DESTINO', { total: results.length }));
       } else if (this.form.controls.busqueda.value.trim()) {
-        this.estadoBusqueda.set('No se encontraron nodos en AstDB o EchoLink para esa búsqueda.');
+        this.estadoBusqueda.set(this.translation.translate('NO_SE_ENCONTRARON_NODOS_ASTDB_ECHOLINK'));
       }
     });
   }
@@ -133,7 +136,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.nodoSeleccionado.set(f.numero);
     this.coincidencias.set([]);
     this.errorBusqueda.set('');
-    this.estadoBusqueda.set('Nodo guardado seleccionado.');
+    this.estadoBusqueda.set(this.translation.translate('NODO_GUARDADO_SELECCIONADO'));
     this.form.reset({ busqueda: f.numero, descripcion: f.descripcion }, { emitEvent: false });
     this.formularioAbierto.set(true);
   }
@@ -150,7 +153,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.form.markAllAsTouched();
     if (this.form.invalid || this.guardando() || this.buscando()) { return; }
     if (!this.nodoSeleccionado()) {
-      this.errorBusqueda.set('Selecciona un nodo de los resultados de AstDB o EchoLink.');
+      this.errorBusqueda.set(this.translation.translate('SELECCIONA_UN_NODO_DE_RESULTADOS_ASTDB_ECHOLINK'));
       return;
     }
 
@@ -168,7 +171,7 @@ export class FavoritosAdminComponent implements OnInit {
       next: () => {
         this.guardando.set(false);
         this.formularioAbierto.set(false);
-        this.exito.set(id === null ? 'Favorito creado.' : 'Favorito actualizado.');
+        this.exito.set(this.translation.translate(id === null ? 'FAVORITO_CREADO' : 'FAVORITO_ACTUALIZADO'));
         this.cargar();
       },
       error: err => {
@@ -197,7 +200,7 @@ export class FavoritosAdminComponent implements OnInit {
       next: () => {
         this.pendienteBorrar.set(null);
         this.favoritos.update(items => items.filter(i => i.id !== f.id));
-        this.exito.set('Favorito eliminado.');
+        this.exito.set(this.translation.translate('FAVORITO_ELIMINADO'));
       },
       error: err => this.error.set(this.mensajeError(err))
     });
@@ -208,7 +211,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.avisoBusqueda.set('');
     this.nodoSeleccionado.set(coincidencia.nodo);
     this.sugerida.set(this.textoCoincidencia(coincidencia));
-    this.estadoBusqueda.set(`Nodo ${coincidencia.nodo} seleccionado.`);
+    this.estadoBusqueda.set(this.translation.translate('NODO_SELECCIONADO', { nodo: coincidencia.nodo }));
     this.coincidencias.set([]);
   }
 
@@ -220,6 +223,6 @@ export class FavoritosAdminComponent implements OnInit {
 
   /** Extrae el mensaje del servidor o devuelve uno genérico para la interfaz. */
   private mensajeError(error: any): string {
-    return error?.error?.message || 'No se pudo completar la operación.';
+    return error?.error?.message || this.translation.translate('NO_SE_PUDO_COMPLETAR_LA_OPERACION');
   }
 }

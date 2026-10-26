@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { vi } from 'vitest';
 import { FavoritosService } from '../../../core/services/favoritos.service';
+import { TranslationService } from '../../../core/services/translation.service';
 import { FavoritosAdminComponent } from './favoritos-admin.component';
 
 describe('FavoritosAdminComponent', () => {
@@ -28,10 +29,27 @@ describe('FavoritosAdminComponent', () => {
       actualizar: vi.fn(),
       borrar: vi.fn(),
     };
+    const translations: Record<string, string> = {
+      BUSQUEDA_FAVORITO: 'Búsqueda *',
+      BUSCAR_EN_ASTDB_Y_ECHOLINK: 'Buscar en AstDB y EchoLink',
+      NODO_SELECCIONADO: 'Nodo ${nodo} seleccionado.',
+      RESULTADOS_NODOS_LIMITADOS: 'Se encontraron ${total} nodos. Solo se muestran los primeros 50.'
+    };
     TestBed.configureTestingModule({
       imports: [FavoritosAdminComponent],
       providers: [
         { provide: FavoritosService, useValue: service },
+        {
+          provide: TranslationService,
+          useValue: {
+            currentLang: () => 'es',
+            translate: (key: string, params?: Record<string, string | number>) =>
+              Object.entries(params ?? {}).reduce(
+                (text, [name, value]) => text.replaceAll(`\${${name}}`, String(value)),
+                translations[key] ?? key
+              )
+          }
+        },
         provideRouter([]),
       ],
     });

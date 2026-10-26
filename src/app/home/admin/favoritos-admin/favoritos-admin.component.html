@@ -3,15 +3,15 @@
 
   <header class="fa-cabecera">
     <div>
-      <h1>Favoritos</h1>
-      <p>Nodos que se ofrecen al conectar desde el monitor de AllStarLink.</p>
+      <h1>{{ 'FAVORITOS' | translate }}</h1>
+      <p>{{ 'FAVORITOS_DESCRIPCION_ADMIN' | translate }}</p>
     </div>
-    <button type="button" class="fa-btn fa-primario" (click)="abrirNuevo()">＋ Nuevo favorito</button>
+    <button type="button" class="fa-btn fa-primario" (click)="abrirNuevo()">{{ 'NUEVO_FAVORITO' | translate }}</button>
   </header>
 
   @if (error() && !formularioAbierto()) { <p class="fa-mensaje fa-error" role="alert">{{ error() }}</p> }
   @if (exito()) { <p class="fa-mensaje fa-exito" role="status">{{ exito() }}</p> }
-  @if (cargando()) { <app-loading-indicator message="Cargando favoritos…" layout="inline" /> }
+  @if (cargando()) { <app-loading-indicator [message]="'CARGANDO_FAVORITOS' | translate" layout="inline" /> }
 
   @if (!cargando() && favoritos().length) {
     <div class="fa-lista">
@@ -19,50 +19,50 @@
         <article class="fa-item">
           <div class="fa-detalle">
             <h2><span [appCopy]="f.numero">{{ f.numero }}</span></h2>
-            <span>{{ f.descripcion || f.descripcion_astdb || 'Sin descripción' }}</span>
+            <span>{{ f.descripcion || f.descripcion_astdb || ('SIN_DESCRIPCION' | translate) }}</span>
           </div>
           <div class="fa-acciones">
-            <button type="button" class="fa-btn" (click)="abrirEditar(f)">Editar</button>
-            <button type="button" class="fa-btn fa-icono" title="Eliminar favorito" aria-label="Eliminar favorito" (click)="solicitarBorrado(f)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+            <button type="button" class="fa-btn" (click)="abrirEditar(f)">{{ 'EDITAR' | translate }}</button>
+            <button type="button" class="fa-btn fa-icono" [title]="'ELIMINAR_FAVORITO' | translate" [attr.aria-label]="'ELIMINAR_FAVORITO' | translate" (click)="solicitarBorrado(f)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
           </div>
         </article>
       }
     </div>
   } @else if (!cargando() && !error()) {
-    <p class="fa-estado">No hay favoritos. Crea el primero para usarlo al conectar.</p>
+    <p class="fa-estado">{{ 'NO_HAY_FAVORITOS_CREA_EL_PRIMERO' | translate }}</p>
   }
 </main>
 
 @if (formularioAbierto()) {
   <div class="fa-overlay">
     <section class="fa-dialogo" role="dialog" aria-modal="true" aria-labelledby="fa-form-titulo">
-      <button type="button" class="fa-cerrar" aria-label="Cerrar" (click)="cerrarFormulario()">&times;</button>
-      <h2 id="fa-form-titulo">{{ editandoId() === null ? 'Nuevo favorito' : 'Editar favorito' }}</h2>
+      <button type="button" class="fa-cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="cerrarFormulario()">&times;</button>
+      <h2 id="fa-form-titulo">{{ (editandoId() === null ? 'FAVORITOS_TITULO_NUEVO' : 'FAVORITOS_TITULO_EDITAR') | translate }}</h2>
 
       @if (error()) { <p class="fa-mensaje fa-error" role="alert">{{ error() }}</p> }
 
       <form [formGroup]="form" (ngSubmit)="guardar()" novalidate>
         <label class="fa-campo">
-          <span>Búsqueda *</span>
+          <span>{{ 'BUSQUEDA_FAVORITO' | translate }}</span>
           <span class="fa-buscador">
             <span class="clipboard-field" [appCopy]="form.controls.busqueda.value">
-            <input type="text" formControlName="busqueda" maxlength="120" autocomplete="off" placeholder="Número, indicativo o descripción"
+            <input type="text" formControlName="busqueda" maxlength="120" autocomplete="off" [placeholder]="'NUMERO_INDICATIVO_O_DESCRIPCION' | translate"
               (keydown.enter)="$event.preventDefault(); buscar()" />
             </span>
-            <button type="button" class="fa-btn fa-buscar" aria-label="Buscar en AstDB y EchoLink" title="Buscar en AstDB y EchoLink"
+            <button type="button" class="fa-btn fa-buscar" [attr.aria-label]="'BUSCAR_EN_ASTDB_Y_ECHOLINK' | translate" [title]="'BUSCAR_EN_ASTDB_Y_ECHOLINK' | translate"
               [disabled]="buscando() || guardando() || form.controls.busqueda.invalid || !form.controls.busqueda.value.trim()" (click)="buscar()">
               <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             </button>
           </span>
-          @if (form.controls.busqueda.touched && form.controls.busqueda.invalid) { <small>Escribe un número, indicativo o descripción para buscar en AstDB y EchoLink.</small> }
+          @if (form.controls.busqueda.touched && form.controls.busqueda.invalid) { <small>{{ 'ESCRIBE_UN_NUMERO_INDICATIVO_O_DESCRIPCION_PARA_BUSCAR' | translate }}</small> }
         </label>
-        @if (buscando()) { <p class="fa-busqueda" role="status">Buscando en AstDB y EchoLink…</p> }
+        @if (buscando()) { <p class="fa-busqueda" role="status">{{ 'BUSCANDO_EN_ASTDB_Y_ECHOLINK' | translate }}</p> }
         @if (estadoBusqueda()) { <p class="fa-busqueda" role="status">{{ estadoBusqueda() }}</p> }
         @if (errorBusqueda()) { <p class="fa-mensaje fa-error" role="alert">{{ errorBusqueda() }}</p> }
         @if (avisoBusqueda()) { <p class="fa-mensaje fa-aviso" role="alert">{{ avisoBusqueda() }}</p> }
         @if (coincidencias().length > 1) {
           <fieldset class="fa-coincidencias">
-            <legend>Destinos encontrados. Elige el nodo que quieres agregar:</legend>
+            <legend>{{ 'DESTINOS_ENCONTRADOS_ELIGE_EL_NODO_QUE_QUIERES_AGREGAR' | translate }}</legend>
             @for (coincidencia of coincidencias(); track coincidencia.nodo) {
               <div class="fa-coincidencia-fila">
               <button type="button" class="fa-coincidencia" (click)="elegirCoincidencia(coincidencia)">
@@ -76,13 +76,13 @@
           </fieldset>
         }
         <label class="fa-campo">
-          <span>Descripción personalizada (opcional)</span>
-          <input type="text" formControlName="descripcion" maxlength="120" [placeholder]="sugerida() || 'HI3ACS La Vega, RD'" />
-          @if (sugerida() && !form.controls.descripcion.value) { <small class="fa-sugerida">Si lo dejas vacío se usará la del directorio: {{ sugerida() }}</small> }
+          <span>{{ 'DESCRIPCION_PERSONALIZADA_OPCIONAL' | translate }}</span>
+          <input type="text" formControlName="descripcion" maxlength="120" [placeholder]="sugerida() || ('EJEMPLO_DESCRIPCION_FAVORITO' | translate)" />
+          @if (sugerida() && !form.controls.descripcion.value) { <small class="fa-sugerida">{{ 'SE_USARA_DESCRIPCION_DEL_DIRECTORIO' | translate }} {{ sugerida() }}</small> }
         </label>
         <div class="fa-form-acciones">
-          <button type="button" class="fa-btn" (click)="cerrarFormulario()" [disabled]="guardando()">Cancelar</button>
-          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando() || buscando()">{{ guardando() ? 'Guardando…' : 'Guardar' }}</button>
+          <button type="button" class="fa-btn" (click)="cerrarFormulario()" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
+          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando() || buscando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
         </div>
       </form>
     </section>
@@ -91,9 +91,9 @@
 
 <app-confirmacion-dialog
   [open]="pendienteBorrar() !== null"
-  title="Eliminar favorito"
-  [message]="pendienteBorrar() ? '¿Eliminar «' + pendienteBorrar()!.numero + '»? Esta acción no se puede deshacer.' : ''"
-  confirmLabel="Eliminar"
+  [title]="'ELIMINAR_FAVORITO' | translate"
+  [message]="pendienteBorrar() ? ('CONFIRMAR_ELIMINAR_FAVORITO' | translate:{numero: pendienteBorrar()!.numero}) : ''"
+  [confirmLabel]="'ELIMINAR' | translate"
   [showDeleteIcon]="true"
   (confirmed)="confirmarBorrado()"
   (cancelled)="cancelarBorrado()" />
