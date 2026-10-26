@@ -185,20 +185,20 @@
         </label>
       }
       @if (modo() === 'login' || modo() === 'cambiar') {
-        <label>
-          {{ modo() === 'cambiar' ? 'Contraseña actual' : 'Contraseña' }}
-          <app-password-field name="password" [(ngModel)]="password" autocomplete="current-password" [required]="true" />
-        </label>
+        <div class="campo-password">
+          <label for="dialogo-password">{{ modo() === 'cambiar' ? 'Contraseña actual' : 'Contraseña' }}</label>
+          <app-password-field inputId="dialogo-password" name="password" [(ngModel)]="password" autocomplete="current-password" [required]="true" />
+        </div>
       }
       @if (modo() === 'crear' || modo() === 'cambiar') {
-        <label>
-          Nueva contraseña
-          <app-password-field name="nueva" [(ngModel)]="nueva" autocomplete="new-password" [minlength]="8" [required]="true" />
-        </label>
-        <label>
-          Repetir contraseña
-          <app-password-field name="repetir" [(ngModel)]="repetir" autocomplete="new-password" [required]="true" />
-        </label>
+        <div class="campo-password">
+          <label for="dialogo-nueva">Nueva contraseña</label>
+          <app-password-field inputId="dialogo-nueva" name="nueva" [(ngModel)]="nueva" autocomplete="new-password" [minlength]="8" [required]="true" />
+        </div>
+        <div class="campo-password">
+          <label for="dialogo-repetir">Repetir contraseña</label>
+          <app-password-field inputId="dialogo-repetir" name="repetir" [(ngModel)]="repetir" autocomplete="new-password" [required]="true" />
+        </div>
       }
       @if (modo() === 'login' || modo() === 'crear') {
         <label class="recordar-sesion">
@@ -228,8 +228,8 @@
 <!-- Componente Popup del Manual -->
 <app-markdown-viewer
   [open]="isMarkdownOpen()"
-  markdownUrl="assets/docs/manual-operacion-tecnica.md"
-  title="Contenido"
-  eyebrow="DOCUMENTACIÓN"
+  [markdownUrl]="translationService.currentLang() === 'en' ? 'assets/docs/technical-operations-manual.en.md' : 'assets/docs/technical-operations-manual.es.md'"
+  [title]="'MANUAL_TECNICO' | translate"
+  [eyebrow]="'DOCUMENTACION' | translate"
   (closed)="isMarkdownOpen.set(false)">
 </app-markdown-viewer>
