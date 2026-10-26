@@ -13,7 +13,7 @@
     }
     @if (showPageSize) {
       <div class="table-pagination-size">
-        <label>Por página
+        <label>{{ 'POR_PAGINA' | translate }}
           <select [value]="pageSize" (change)="pageSizeChange.emit($any($event.target).value)">
             @for (size of pageSizeOptions; track size) {
               <option [value]="size" [selected]="size === pageSize">{{ size }}</option>
@@ -26,11 +26,11 @@
 }
 
 @if (placement === 'bottom' && !hideNavigation) {
-  <nav class="table-pagination-nav" data-print-hide aria-label="Paginación de resultados">
-    <button type="button" class="btn-paginacion btn-paginacion-extremo" (click)="pageChange.emit(1)" [disabled]="currentPage <= 1" aria-label="Ir al inicio" title="Inicio">«</button>
-    <button type="button" class="btn-paginacion" (click)="pageChange.emit(currentPage - 1)" [disabled]="currentPage <= 1">← Anterior</button>
-    <span class="table-pagination-info">Página {{ currentPage }} de {{ totalPages }}</span>
-    <button type="button" class="btn-paginacion" (click)="pageChange.emit(currentPage + 1)" [disabled]="currentPage >= totalPages">Siguiente →</button>
-    <button type="button" class="btn-paginacion btn-paginacion-extremo" (click)="pageChange.emit(totalPages)" [disabled]="currentPage >= totalPages" aria-label="Ir al final" title="Final">»</button>
+  <nav class="table-pagination-nav" data-print-hide aria-label="{{ 'PAGINACION_DE_RESULTADOS' | translate }}">
+    <button type="button" class="btn-paginacion btn-paginacion-extremo" (click)="pageChange.emit(1)" [disabled]="currentPage <= 1" aria-label="{{ 'IR_AL_INICIO' | translate }}" title="{{ 'INICIO' | translate }}">«</button>
+    <button type="button" class="btn-paginacion" (click)="pageChange.emit(currentPage - 1)" [disabled]="currentPage <= 1">{{ 'ANTERIOR' | translate }}</button>
+    <span class="table-pagination-info">{{ 'PAGINA_CURRENTPAGE_DE_TOTALPAGES' | translate:{ currentPage: currentPage, totalPages: totalPages } }}</span>
+    <button type="button" class="btn-paginacion" (click)="pageChange.emit(currentPage + 1)" [disabled]="currentPage >= totalPages">{{ 'SIGUIENTE' | translate }}</button>
+    <button type="button" class="btn-paginacion btn-paginacion-extremo" (click)="pageChange.emit(totalPages)" [disabled]="currentPage >= totalPages" aria-label="{{ 'IR_AL_FINAL' | translate }}" title="{{ 'FINAL' | translate }}">»</button>
   </nav>
 }
