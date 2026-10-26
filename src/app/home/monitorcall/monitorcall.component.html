@@ -143,7 +143,7 @@
 
 <app-markdown-viewer
   [open]="manualAbierto()"
-  markdownUrl="assets/docs/listen-live.md"
-  title="Cómo funciona"
-  eyebrow="LISTEN LIVE"
+  [markdownUrl]="translationService.currentLang() === 'en' ? 'assets/docs/listen-live.en.md' : 'assets/docs/listen-live.es.md'"
+  [title]="'COMO_FUNCIONA_LISTEN_LIVE' | translate"
+  [eyebrow]="'LISTEN_LIVE' | translate"
   (closed)="cerrarManual()" />
