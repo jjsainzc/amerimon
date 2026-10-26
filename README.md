@@ -101,4 +101,4 @@ Antes de iniciar Go, una tarea prepara las credenciales AMI: usa `AMI_USER` y `A
 
 ## Manual técnico
 
-Para configuración de nodos, puertos, SQLite, proxy, respaldos, operaciones administrativas y diagnóstico, consulta el [Manual de Operación Técnica](docs/manual-operacion-tecnica.md).
+Para configuración de nodos, puertos, SQLite, proxy, respaldos, operaciones administrativas y diagnóstico, consulta el [Manual de Operación Técnica](public/assets/docs/technical-operations-manual.es.md).
