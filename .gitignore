@@ -49,4 +49,6 @@ Thumbs.db
 *.db
 *.db-shm
 *.db-wal
+
+# Doc
 TODO.md
