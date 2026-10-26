@@ -1,14 +1,16 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-print-button',
   standalone: true,
+  imports: [TranslatePipe],
   templateUrl: './print-button.component.html',
   styleUrl: './print-button.component.css'
 })
 export class PrintButtonComponent {
-  @Input() label = 'Imprimir reporte';
+  @Input() label = '';
   @Input() disabled = false;
   @Output() readonly beforePrint = new EventEmitter<void>();
 

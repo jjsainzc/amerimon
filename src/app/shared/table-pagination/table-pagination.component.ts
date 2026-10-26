@@ -17,8 +17,8 @@ export class TablePaginationComponent {
   @Input() showSearch = false;
   @Input() pageSize = 25;
   @Input() searchText = '';
-  @Input() searchPlaceholder = 'Buscar en la tabla…';
-  @Input() searchLabel = 'Buscar en la tabla';
+  @Input() searchPlaceholder = '';
+  @Input() searchLabel = '';
   @Input() summaryText = '';
   readonly pageSizeOptions = [5, 10, 25, 50, 100] as const;
   @Input() hideNavigation = false;

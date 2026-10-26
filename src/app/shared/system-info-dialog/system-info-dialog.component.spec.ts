@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { SystemInfoDialogComponent } from './system-info-dialog.component';
 import { environment } from '../../core/environment';
+import { TranslationService } from '../../core/services/translation.service';
 
 describe('System maintenance controls', () => {
   let http: HttpTestingController;
@@ -11,7 +12,11 @@ describe('System maintenance controls', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [SystemInfoDialogComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: TranslationService, useValue: { translate: (key: string) => key } },
+      ],
     });
     http = TestBed.inject(HttpTestingController);
     component = TestBed.createComponent(SystemInfoDialogComponent).componentInstance;
@@ -27,10 +32,10 @@ describe('System maintenance controls', () => {
     component.confirmacion.set('REINICIAR');
     component.ejecutar();
     http.expectNone(`${environment.apiUrl}/system/control`);
-    component.confirmacion.set('REINICIAR ASTERISK');
+    component.confirmacion.set('RESTART ASTERISK');
     component.ejecutar();
     const req = http.expectOne(`${environment.apiUrl}/system/control`);
-    expect(req.request.body).toEqual({ action: 'asterisk_restart', confirmation: 'REINICIAR ASTERISK' });
+    expect(req.request.body).toEqual({ action: 'asterisk_restart', confirmation: 'RESTART ASTERISK' });
     req.flush({
       status: 'success', message: 'Asterisk operativo',
       data: { action: 'asterisk_restart', recovered: false, scheduled: false, details: ['AMI OK'], warnings: '' },
@@ -42,7 +47,7 @@ describe('System maintenance controls', () => {
 
   it('blocks repeated submissions while busy and after scheduling a host shutdown', () => {
     component.preparar('linux_poweroff');
-    component.confirmacion.set('APAGAR LINUX');
+    component.confirmacion.set('POWER OFF LINUX');
     component.ejecutar();
     component.ejecutar();
     const req = http.expectOne(`${environment.apiUrl}/system/control`);
@@ -58,7 +63,7 @@ describe('System maintenance controls', () => {
 
   it('shows backend failure and diagnostic warnings instead of success', () => {
     component.preparar('asterisk_restart');
-    component.confirmacion.set('REINICIAR ASTERISK');
+    component.confirmacion.set('RESTART ASTERISK');
     component.ejecutar();
     http.expectOne(`${environment.apiUrl}/system/control`).flush({
       status: 'error', message: 'AMI no responde',

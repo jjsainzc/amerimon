@@ -5,6 +5,7 @@ import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { SystemInfo } from '../../core/models/system-info.model';
 import { SystemAction, SystemControlResponse, SystemInfoService } from '../../core/services/system-info.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
+import { TranslationService } from '../../core/services/translation.service';
 
 @Component({
   selector: 'app-system-info-dialog',
@@ -15,6 +16,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
 })
 export class SystemInfoDialogComponent {
   private readonly service = inject(SystemInfoService);
+  private readonly translation = inject(TranslationService);
 
   readonly cerrar = output<void>();
   readonly informacion = signal<SystemInfo | null>(null);
@@ -62,7 +64,7 @@ export class SystemInfoDialogComponent {
       },
       error: (err: HttpErrorResponse) => {
         this.ejecutando.set(false);
-        this.errorControl.set(err.error?.message ?? 'No se recibió confirmación del servidor. Comprueba su estado antes de repetir la acción.');
+        this.errorControl.set(err.error?.message ?? this.translation.translate('NO_SE_RECIBIO_CONFIRMACION_SERVIDOR'));
         if (err.error?.data) {
           this.resultado.set(err.error);
         }
@@ -86,7 +88,7 @@ export class SystemInfoDialogComponent {
       },
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
-        this.error.set(err.error?.message ?? 'No se pudo consultar el sistema.');
+        this.error.set(err.error?.message ?? this.translation.translate('NO_SE_PUDO_CONSULTAR_SISTEMA'));
       },
     });
   }

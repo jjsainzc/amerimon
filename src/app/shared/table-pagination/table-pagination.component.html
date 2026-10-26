@@ -3,8 +3,8 @@
     @if (showSearch) {
       <label class="table-pagination-search">
         <span class="table-pagination-search-icon" aria-hidden="true">🔎</span>
-        <span class="visually-hidden">{{ searchLabel }}</span>
-        <input type="search" [value]="searchText" [placeholder]="searchPlaceholder"
+        <span class="visually-hidden">{{ searchLabel || ('BUSCAR_EN_TABLA' | translate) }}</span>
+        <input type="search" [value]="searchText" [placeholder]="searchPlaceholder || ('BUSQUEDA_TABLA_PLACEHOLDER' | translate)"
           (input)="searchChange.emit($any($event.target).value)" />
       </label>
     }

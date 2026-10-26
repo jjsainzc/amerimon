@@ -1,10 +1,11 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-about-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './about-modal.component.html',
   styleUrls: ['./about-modal.component.css']
 })

@@ -1,17 +1,17 @@
 @if (ip(); as ipActual) {
   <div class="geoip-overlay" (click)="cerrar()">
     <section class="geoip-dialogo" role="dialog" aria-modal="true" aria-labelledby="geoip-titulo" (click)="$event.stopPropagation()">
-      <button type="button" class="geoip-cerrar" aria-label="Cerrar geolocalización" (click)="cerrar()">&times;</button>
-      <p class="geoip-eyebrow">GEOLOCALIZACIÓN IP</p>
+      <button type="button" class="geoip-cerrar" [attr.aria-label]="'CERRAR_GEOLOCALIZACION' | translate" (click)="cerrar()">&times;</button>
+      <p class="geoip-eyebrow">{{ 'GEOLOCALIZACION_IP' | translate }}</p>
       <h2 id="geoip-titulo"><span [appCopy]="ipActual">{{ ipActual }}</span></h2>
-      @if (cargando()) { <p role="status">Consultando ubicación…</p> }
+      @if (cargando()) { <p role="status">{{ 'CONSULTANDO_UBICACION' | translate }}</p> }
       @if (error()) { <p class="geoip-error" role="alert">{{ error() }}</p> }
       @if (datos(); as geo) {
         <dl class="geoip-datos">
-          <dt>País</dt><dd>{{ geo.country || '—' }} <span>{{ geo.country_code }}</span></dd>
-          <dt>Ciudad</dt><dd>{{ geo.city || '—' }}</dd>
-          <dt>Coordenadas</dt><dd>{{ geo.latitude }}, {{ geo.longitude }}</dd>
-          <dt>Zona horaria</dt><dd>{{ geo.time_zone || '—' }}</dd>
+          <dt>{{ 'PAIS' | translate }}</dt><dd>{{ geo.country || '—' }} <span>{{ geo.country_code }}</span></dd>
+          <dt>{{ 'CIUDAD' | translate }}</dt><dd>{{ geo.city || '—' }}</dd>
+          <dt>{{ 'COORDENADAS' | translate }}</dt><dd>{{ geo.latitude }}, {{ geo.longitude }}</dd>
+          <dt>{{ 'ZONA_HORARIA' | translate }}</dt><dd>{{ geo.time_zone || '—' }}</dd>
         </dl>
       }
     </section>

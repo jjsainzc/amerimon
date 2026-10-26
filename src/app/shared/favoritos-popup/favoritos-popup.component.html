@@ -1,10 +1,10 @@
 @if (abierto()) {
   <div class="fav-overlay">
     <section class="fav-dialogo" role="dialog" aria-modal="true" aria-labelledby="fav-titulo">
-      <button type="button" class="fav-cerrar" aria-label="Cerrar" (click)="cerrado.emit()">&times;</button>
-      <h2 id="fav-titulo">Favoritos</h2>
+      <button type="button" class="fav-cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="cerrado.emit()">&times;</button>
+      <h2 id="fav-titulo">{{ 'FAVORITOS' | translate }}</h2>
 
-      @if (cargando()) { <p role="status">Cargando…</p> }
+      @if (cargando()) { <p role="status">{{ 'CARGANDO' | translate }}</p> }
       @if (error()) { <p class="fav-error" role="alert">{{ error() }}</p> }
 
       @if (!cargando() && !error()) {
@@ -14,14 +14,14 @@
               <li class="fav-copy-row">
                 <button type="button" class="fav-item" (click)="seleccionado.emit(f.numero)">
                   <strong>{{ f.numero }}</strong>
-                  <span>{{ f.descripcion || f.descripcion_astdb || 'Sin descripción' }}</span>
+                  <span>{{ f.descripcion || f.descripcion_astdb || ('SIN_DESCRIPCION' | translate) }}</span>
                 </button>
                 <span [appCopy]="f.numero"></span>
               </li>
             }
           </ul>
         } @else {
-          <p class="fav-vacio">No hay favoritos definidos.</p>
+          <p class="fav-vacio">{{ 'NO_HAY_FAVORITOS_DEFINIDOS' | translate }}</p>
         }
       }
     </section>

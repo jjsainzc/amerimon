@@ -1,10 +1,12 @@
 import { Component, forwardRef, input, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 /** Campo de contraseña con botón de ojo para mostrarla u ocultarla; funciona con ngModel. */
 @Component({
   selector: 'app-password-field',
   standalone: true,
+  imports: [TranslatePipe],
   providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => PasswordFieldComponent), multi: true }],
   templateUrl: './password-field.component.html',
   styleUrl: './password-field.component.css'

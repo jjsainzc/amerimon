@@ -1,4 +1,4 @@
 <button type="button" class="print-button" data-print-hide [disabled]="disabled" (click)="imprimir()">
   <i class="fa-solid fa-print" aria-hidden="true"></i>
-  {{ label }}
+  {{ label || ('IMPRIMIR_REPORTE' | translate) }}
 </button>
