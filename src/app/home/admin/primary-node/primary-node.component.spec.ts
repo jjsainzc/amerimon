@@ -151,7 +151,7 @@ describe('Primary node administration', () => {
     expect(request.request.body).toEqual({ primary_node: '616265', document: documento });
     request.flush({ imported: 1 });
     http.expectOne(`${url}/access`).flush({ node: '616265', entries: documento.entries });
-    expect(component.avisoAcceso()).toContain('1 entradas importadas');
+    expect(component.avisoAcceso()).toContain('Se importaron 1 entradas');
     expect(component.importacionPendiente()).toBeNull();
     http.verify();
     fixture.destroy();

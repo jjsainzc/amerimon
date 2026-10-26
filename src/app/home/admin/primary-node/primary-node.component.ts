@@ -10,6 +10,7 @@ import { PasswordFieldComponent } from '../../../shared/password-field/password-
 import { NetCalculatorPopupComponent } from '../../../shared/net-calculator-popup/net-calculator-popup.component';
 import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { TranslationService } from '../../../core/services/translation.service';
 
 
 
@@ -49,6 +50,7 @@ export function calcularRedIPv4(value: string): string | null {
 export class PrimaryNodeComponent implements OnInit {
   private readonly service = inject(PrimaryNodeService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly translation = inject(TranslationService);
 
   readonly actual = signal('');
   readonly ruta = signal('');
@@ -121,7 +123,7 @@ export class PrimaryNodeComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.cargandoAMI.set(false);
-        this.errorAMI.set(err.error?.message || 'No se pudo cargar la configuración AMI de manager.conf.');
+        this.errorAMI.set(err.error?.message || this.translation.translate('PRIMARY_NODE_AMI_LOAD_FAILED'));
       }
     });
   }
@@ -163,7 +165,7 @@ export class PrimaryNodeComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoAMI.set(false);
-        this.errorAMI.set(err.error?.message || 'No se pudo guardar la configuración AMI. No se confirmó ningún cambio.');
+        this.errorAMI.set(err.error?.message || this.translation.translate('PRIMARY_NODE_AMI_SAVE_UNCONFIRMED'));
       }
     });
   }
@@ -185,7 +187,7 @@ export class PrimaryNodeComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
-        this.error.set(err.error?.message || 'No se pudo cargar la configuración del nodo principal.');
+        this.error.set(err.error?.message || this.translation.translate('PRIMARY_NODE_CONFIG_LOAD_FAILED'));
       }
     });
   }
@@ -209,7 +211,7 @@ export class PrimaryNodeComponent implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.guardando.set(false);
         this.password = '';
-        this.error.set(err.error?.message || 'No se pudo confirmar el guardado. Recarga la configuración antes de reintentar.');
+        this.error.set(err.error?.message || this.translation.translate('PRIMARY_NODE_SAVE_UNCONFIRMED'));
       }
     });
   }
@@ -226,7 +228,7 @@ export class PrimaryNodeComponent implements OnInit {
       },
       error: (err: HttpErrorResponse) => {
         this.cargandoAcceso.set(false);
-        this.errorAcceso.set(err.error?.message || 'No se pudieron cargar las listas de acceso. Comprueba la conexión AMI.');
+        this.errorAcceso.set(err.error?.message || this.translation.translate('PRIMARY_NODE_ACCESS_LOAD_FAILED'));
       }
     });
   }
@@ -242,13 +244,13 @@ export class PrimaryNodeComponent implements OnInit {
     solicitud.subscribe({
       next: () => {
         this.guardandoAcceso.set(false);
-        this.avisoAcceso.set('Lista de acceso actualizada en Asterisk.');
+        this.avisoAcceso.set(this.translation.translate('PRIMARY_NODE_ACCESS_UPDATED'));
         if (!eliminar) { this.remoto = ''; this.motivo = ''; }
         this.cargarAcceso();
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoAcceso.set(false);
-        this.errorAcceso.set(err.error?.message || 'No se pudo confirmar el cambio. Recarga la lista antes de reintentar.');
+        this.errorAcceso.set(err.error?.message || this.translation.translate('PRIMARY_NODE_ACCESS_CHANGE_UNCONFIRMED'));
       }
     });
   }
@@ -268,12 +270,14 @@ export class PrimaryNodeComponent implements OnInit {
     this.service.vaciarAcceso(pendiente.nodo, pendiente.tipo).subscribe({
       next: () => {
         this.guardandoAcceso.set(false);
-        this.avisoAcceso.set(`Lista de ${pendiente.tipo === 'allowlist' ? 'permitidos' : 'denegados'} vaciada en Asterisk.`);
+        this.avisoAcceso.set(this.translation.translate(
+          pendiente.tipo === 'allowlist' ? 'PRIMARY_NODE_ALLOWED_LIST_CLEARED' : 'PRIMARY_NODE_BLOCKED_LIST_CLEARED'
+        ));
         this.cargarAcceso();
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoAcceso.set(false);
-        this.errorAcceso.set(err.error?.message || 'No se pudo confirmar el vaciado. Recarga la lista antes de reintentar.');
+        this.errorAcceso.set(err.error?.message || this.translation.translate('PRIMARY_NODE_LIST_CLEAR_UNCONFIRMED'));
       }
     });
   }
@@ -293,11 +297,11 @@ export class PrimaryNodeComponent implements OnInit {
         enlace.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         this.guardandoAcceso.set(false);
-        this.avisoAcceso.set('Archivo JSON de ambas listas exportado.');
+        this.avisoAcceso.set(this.translation.translate('PRIMARY_NODE_ACCESS_EXPORT_SUCCESS'));
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoAcceso.set(false);
-        this.errorAcceso.set(err.error?.message || 'No se pudieron exportar las listas.');
+        this.errorAcceso.set(err.error?.message || this.translation.translate('PRIMARY_NODE_ACCESS_EXPORT_FAILED'));
       }
     });
   }
@@ -312,7 +316,7 @@ export class PrimaryNodeComponent implements OnInit {
     this.errorAcceso.set('');
     this.avisoAcceso.set('');
     if (archivo.size > 1024 * 1024) {
-      this.errorAcceso.set('El archivo JSON no puede superar 1 MiB.');
+      this.errorAcceso.set(this.translation.translate('PRIMARY_NODE_IMPORT_FILE_TOO_LARGE'));
       return;
     }
     const nodo = this.nodoAcceso();
@@ -320,12 +324,14 @@ export class PrimaryNodeComponent implements OnInit {
     try {
       const documento: unknown = JSON.parse(await archivo.text());
       if (!isNodeAccessDocument(documento)) {
-        this.errorAcceso.set('Formato inválido. Selecciona un archivo JSON exportado por Amerimon, versión 1, con hasta 1000 entradas.');
+        this.errorAcceso.set(this.translation.translate('PRIMARY_NODE_IMPORT_INVALID_FORMAT'));
         return;
       }
       this.importacionPendiente.set({ documento, nodo });
     } catch (err: unknown) {
-      this.errorAcceso.set(err instanceof SyntaxError ? 'El archivo no contiene JSON válido.' : 'No se pudo leer el archivo seleccionado.');
+      this.errorAcceso.set(this.translation.translate(
+        err instanceof SyntaxError ? 'PRIMARY_NODE_IMPORT_INVALID_JSON' : 'PRIMARY_NODE_IMPORT_READ_FAILED'
+      ));
     } finally {
       this.leyendoArchivo.set(false);
     }
@@ -341,12 +347,12 @@ export class PrimaryNodeComponent implements OnInit {
     this.service.importarAcceso(pendiente.nodo, pendiente.documento).subscribe({
       next: respuesta => {
         this.guardandoAcceso.set(false);
-        this.avisoAcceso.set(`${respuesta.imported} entradas importadas. Se conservaron las demás entradas existentes.`);
+        this.avisoAcceso.set(this.translation.translate('PRIMARY_NODE_IMPORT_SUCCESS', { cantidad: respuesta.imported }));
         this.cargarAcceso();
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoAcceso.set(false);
-        this.errorAcceso.set(err.error?.message || 'No se pudo confirmar la importación. Recarga y revisa las listas antes de reintentar.');
+        this.errorAcceso.set(err.error?.message || this.translation.translate('PRIMARY_NODE_IMPORT_UNCONFIRMED'));
       }
     });
   }
