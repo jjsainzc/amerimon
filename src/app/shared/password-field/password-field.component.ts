@@ -12,6 +12,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
   styleUrl: './password-field.component.css'
 })
 export class PasswordFieldComponent implements ControlValueAccessor {
+  readonly inputId = input('');
   readonly autocomplete = input('off');
   readonly placeholder = input('');
   readonly required = input(false);

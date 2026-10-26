@@ -6,17 +6,17 @@
           <p class="markdown-viewer-eyebrow">{{ eyebrow }}</p>
           <h2 id="markdown-viewer-title">{{ title }}</h2>
         </div>
-        <button type="button" class="markdown-viewer-close" aria-label="Cerrar documento" (click)="close()">&times;</button>
+        <button type="button" class="markdown-viewer-close" [attr.aria-label]="'CERRAR' | translate" (click)="close()">&times;</button>
       </header>
       <p class="markdown-viewer-diagram-note" role="note">
-        En pantallas pequeñas, los diagramas pueden verse reducidos. Amplía la ventana o desplázate horizontalmente para distinguirlos mejor.
+        {{ 'NOTA_DIAGRAMAS_PANTALLA_PEQUENA' | translate }}
       </p>
       @if (loading()) {
-        <p class="markdown-viewer-state" role="status">Cargando documento…</p>
+        <p class="markdown-viewer-state" role="status">{{ 'CARGANDO_DOCUMENTO' | translate }}</p>
       } @else if (error()) {
         <div class="markdown-viewer-state" role="alert">
-          <p>{{ error() }}</p>
-          <button type="button" class="markdown-viewer-retry" (click)="loadMarkdown()">Reintentar</button>
+          <p>{{ error() | translate:{titulo: title} }}</p>
+          <button type="button" class="markdown-viewer-retry" (click)="loadMarkdown()">{{ 'REINTENTAR' | translate }}</button>
         </div>
       } @else {
         <article class="markdown-viewer-content" [innerHTML]="html()"></article>

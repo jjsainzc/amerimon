@@ -3,6 +3,7 @@ import { DOCUMENT } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import mermaid from 'mermaid';
@@ -10,6 +11,7 @@ import mermaid from 'mermaid';
 @Component({
   selector: 'app-markdown-viewer',
   standalone: true,
+  imports: [TranslatePipe],
   templateUrl: './markdown-viewer.component.html',
   styleUrl: './markdown-viewer.component.css'
 })
@@ -130,7 +132,7 @@ export class MarkdownViewerComponent implements OnChanges {
         this.html.set(this.sanitizer.bypassSecurityTrustHtml(content.innerHTML));
       }
     } catch {
-      if (generation === this.loadGeneration) this.error.set(`No se pudo cargar ${this.title}.`);
+      if (generation === this.loadGeneration) this.error.set('ERROR_AL_CARGAR_DOCUMENTO');
     } finally {
       if (generation === this.loadGeneration) this.loading.set(false);
     }

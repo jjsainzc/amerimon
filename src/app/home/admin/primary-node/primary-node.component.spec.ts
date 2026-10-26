@@ -108,6 +108,15 @@ describe('Primary node administration', () => {
     amiSecretField?.querySelector<HTMLButtonElement>('button[aria-label="Ocultar contraseña"]')?.click();
     fixture.detectChanges();
     expect(amiSecretField?.querySelector<HTMLInputElement>('input[type="password"]')?.value).toBe('ami_secret');
+
+    const loading = TestBed.inject(TranslationService).loadLanguage('en');
+    http.expectOne('./assets/i18n/en.json').flush(translations['en']);
+    await loading;
+    fixture.detectChanges();
+    expect(amiSecretField?.querySelector('button[aria-label="Show password"]')).not.toBeNull();
+    amiSecretField?.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')?.click();
+    fixture.detectChanges();
+    expect(amiSecretField?.querySelector('button[aria-label="Hide password"]')).not.toBeNull();
     http.verify();
     fixture.destroy();
   });
