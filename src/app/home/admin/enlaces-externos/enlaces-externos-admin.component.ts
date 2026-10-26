@@ -3,19 +3,22 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EnlaceExterno, EnlaceExternoEntrada } from '../../../core/models/enlace-externo.model';
 import { EnlacesExternosService } from '../../../core/services/enlaces-externos.service';
+import { TranslationService } from '../../../core/services/translation.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-enlaces-externos-admin',
   standalone: true,
-  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent],
+  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, TranslatePipe],
   templateUrl: './enlaces-externos-admin.component.html',
   styleUrl: './enlaces-externos-admin.component.css'
 })
 export class EnlacesExternosAdminComponent implements OnInit {
   private readonly service = inject(EnlacesExternosService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly translation = inject(TranslationService);
 
   readonly enlaces = signal<EnlaceExterno[]>([]);
   readonly cargando = signal(false);
@@ -101,7 +104,7 @@ export class EnlacesExternosAdminComponent implements OnInit {
       next: () => {
         this.guardando.set(false);
         this.formularioAbierto.set(false);
-        this.exito.set(id === null ? 'Enlace externo creado.' : 'Enlace externo actualizado.');
+        this.exito.set(this.translation.translate(id === null ? 'ENLACE_EXTERNO_CREADO' : 'ENLACE_EXTERNO_ACTUALIZADO'));
         this.cargar();
       },
       error: error => {
@@ -132,7 +135,7 @@ export class EnlacesExternosAdminComponent implements OnInit {
         this.borrando.set(false);
         this.pendienteBorrar.set(null);
         this.enlaces.update(enlaces => enlaces.filter(item => item.dashid !== enlace.dashid));
-        this.exito.set('Enlace externo eliminado.');
+        this.exito.set(this.translation.translate('ENLACE_EXTERNO_ELIMINADO'));
       },
       error: error => {
         this.borrando.set(false);
@@ -144,6 +147,6 @@ export class EnlacesExternosAdminComponent implements OnInit {
 
   /** Obtiene el mensaje enviado por el servidor o un texto alternativo. */
   private mensajeError(error: HttpErrorResponse): string {
-    return error.error?.message ?? 'No se pudo completar la operación.';
+    return error.error?.message ?? this.translation.translate('NO_SE_PUDO_COMPLETAR_LA_OPERACION');
   }
 }

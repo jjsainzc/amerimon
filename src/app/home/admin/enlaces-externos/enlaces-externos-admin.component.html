@@ -2,15 +2,15 @@
   <app-admin-volver />
   <header class="ea-cabecera">
     <div>
-      <h1>Enlaces externos</h1>
-      <p>Administra los enlaces que todos pueden abrir desde el botón general.</p>
+      <h1>{{ 'ENLACES_EXTERNOS' | translate }}</h1>
+      <p>{{ 'ADMINISTRA_ENLACES_EXTERNOS_DESCRIPCION' | translate }}</p>
     </div>
-    <button type="button" class="ea-boton ea-primario" (click)="abrirNuevo()">＋ Nuevo enlace</button>
+    <button type="button" class="ea-boton ea-primario" (click)="abrirNuevo()">{{ 'NUEVO_ENLACE_EXTERNO' | translate }}</button>
   </header>
 
   @if (error()) { <p class="ea-mensaje ea-error" role="alert">{{ error() }}</p> }
   @if (exito()) { <p class="ea-mensaje ea-exito" role="status">{{ exito() }}</p> }
-  @if (cargando()) { <p role="status">Cargando enlaces…</p> }
+  @if (cargando()) { <p role="status">{{ 'CARGANDO_ENLACES' | translate }}</p> }
 
   @if (!cargando() && enlaces().length > 0) {
     <div class="ea-lista">
@@ -18,19 +18,19 @@
         <article class="ea-item">
           <div class="ea-detalle">
             <div class="ea-titulo">
-              <h2>{{ enlace.descripcion || 'Sin descripción' }}</h2>
+              <h2>{{ enlace.descripcion || ('SIN_DESCRIPCION' | translate) }}</h2>
               <span class="ea-estado" [class.inactivo]="enlace.is_active !== 1">
-                {{ enlace.is_active === 1 ? 'Activo' : 'Inactivo' }}
+                {{ (enlace.is_active === 1 ? 'ACTIVO' : 'INACTIVO') | translate }}
               </span>
             </div>
             <a [href]="enlace.url" target="_blank" rel="noopener noreferrer">{{ enlace.url }}</a>
             <small>ID {{ enlace.dashid }} · {{ enlace.target || '_blank' }}</small>
           </div>
           <div class="ea-acciones-item">
-            <button type="button" class="ea-boton" (click)="abrirEditar(enlace)">Editar</button>
+            <button type="button" class="ea-boton" (click)="abrirEditar(enlace)">{{ 'EDITAR' | translate }}</button>
             <button type="button" class="ea-boton ea-borrar" (click)="solicitarBorrado(enlace)"
-              [attr.aria-label]="'Eliminar enlace ' + (enlace.descripcion || enlace.dashid)"
-              [title]="'Eliminar enlace ' + (enlace.descripcion || enlace.dashid)">
+              [attr.aria-label]="'ELIMINAR_ENLACE' | translate:{descripcion: enlace.descripcion || enlace.dashid}"
+              [title]="'ELIMINAR_ENLACE' | translate:{descripcion: enlace.descripcion || enlace.dashid}">
               <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
             </button>
           </div>
@@ -38,45 +38,45 @@
       }
     </div>
   } @else if (!cargando() && !error()) {
-    <p class="ea-vacio">No hay enlaces externos. Crea el primero para publicarlo.</p>
+    <p class="ea-vacio">{{ 'NO_HAY_ENLACES_EXTERNOS_CREA_EL_PRIMERO' | translate }}</p>
   }
 </main>
 
 @if (formularioAbierto()) {
   <div class="ea-overlay" (click)="cerrarFormulario()">
     <section class="ea-dialogo" role="dialog" aria-modal="true" aria-labelledby="ea-form-titulo" (click)="$event.stopPropagation()">
-      <button type="button" class="ea-cerrar" aria-label="Cerrar" (click)="cerrarFormulario()">×</button>
-      <h2 id="ea-form-titulo">{{ editandoId() === null ? 'Nuevo enlace externo' : 'Editar enlace externo' }}</h2>
+      <button type="button" class="ea-cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="cerrarFormulario()">×</button>
+      <h2 id="ea-form-titulo">{{ (editandoId() === null ? 'NUEVO_ENLACE_EXTERNO' : 'EDITAR_ENLACE_EXTERNO') | translate }}</h2>
       @if (error()) { <p class="ea-mensaje ea-error" role="alert">{{ error() }}</p> }
       <form [formGroup]="form" (ngSubmit)="guardar()" novalidate>
         <label class="ea-campo">
-          <span>Descripción *</span>
-          <input type="text" formControlName="descripcion" maxlength="255" placeholder="Panel de la red" />
+          <span>{{ 'DESCRIPCION' | translate }}</span>
+          <input type="text" formControlName="descripcion" maxlength="255" [placeholder]="'EJEMPLO_DESCRIPCION_ENLACE' | translate" />
           @if (form.controls.descripcion.touched && form.controls.descripcion.invalid) {
-            <small>Escribe una descripción de hasta 255 caracteres.</small>
+            <small>{{ 'DESCRIPCION_ENLACE_REQUERIDA_MAXIMO' | translate }}</small>
           }
         </label>
         <label class="ea-campo">
           <span>URL *</span>
-          <input type="url" formControlName="url" maxlength="255" placeholder="https://ejemplo.org/" />
+          <input type="url" formControlName="url" maxlength="255" [placeholder]="'EJEMPLO_URL_ENLACE' | translate" />
           @if (form.controls.url.touched && form.controls.url.invalid) {
-            <small>Usa una URL completa que comience con http:// o https:// (máximo 255 caracteres).</small>
+            <small>{{ 'URL_ENLACE_REQUERIDA_FORMATO' | translate }}</small>
           }
         </label>
         <div class="ea-form-fila">
           <label class="ea-campo">
-            <span>Abrir enlace en</span>
+            <span>{{ 'ABRIR_ENLACE_EN' | translate }}</span>
             <select formControlName="target">
-              <option value="_blank">Nueva pestaña</option>
-              <option value="_self">Esta pestaña</option>
+              <option value="_blank">{{ 'NUEVA_PESTANA' | translate }}</option>
+              <option value="_self">{{ 'ESTA_PESTANA' | translate }}</option>
             </select>
           </label>
-          <label class="ea-activo"><input type="checkbox" formControlName="is_active" /> Visible para todos</label>
+          <label class="ea-activo"><input type="checkbox" formControlName="is_active" /> {{ 'VISIBLE_PARA_TODOS' | translate }}</label>
         </div>
         <div class="ea-form-acciones">
-          <button type="button" class="ea-boton" (click)="cerrarFormulario()" [disabled]="guardando()">Cancelar</button>
+          <button type="button" class="ea-boton" (click)="cerrarFormulario()" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
           <button type="submit" class="ea-boton ea-primario" [disabled]="guardando()">
-            {{ guardando() ? 'Guardando…' : 'Guardar' }}
+            {{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}
           </button>
         </div>
       </form>
@@ -86,9 +86,9 @@
 
 <app-confirmacion-dialog
   [open]="pendienteBorrar() !== null"
-  title="Eliminar enlace externo"
-  [message]="pendienteBorrar() ? '¿Eliminar «' + pendienteBorrar()!.descripcion + '»? Esta acción no se puede deshacer.' : ''"
-  confirmLabel="Eliminar"
+  [title]="'ELIMINAR_ENLACE_EXTERNO' | translate"
+  [message]="pendienteBorrar() ? ('CONFIRMAR_ELIMINAR_ENLACE_EXTERNO' | translate:{descripcion: pendienteBorrar()!.descripcion || pendienteBorrar()!.dashid}) : ''"
+  [confirmLabel]="'ELIMINAR' | translate"
   [showDeleteIcon]="true"
   [busy]="borrando()"
   (confirmed)="confirmarBorrado()"
