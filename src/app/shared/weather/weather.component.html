@@ -1,49 +1,50 @@
 <div class="weather-line">
   @if (loading()) {
-    <div class="status-message">Obteniendo clima...</div>
+    <div class="status-message">{{ 'OBTENIENDO_CLIMA' | translate }}</div>
   } @else if (errorMessage()) {
     <div class="error-message">{{ errorMessage() }}</div>
   } @else {
-    <div class="report-content" [title]="weatherReport()">Clima local:<span style="color: #ffffff !important"><strong> {{ weatherReport() }}</strong></span></div>
+    <div class="report-content" [title]="weatherReport()">{{ 'CLIMA_LOCAL' | translate }}:<span style="color: #ffffff !important"><strong> {{ weatherReport() }}</strong></span></div>
   }
-  <button type="button" class="weather-refresh" aria-label="Actualizar clima ahora" title="Actualizar clima ahora"
+  <button type="button" class="weather-refresh" aria-label="{{ 'ACTUALIZAR_CLIMA_AHORA' | translate }}" title="{{ 'ACTUALIZAR_CLIMA_AHORA' | translate }}"
     [disabled]="loading()" (click)="refreshWeather()"><span aria-hidden="true">↻</span></button>
 </div>
 @if (errorMessage()) {
   <div class="retry-message">
-    Reintentando automáticamente en segundo plano...
-    <button type="button" class="weather-retry" (click)="refreshWeather()">Reintentar ahora</button>
+    {{ 'REINTENTANDO_EN_SEGUNDO_PLANO' | translate }}
+    <button type="button" class="weather-retry" (click)="refreshWeather()">{{'REINTENTAR_AHORA' | translate}}</button>
   </div>
 }
 <div class="location-row">
   @if (consultedLocation()) {
-    <span class="location-message" [title]="consultedLocation()">Localidad consultada:
+    <span class="location-message" [title]="consultedLocation()">{{ 'LOCALIDAD_CONSULTADA' | translate }}:
       @if (locationMapUrl()) {
-        <a [href]="locationMapUrl()" target="_blank" rel="noopener noreferrer" title="Ver localidad en Google Maps"><strong>{{ consultedLocation() }}</strong></a>
+        <a [href]="locationMapUrl()" target="_blank" rel="noopener noreferrer" title="{{ 'VER_LOCALIDAD_EN_GOOGLE_MAP' | translate }}"><strong>{{ consultedLocation() }}</strong></a>
       } @else {
         <strong>{{ consultedLocation() }}</strong>
       }
+
     </span>
   }
-  <button type="button" class="weather-change" aria-haspopup="dialog" (click)="openLocationDialog(locationDialog)"><span aria-hidden="true">↻</span> Cambiar ubicación</button>
+  <button type="button" class="weather-change" aria-haspopup="dialog" (click)="openLocationDialog(locationDialog)"><span aria-hidden="true">↻</span> {{ 'CAMBIAR_UBICACION' | translate }}</button>
 </div>
 
 <dialog #locationDialog class="location-dialog" aria-labelledby="weather-location-title" (close)="closeLocationDialog()">
-  <h2 id="weather-location-title">Cambiar ubicación</h2>
-  <button type="button" class="location-close" aria-label="Cerrar" (click)="locationDialog.close()">×</button>
-  <p>Este cambio es temporal y no modifica la configuración del administrador.</p>
+  <h2 id="weather-location-title">{{ 'CAMBIAR_UBICACION' | translate }}</h2>
+  <button type="button" class="location-close" aria-label="{{ 'CERRAR' | translate }}" (click)="locationDialog.close()">×</button>
+  <p>{{ 'CAMBIO_TEMPORAL' | translate }}</p>
   <div class="location-options">
     <button type="button" [disabled]="locating()" (click)="useBrowserLocation(locationDialog)">
-      {{ locating() ? 'Obteniendo ubicación...' : 'Obtener mi ubicación' }}
+      {{ locating() ? ('OBTENIENDO_UBICACION' | translate) : ('OBTENER_UBICACION' | translate) }}
     </button>
     @if (configuredLocation()) {
-      <button type="button" (click)="useConfiguredLocation(locationDialog)">Usar configuración</button>
+      <button type="button" (click)="useConfiguredLocation(locationDialog)">{{ 'USAR_CONFIGURACION' | translate }}</button>
     }
   </div>
   <form (ngSubmit)="useEnteredLocation(locationDialog)">
-    <label for="weather-location">Ubicación</label>
-    <input id="weather-location" type="text" name="location" [(ngModel)]="locationDraft" maxlength="120" placeholder="Ciudad, código postal o lat,lon" />
-    <button type="submit">Usar ubicación</button>
+    <label for="weather-location">{{ 'UBICACION' | translate }}</label>
+    <input id="weather-location" type="text" name="location" [(ngModel)]="locationDraft" maxlength="120" placeholder="{{ 'CIUDAD_CODIGO_POSTAL_O_LAT_LON' | translate }}" />
+    <button type="submit">{{ 'USAR_UBICACION' | translate }}</button>
   </form>
   @if (locationError()) {
     <p class="location-error" role="alert">{{ locationError() }}</p>

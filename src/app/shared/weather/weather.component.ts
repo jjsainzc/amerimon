@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { WeatherService } from '../../core/services/weather.service';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 interface CoordenadaDMS {
   grados: number;
@@ -15,7 +16,7 @@ interface CoordenadaDMS {
 @Component({
   selector: 'app-weather',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './weather.component.html',
   styleUrls: ['./weather.component.css']
 })
