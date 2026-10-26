@@ -4,16 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PrivateNodesService } from '../../../core/services/private-nodes.service';
+import { TranslationService } from '../../../core/services/translation.service';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-private-nodes',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, CopyValueDirective],
+  imports: [FormsModule, AdminVolverComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './private-nodes.component.html',
   styleUrl: './private-nodes.component.css'
 })
 export class PrivateNodesComponent implements OnInit {
   private readonly service = inject(PrivateNodesService);
+  private readonly translation = inject(TranslationService);
 
   readonly lineas = signal<string[]>([]);
   readonly ruta = signal('');
@@ -41,7 +44,7 @@ export class PrivateNodesComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.cargando.set(false);
-        this.error.set(error.error?.message ?? 'No se pudo cargar el archivo de nodos privados.');
+        this.error.set(error.error?.message ?? this.translation.translate('NO_SE_PUDO_CARGAR_ARCHIVO_NODOS_PRIVADOS'));
       }
     });
   }
@@ -69,12 +72,12 @@ export class PrivateNodesComponent implements OnInit {
     this.service.guardar(this.lineas()).subscribe({
       next: () => {
         this.guardando.set(false);
-        this.aviso.set('Archivo de nodos privados guardado.');
+        this.aviso.set(this.translation.translate('ARCHIVO_NODOS_PRIVADOS_GUARDADO'));
         this.cargar();
       },
       error: (error: HttpErrorResponse) => {
         this.guardando.set(false);
-        this.error.set(error.error?.message ?? 'No se pudo guardar el archivo de nodos privados.');
+        this.error.set(error.error?.message ?? this.translation.translate('NO_SE_PUDO_GUARDAR_ARCHIVO_NODOS_PRIVADOS'));
       }
     });
   }

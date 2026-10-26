@@ -1,33 +1,32 @@
 <section class="private-nodes">
   <app-admin-volver />
-  <h3>Nodos privados</h3>
+  <h3>{{ 'NODOS_PRIVADOS_TITULO' | translate }}</h3>
   <p class="private-nodes-ayuda">
-    Archivo: <code>{{ ruta() }}</code>. Cada línea usa el formato
-    <code>nodo|indicativo|descripción|ubicación</code>; los dos últimos campos son opcionales.
-    Se conserva el archivo existente y la ruta predeterminada es <code>/var/lib/asterisk/privatenodes.txt</code>.
+    {{ 'ARCHIVO' | translate }}: <code>{{ ruta() }}</code>. {{ 'FORMATO_LINEA_NODOS_PRIVADOS' | translate }}
+    <code>nodo|indicativo|descripción|ubicación</code>{{ 'CAMPOS_OPCIONALES_Y_RUTA_PREDETERMINADA' | translate }}.
   </p>
   @if (!escribible()) {
-    <p class="private-nodes-alerta">El servicio no tiene permiso para escribir este archivo.</p>
+    <p class="private-nodes-alerta">{{ 'SERVICIO_SIN_PERMISO_ESCRITURA_ARCHIVO' | translate }}</p>
   }
   @if (cargando()) {
-    <p role="status">Cargando…</p>
+    <p role="status">{{ 'CARGANDO' | translate }}</p>
   }
 
   <form (ngSubmit)="guardar()">
     <div class="private-nodes-lista">
       @for (linea of lineas(); track $index; let i = $index) {
         <div class="private-nodes-fila">
-          <label [for]="'private-node-' + i">Línea {{ i + 1 }}</label>
+          <label [for]="'private-node-' + i">{{ 'LINEA_NUMERO' | translate:{numero: i + 1} }}</label>
           <span class="clipboard-field" [appCopy]="linea"><input [id]="'private-node-' + i" [name]="'linea' + i" [ngModel]="linea"
             (ngModelChange)="actualizar(i, $event)"
-            maxlength="512" autocomplete="off" placeholder="448511|EA4ABC|Descripción|Ubicación"></span>
+            maxlength="512" autocomplete="off" [placeholder]="'EJEMPLO_FORMATO_NODO_PRIVADO' | translate"></span>
           <button type="button" class="private-nodes-quitar" (click)="quitar(i)"
-            [attr.aria-label]="'Borrar línea ' + (i + 1)" [title]="'Borrar línea ' + (i + 1)">
+            [attr.aria-label]="'BORRAR_LINEA_NUMERO' | translate:{numero: i + 1}" [title]="'BORRAR_LINEA_NUMERO' | translate:{numero: i + 1}">
             <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
           </button>
         </div>
       } @empty {
-        <p class="private-nodes-vacio">No hay líneas configuradas.</p>
+        <p class="private-nodes-vacio">{{ 'NO_HAY_LINEAS_CONFIGURADAS' | translate }}</p>
       }
     </div>
 
@@ -35,9 +34,9 @@
     @if (aviso()) { <p class="private-nodes-ok" role="status">{{ aviso() }}</p> }
 
     <div class="private-nodes-acciones">
-      <button type="button" (click)="agregar()" [disabled]="guardando()">Agregar línea</button>
+      <button type="button" (click)="agregar()" [disabled]="guardando()">{{ 'AGREGAR_LINEA' | translate }}</button>
       <button type="submit" [disabled]="guardando() || !escribible()">
-        {{ guardando() ? 'Guardando…' : 'Guardar cambios' }}
+        {{ (guardando() ? 'GUARDANDO' : 'GUARDAR_CAMBIOS') | translate }}
       </button>
     </div>
   </form>
