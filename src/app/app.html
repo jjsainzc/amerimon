@@ -65,6 +65,13 @@
               <a routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODOS_ALLMON' | translate }}</a>
               <a routerLink="/admin/primary-node" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODO_PRINCIPAL' | translate }}</a>
               <a routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODOS_PRIVADOS' | translate }}</a>
+
+              <!-- Nuevas rutas integradas para IAX y PJSIP -->
+              <!-- Modales de administración IAX y PJSIP -->
+              <a  routerLink="/admin/iax-users" routerLinkActive="activo" (click)="cerrarMenu()" >{{ 'USUARIOS_IAX' | translate }}</a>
+              <a  routerLink="/admin/pjsip-users" routerLinkActive="activo" (click)="cerrarMenu()" >{{ 'EXTENSIONES_PJSIP' | translate }}</a>
+              
+
               <a routerLink="/admin/cabecera" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'PERSONALIZAR_CABECERA' | translate }}</a>
               <a routerLink="/admin/cambiar-contrasena" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'CAMBIAR_CONTRASENA' | translate }}</a>
               <a routerLink="/manual-tecnico" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'MANUAL_TECNICO' | translate }}</a>

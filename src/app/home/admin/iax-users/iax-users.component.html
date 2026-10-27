@@ -1,0 +1,62 @@
+<section class="sip-users" aria-labelledby="iax-titulo">
+  <app-admin-volver />
+  <h2 id="iax-titulo">{{ 'IAX_USERS_TITLE' | translate }}</h2>
+
+  @if (cargando()) { <p role="status">{{ 'CARGANDO' | translate }}</p> }
+  @if (error()) { <p class="sip-users-error" role="alert">{{ error() | translate }}</p> }
+
+  @if (!cargando()) {
+    <div class="sip-users-toolbar">
+      <button type="button" (click)="cargarUsuarios()" [disabled]="guardando()">{{ 'RECARGAR_LISTA' | translate }}</button>
+      @if (!editando()) {
+        <button type="button" (click)="nuevoUsuario()">+ {{ 'IAX_USERS_NEW' | translate }}</button>
+      }
+    </div>
+
+    @if (!editando()) {
+      @if (usuariosList().length) {
+        <ul class="sip-users-lista">
+          @for (u of usuariosList(); track u.name) {
+            <li class="sip-users-fila" [appCopy]="u.name">
+              <button type="button" class="sip-users-item" (click)="seleccionarUsuario(u)">
+                <strong>{{ u.name }}</strong>
+                <span>{{ 'SIP_USERS_CONTEXT' | translate }}: {{ u.context }} | {{ 'HOST' | translate }}: {{ u.host }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else if (!error()) {
+        <p class="sip-users-vacio">{{ 'IAX_USERS_EMPTY' | translate }}</p>
+      }
+    } @else {
+      <form #formulario="ngForm" (ngSubmit)="formulario.valid && guardarUsuario()">
+        <fieldset [disabled]="guardando()">
+          <label>
+            {{ 'IAX_USERS_NAME' | translate }}
+            <span class="clipboard-field" [appCopy]="usuarioActual().name"><input type="text" [(ngModel)]="usuarioActual().name" name="name" required [disabled]="esEdicion()" /></span>
+          </label>
+          <label>
+            {{ 'SIP_USERS_CONTEXT' | translate }}
+            <span class="clipboard-field" [appCopy]="usuarioActual().context"><input type="text" [(ngModel)]="usuarioActual().context" name="context" required /></span>
+          </label>
+          <label for="iax-secret">{{ 'IAX_USERS_SECRET' | translate }}</label>
+          <app-password-field inputId="iax-secret" [(ngModel)]="usuarioActual().secret" name="secret" [required]="true" autocomplete="new-password" />
+          <label>
+            {{ 'IAX_USERS_AUTH' | translate }}
+            <span class="clipboard-field" [appCopy]="usuarioActual().auth"><input type="text" [(ngModel)]="usuarioActual().auth" name="auth" /></span>
+          </label>
+
+          <div class="sip-users-acciones">
+            <button type="button" (click)="editando.set(false)" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
+            <button type="submit" [disabled]="formulario.invalid || guardando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
+            @if (esEdicion()) {
+              <button type="button" class="sip-users-eliminar" (click)="eliminarUsuario(usuarioActual().name)" [disabled]="guardando()">
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i> {{ 'ELIMINAR' | translate }}
+              </button>
+            }
+          </div>
+        </fieldset>
+      </form>
+    }
+  }
+</section>

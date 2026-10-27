@@ -1,0 +1,30 @@
+:host { display: block; min-width: 0; }
+.sip-users { box-sizing: border-box; width: 100%; min-width: 0; max-width: 60rem; margin: 0 auto; padding: 1rem; color: #dce5eb; }
+.sip-users h2 { margin: .5rem 0 1rem; font-size: 1.17rem; }
+.sip-users-toolbar, .sip-users-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.sip-users-toolbar { justify-content: flex-end; margin-bottom: .75rem; }
+.sip-users-acciones { justify-content: flex-end; margin-top: .25rem; }
+button { padding: .5rem .8rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; cursor: pointer; }
+button:hover:not(:disabled) { background: #2d414f; }
+button:focus-visible, input:focus-visible { outline: 2px solid #8dcfff; outline-offset: 2px; }
+button:disabled, input:disabled { opacity: .55; cursor: default; }
+.sip-users-lista { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.sip-users-fila { display: flex; align-items: center; min-width: 0; }
+.sip-users-fila > .sip-users-item { flex: 1; min-width: 0; }
+.sip-users-item { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(0, 3fr); gap: .75rem; width: 100%; text-align: left; }
+.sip-users-item strong { color: #e5edf2; }
+.sip-users-item span, .sip-users-vacio { color: #a9bac5; }
+.sip-users-item strong, .sip-users-item span { min-width: 0; overflow-wrap: anywhere; }
+fieldset { display: grid; min-width: 0; gap: .75rem; margin: 0; padding: 1rem; border: 1px solid #455b68; border-radius: 6px; }
+label { display: grid; min-width: 0; gap: .4rem; }
+label[for] { margin-bottom: -.35rem; }
+input { box-sizing: border-box; width: 100%; min-width: 0; padding: .5rem; border: 1px solid #455b68; border-radius: 5px; background: #14202a; color: #e5edf2; font: inherit; }
+.sip-users-eliminar i { color: #ff6b6b; }
+.sip-users-error { color: #ff8a80; overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .sip-users { padding: .75rem; }
+  .sip-users-item { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+  .sip-users-toolbar button, .sip-users-acciones button { flex: 1 1 auto; }
+  fieldset { padding: .75rem; }
+}

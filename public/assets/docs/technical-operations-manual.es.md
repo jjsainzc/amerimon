@@ -6,7 +6,7 @@ Amerimon es una aplicación web para consultar AllStarLink, administrar nodos Al
 
 Este manual describe el árbol de código actual. La versión Debian publicada de referencia es `1.0.4`. Los clientes instalan y actualizan Amerimon con APT; no necesitan compilar el código ni ejecutar tareas de publicación.
 
-Amerimon consulta Asterisk mediante AMI. Su postinstalador prepara los módulos y contextos necesarios para Listen Live. El administrador puede cambiar explícitamente la identidad y las listas de acceso del nodo principal desde el panel web; no se reconfiguran automáticamente los demás nodos ni PJSIP.
+Amerimon consulta Asterisk mediante AMI. Su postinstalador prepara los módulos y contextos necesarios para Listen Live. El administrador puede cambiar explícitamente la identidad y las listas de acceso del nodo principal, así como administrar usuarios IAX y extensiones PJSIP desde sus páginas específicas. No se reconfiguran automáticamente los demás nodos ni los usuarios de telefonía.
 
 ## 2. Componentes y puertos
 
@@ -326,6 +326,39 @@ Las preferencias se almacenan en Local Storage bajo `amerimon.notice-preferences
 
 Temporalmente, **Admin → Personalizar cabecera → Restablecer advertencias y confirmaciones** permite volver a mostrar todos los tipos ocultos. No guarda los campos de cabecera ni modifica credenciales, sesión, nodos o configuración del servidor. El restablecimiento solo anuncia éxito si se elimina correctamente la preferencia del navegador.
 
+### Usuarios IAX y extensiones PJSIP
+
+Accede mediante **Admin → Más opciones → Usuarios IAX / Extensiones PJSIP**, en las rutas `/admin/iax-users` y `/admin/pjsip-users`. Son páginas administrativas, no ventanas modales, y consultan su listado al abrirse. Los títulos, etiquetas, botones, estados vacíos, mensajes de carga, errores genéricos y confirmaciones de eliminación siguen el idioma español o inglés seleccionado en la cabecera, incluso al cambiarlo con el formulario abierto. Los valores de configuración no se traducen. Los diagnósticos enviados por el backend se conservan literalmente para no perder información técnica.
+
+1. Pulsa **Nuevo usuario IAX** o **Nueva extensión PJSIP**, o selecciona una entrada del listado para editarla.
+2. En IAX se editan **Nombre (sección)**, **Contexto**, **Secreto (contraseña)** y **Autenticación**. En PJSIP se editan **Número de extensión (ID)**, **Contexto**, **Contraseña**, **Identificador de llamada** y **Máximo de contactos**.
+3. El nombre o ID queda bloqueado durante la edición; no se admite renombrar desde estos formularios. El contexto y el secreto o contraseña son obligatorios; el máximo de contactos debe ser un entero positivo. Los identificadores admiten de 1 a 80 letras ASCII, números, punto, guion y guion bajo; IAX reserva `general`. El backend rechaza saltos de línea, caracteres nulos y delimitadores de comentario `;` y `#` en los valores enviados.
+4. **Guardar** aplica los cambios y vuelve a consultar la lista. **Cancelar** cierra la edición sin guardar. **Eliminar** aparece al editar y solicita confirmación nativa del navegador con el identificador de la entrada; esta confirmación no utiliza las preferencias para ocultar avisos.
+5. Si falla una operación, se muestra el error y se conservan los datos en edición para corregirlos o reintentar. **Recargar lista** reintenta la consulta sin guardar el formulario. Guardar y eliminar quedan bloqueados mientras otra modificación está en curso.
+
+#### Archivos y recargas
+
+| Módulo | Archivo | Recarga por AMI |
+| --- | --- | --- |
+| IAX | `iax.conf` en el directorio de `ami.rpt_config_path`; por defecto `/etc/asterisk/iax.conf` | `iax2 reload` |
+| PJSIP | `ami.pjsip_config_path`; por defecto `/etc/asterisk/pjsip.conf`. Si está vacío, se busca junto a `ami.rpt_config_path` | `pjsip reload` |
+
+El usuario del servicio necesita leer y escribir los archivos y crear archivos en su directorio. Antes de guardar se crea o reemplaza un respaldo `<archivo>.amerimon.bak` con permisos `0600`; el reemplazo del archivo de configuración es atómico, resuelve los enlaces simbólicos y conserva propietario, grupo y permisos. Si falla el respaldo, no se modifica la configuración. Incluye estos archivos y respaldos, que contienen contraseñas, en una política de acceso restringido y copia de seguridad; no dependen de la base SQLite.
+
+Las recargas usan las credenciales AMI configuradas en Amerimon y requieren autorización para ejecutar comandos CLI; no se ejecuta un binario `asterisk` mediante privilegios del navegador ni se reinicia Asterisk. **Si el archivo se guarda pero falla la recarga, no se revierte automáticamente:** la interfaz informa del guardado parcial. Comprueba AMI y los registros de Asterisk, revisa el contenido y recarga antes de repetir la operación. Una respuesta de recarga no garantiza que un teléfono se registre o tenga audio; verifica el resultado en Asterisk y en el cliente.
+
+Estas páginas siguen el diseño de las demás opciones administrativas: contenedor centrado, formularios con borde, botones compactos, icono de papelera y distribución adaptable a móvil. Las contraseñas utilizan el mismo campo con botón de ojo para mostrarlas u ocultarlas, sin guardar ni modificar su valor. Se muestran ocultas inicialmente, pero se entregan al navegador de un administrador autorizado para editar la configuración; las respuestas no se almacenan en caché. Utiliza HTTPS y un dispositivo de confianza.
+
+El icono de copia permite copiar el nombre o ID desde el listado sin abrir la edición, y el valor actual de los campos no secretos desde el formulario, sin guardarlo. Muestra confirmación o error de portapapeles. Las contraseñas y secretos no incluyen icono de copia.
+
+#### Conservación de configuraciones personalizadas y límites
+
+IAX no lista `[general]` ni plantillas marcadas con `(!)`. PJSIP lista endpoints y relaciona sus referencias `auth` y `aors`, aunque los objetos tengan nombres distintos; los objetos globales y transportes no se tratan como extensiones. Al editar se conservan las opciones no expuestas, como transporte, usuario de autenticación y parámetros personalizados; las opciones expuestas se actualizan con los valores del formulario.
+
+Solo se editan y eliminan secciones inequívocas del archivo principal. Para PJSIP se requiere un único objeto auth `userpass` y un único AOR, ambos locales al archivo y exclusivos del endpoint. Se rechazan sin escritura los objetos compartidos, duplicados, heredados de plantillas, las referencias múltiples o ausentes y las secciones que contienen directivas `#include`. No se recorren ni se editan archivos incluidos: una instalación distribuida entre varios archivos necesita revisión manual, también antes de crear un identificador que pudiera existir en un include.
+
+Las nuevas extensiones PJSIP crean objetos endpoint, auth y AOR con el mismo ID; los nuevos usuarios IAX usan los valores predeterminados del formulario. No se crean contextos del dialplan, transportes ni reglas de red: el contexto seleccionado y la infraestructura de telefonía deben existir y ser compatibles con la instalación.
+
 ### Restablecer la cuenta de administrador
 
 Si se olvidó la contraseña, ejecuta como usuario con sudo:
@@ -365,6 +398,10 @@ El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e *
 | `/mon/allstarlink/nodes`, `/mon/allstarlink/activity` | Público, token opcional | Nodos y actividad |
 | `/mon/listen-live/*` | Público, token opcional según operación | Sesiones, estado y WebSocket de audio |
 | `/mon/allmon/config` | Administrador | Leer/guardar nodos Allmon |
+| `/mon/iax-users` | Administrador | GET: mapa de usuarios por nombre; POST: crear o actualizar un usuario IAX |
+| `/mon/iax-users/:name` | Administrador | DELETE: eliminar la sección IAX indicada |
+| `/mon/pjsip-users` | Administrador | GET: lista de endpoints con auth/AOR; POST: crear o actualizar una extensión |
+| `/mon/pjsip-users/:id` | Administrador | DELETE: eliminar endpoint y sus objetos auth/AOR exclusivos |
 | `/mon/asterisk/commands` | Administrador | Listar y ejecutar acciones Asterisk |
 | `/mon/asterisk/logs` | Administrador | Últimas 500 operaciones por defecto, máximo 2000 |
 | `/mon/allstarlink/connections/history` | Administrador | Historial de conexiones |
@@ -530,6 +567,9 @@ Antes de entregar instrucciones APT, comprobar que `https://jjsainzc.github.io/r
 | Servicio no inicia | `systemctl status amerimon`; `journalctl -u amerimon -n 100`; revisar `8082` y `8086` |
 | Nodo local no aparece | Confirmar `rpt_config_path`, las secciones numéricas y la entrada loopback del nodo principal en `rpt.conf`; Allmon solo aporta servidores remotos |
 | AMI rechaza operación | Revisar `AMI_USER`/`AMI_SECRET` sin imprimirlos; validar host/puerto y permisos del usuario existente; consultar `journalctl -u amerimon` |
+| IAX/PJSIP no carga o no guarda | Revisar las rutas de configuración, permisos de archivo/directorio y sesión de administrador; usar **Recargar lista** y leer el diagnóstico |
+| IAX/PJSIP devuelve conflicto al editar o eliminar | Revisar duplicados, plantillas, includes, referencias auth/AOR ausentes, múltiples o compartidas; resolver manualmente sin eliminar opciones del cliente |
+| IAX/PJSIP indica archivo guardado pero recarga fallida | El archivo ya cambió; comprobar AMI y registros de Asterisk, revisar el contenido y recargar antes de reintentar; no hay reversión automática |
 | AMI acepta, pero no confirma conexión | Abrir Registros Asterisk y revisar detalle de `XStat`, estado remoto y timeout |
 | Aviso de mismo modo y permanencia | El enlace ya tiene la modalidad solicitada; no se enviaron comandos. Cambiar modo o permanencia solo si realmente se desea reconectar |
 | No se inició la nueva conexión al cambiar modalidad | Revisar en Registros Asterisk la desconexión anterior, la confirmación de ausencia en `XStat` y posibles rutas alternativas; no se restaura automáticamente el enlace retirado |

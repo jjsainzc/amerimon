@@ -1,0 +1,120 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
+import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
+import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
+import { IAXUser } from '../../../core/models/iax-user.model';
+import { IaxUsersService } from '../../../core/services/iax-users.service';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { TranslationService } from '../../../core/services/translation.service';
+
+@Component({
+  selector: 'app-iax-users',
+  standalone: true,
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent, CopyValueDirective, TranslatePipe],
+  templateUrl: './iax-users.component.html',
+  styleUrls: ['./iax-users.component.css']
+})
+export class IaxUsersComponent implements OnInit {
+  private readonly service = inject(IaxUsersService);
+  private readonly translation = inject(TranslationService);
+
+  readonly usuariosList = signal<IAXUser[]>([]);
+  readonly cargando = signal(false);
+  readonly error = signal('');
+  readonly editando = signal(false);
+  readonly esEdicion = signal(false);
+  readonly guardando = signal(false);
+
+  readonly usuarioActual = signal<IAXUser>({
+    name: '',
+    type: 'friend',
+    context: 'iax-client',
+    auth: 'md5',
+    secret: '',
+    host: 'dynamic',
+    disallow: ['all'],
+    allow: ['ulaw', 'adpcm', 'gsm'],
+    transfer: 'no'
+  });
+
+  ngOnInit(): void {
+    this.cargarUsuarios();
+  }
+
+  cargarUsuarios(): void {
+    this.cargando.set(true);
+    this.error.set('');
+    this.service.listar().subscribe({
+      next: (data) => {
+        this.usuariosList.set(data ? Object.values(data) : []);
+        this.cargando.set(false);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.cargando.set(false);
+        this.error.set(error.error?.message ?? error.error?.error ?? 'IAX_USERS_LOAD_ERROR');
+      }
+    });
+  }
+
+  nuevoUsuario(): void {
+    this.error.set('');
+    this.esEdicion.set(false);
+    this.usuarioActual.set({
+      name: '',
+      type: 'friend',
+      context: 'iax-client',
+      auth: 'md5',
+      secret: '',
+      host: 'dynamic',
+      disallow: ['all'],
+      allow: ['ulaw', 'adpcm', 'gsm'],
+      transfer: 'no'
+    });
+    this.editando.set(true);
+  }
+
+  seleccionarUsuario(u: IAXUser): void {
+    this.error.set('');
+    this.esEdicion.set(true);
+    this.usuarioActual.set({ ...u, allow: [...(u.allow ?? [])], disallow: [...(u.disallow ?? [])] });
+    this.editando.set(true);
+  }
+
+  guardarUsuario(): void {
+    if (this.guardando()) { return; }
+    this.error.set('');
+    this.guardando.set(true);
+    this.service.guardar(this.usuarioActual()).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.editando.set(false);
+        this.cargarUsuarios();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.guardando.set(false);
+        this.error.set(error.error?.message ?? error.error?.error ?? 'IAX_USERS_SAVE_ERROR');
+      }
+    });
+  }
+
+  eliminarUsuario(name: string): void {
+    if (this.guardando()) { return; }
+    if (confirm(this.translation.translate('IAX_USERS_DELETE_CONFIRM', { name }))) {
+      this.error.set('');
+      this.guardando.set(true);
+      this.service.eliminar(name).subscribe({
+        next: () => {
+          this.guardando.set(false);
+          this.editando.set(false);
+          this.cargarUsuarios();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.guardando.set(false);
+          this.error.set(error.error?.message ?? error.error?.error ?? 'IAX_USERS_DELETE_ERROR');
+        }
+      });
+    }
+  }
+}

@@ -57,6 +57,17 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/cambiar-contrasena/cambiar-contrasena.component').then((m) => m.CambiarContrasenaComponent),
   },
   {
+    path: 'admin/pjsip-users',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/pjsip-users/pjsip-users.component').then((m) => m.PjsipUsersComponent),
+  },
+  {
+    path: 'admin/iax-users',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/iax-users/iax-users.component').then((m) => m.IaxUsersComponent),
+  },
+
+  {
     path: 'manual-tecnico',
     loadComponent: () => import('./home/manual-tecnico/manual-tecnico.component').then((m) => m.ManualTecnicoComponent),
   },

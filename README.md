@@ -49,6 +49,14 @@ El servidor remoto debe publicar su nombre y la red debe permitir mDNS. Consulta
 
 ## Primer acceso
 
+### Usuarios IAX y extensiones PJSIP
+
+En **Admin → Más opciones → Usuarios IAX / Extensiones PJSIP** se abren páginas de administración con listado, creación, edición y eliminación. Los formularios conservan los datos cuando falla una operación y muestran el diagnóstico del backend; **Recargar** permite reintentar la consulta.
+
+IAX utiliza `iax.conf` junto al archivo configurado en `ami.rpt_config_path`; PJSIP utiliza `ami.pjsip_config_path`. El usuario del servicio Amerimon necesita lectura y escritura sobre estos archivos y su directorio para crear el respaldo `.amerimon.bak` y reemplazar el contenido de forma atómica, conservando propietario y permisos. Las recargas se envían por AMI (`iax2 reload` / `pjsip reload`), con las credenciales ya configuradas, no ejecutando Asterisk como root. Si falla la recarga después de guardar, se informa explícitamente: revisa AMI y los registros de Asterisk antes de reintentar.
+
+PJSIP agrupa cada endpoint con sus referencias `auth` y `aors`, aunque los tres objetos tengan nombres distintos, y conserva opciones no expuestas en los formularios. Para editar o eliminar se requiere un único objeto auth `userpass` y un único AOR, exclusivos del endpoint y presentes en el archivo principal. Las plantillas, los objetos compartidos y las configuraciones ambiguas se rechazan sin modificarlos; los archivos incluidos mediante `#include` no se recorren ni se editan, y se bloquean las operaciones sobre secciones que contienen estas directivas. Antes de trabajar con una configuración heredada o distribuida, revísala manualmente.
+
 Abre `http(s)://<host>/amerimon/` con el proxy configurado, o `http://<IP-del-servidor>:8082/` si accedes directamente. Pulsa **Admin** y define el usuario y contraseña iniciales. El nombre de usuario debe tener entre 3 y 32 caracteres; la contraseña debe tener al menos 8. La contraseña se guarda como hash.
 
 Las advertencias y confirmaciones permiten marcar **No volver a mostrar este tipo de aviso**, por tipo y para este navegador, incluso tras recargar o cerrar sesión. En las confirmaciones, la preferencia solo se guarda al confirmar, no al cancelar; las siguientes acciones de ese tipo se ejecutan sin otra confirmación. Los errores y los diagnósticos de operaciones fallidas siempre se muestran. Temporalmente, **Admin → Personalizar cabecera → Restablecer advertencias y confirmaciones** recupera todos los avisos sin cambiar la cabecera ni la sesión. Consulta los detalles en los manuales técnicos [español](public/assets/docs/technical-operations-manual.es.md) e [inglés](public/assets/docs/technical-operations-manual.en.md).

@@ -1,0 +1,66 @@
+<section class="sip-users" aria-labelledby="pjsip-titulo">
+  <app-admin-volver />
+  <h2 id="pjsip-titulo">{{ 'PJSIP_USERS_TITLE' | translate }}</h2>
+
+  @if (cargando()) { <p role="status">{{ 'CARGANDO' | translate }}</p> }
+  @if (error()) { <p class="sip-users-error" role="alert">{{ error() | translate }}</p> }
+
+  @if (!cargando()) {
+    <div class="sip-users-toolbar">
+      <button type="button" (click)="cargarExtensiones()" [disabled]="guardando()">{{ 'RECARGAR_LISTA' | translate }}</button>
+      @if (!editando()) {
+        <button type="button" (click)="nuevaExtension()">+ {{ 'PJSIP_USERS_NEW' | translate }}</button>
+      }
+    </div>
+
+    @if (!editando()) {
+      @if (extensionesList().length) {
+        <ul class="sip-users-lista">
+          @for (ext of extensionesList(); track ext.id) {
+            <li class="sip-users-fila" [appCopy]="ext.id">
+              <button type="button" class="sip-users-item" (click)="seleccionarExtension(ext)">
+                <strong>{{ 'EXTENSION' | translate }}: {{ ext.id }}</strong>
+                <span>{{ 'PJSIP_USERS_CALLER_ID' | translate }}: {{ ext.caller_id }} | {{ 'SIP_USERS_CONTEXT' | translate }}: {{ ext.context }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      } @else if (!error()) {
+        <p class="sip-users-vacio">{{ 'PJSIP_USERS_EMPTY' | translate }}</p>
+      }
+    } @else {
+      <form #formulario="ngForm" (ngSubmit)="formulario.valid && guardarExtension()">
+        <fieldset [disabled]="guardando()">
+          <label>
+            {{ 'PJSIP_USERS_ID' | translate }}
+            <span class="clipboard-field" [appCopy]="extActual().id"><input type="text" [(ngModel)]="extActual().id" name="id" required [disabled]="esEdicion()" /></span>
+          </label>
+          <label>
+            {{ 'SIP_USERS_CONTEXT' | translate }}
+            <span class="clipboard-field" [appCopy]="extActual().context"><input type="text" [(ngModel)]="extActual().context" name="context" required /></span>
+          </label>
+          <label for="pjsip-password">{{ 'CONTRASENA' | translate }}</label>
+          <app-password-field inputId="pjsip-password" [(ngModel)]="extActual().password" name="password" [required]="true" autocomplete="new-password" />
+          <label>
+            {{ 'PJSIP_USERS_CALLER_ID' | translate }}
+            <span class="clipboard-field" [appCopy]="extActual().caller_id"><input type="text" [(ngModel)]="extActual().caller_id" name="caller_id" /></span>
+          </label>
+          <label>
+            {{ 'PJSIP_USERS_MAX_CONTACTS' | translate }}
+            <span class="clipboard-field" [appCopy]="extActual().max_contacts"><input type="text" [(ngModel)]="extActual().max_contacts" name="max_contacts" required pattern="[1-9][0-9]*" /></span>
+          </label>
+
+          <div class="sip-users-acciones">
+            <button type="button" (click)="editando.set(false)" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
+            <button type="submit" [disabled]="formulario.invalid || guardando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
+            @if (esEdicion()) {
+              <button type="button" class="sip-users-eliminar" (click)="eliminarExtension(extActual().id)" [disabled]="guardando()">
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i> {{ 'ELIMINAR' | translate }}
+              </button>
+            }
+          </div>
+        </fieldset>
+      </form>
+    }
+  }
+</section>

@@ -94,4 +94,14 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.GET("/listen-live/sessions/:id", controllers.GetListenLiveSession, opt)
 	publica.PATCH("/listen-live/sessions/:id", controllers.UpdateListenLiveSession(mgr), opt)
 	publica.DELETE("/listen-live/sessions/:id", controllers.DeleteListenLiveSession, opt)
+
+	// iax users
+	privada.GET("/iax-users", controllers.GetIAXUsers, jwt, admin)
+	privada.POST("/iax-users", controllers.SaveOrUpdateIAXUser, jwt, admin)
+	privada.DELETE("/iax-users/:name", controllers.DeleteIAXUser, jwt, admin)
+
+	// pjsip users
+	privada.GET("/pjsip-users", controllers.GetPJSIPExtensions, jwt, admin)
+	privada.POST("/pjsip-users", controllers.SaveOrUpdatePJSIPExtension, jwt, admin)
+	privada.DELETE("/pjsip-users/:id", controllers.DeletePJSIPExtension, jwt, admin)
 }
