@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { SystemInfoDialogComponent } from './system-info-dialog.component';
@@ -15,7 +16,9 @@ describe('System maintenance controls', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: TranslationService, useValue: { translate: (key: string) => key } },
+        { provide: TranslationService, useValue: {
+          currentLang: signal('es'), revision: signal(0), translate: (key: string) => key
+        } },
       ],
     });
     http = TestBed.inject(HttpTestingController);

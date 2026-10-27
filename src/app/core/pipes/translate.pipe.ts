@@ -10,7 +10,7 @@ export class TranslatePipe implements PipeTransform {
 
   transform(key: string, params?: Record<string, string | number>): string {
     // Registramos la dependencia de la señal reactiva
-    this.translationService.currentLang();
+    this.translationService.revision();
 
     return this.translationService.translate(key, params);
   }

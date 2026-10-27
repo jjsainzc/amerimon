@@ -2,11 +2,12 @@ import { Component, input, output, signal } from '@angular/core';
 import { CopyValueDirective } from '../copy-value/copy-value.directive';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 @Component({
   selector: 'app-net-calculator-popup',
   standalone: true,
-  imports: [CommonModule, FormsModule, CopyValueDirective],
+  imports: [CommonModule, FormsModule, CopyValueDirective, TranslatePipe],
   templateUrl: './net-calculator-popup.component.html',
   styleUrl: './net-calculator-popup.component.css'
 })
@@ -37,12 +38,12 @@ export class NetCalculatorPopupComponent {
       const cidr = Number(this.cidrInput());
 
       if (cidr < 0 || cidr > 32) {
-        throw new Error('El prefijo CIDR debe estar entre 0 y 32.');
+        throw new Error('NET_CALC_INVALID_CIDR');
       }
 
       const ipParts = ip.split('.').map(Number);
       if (ipParts.length !== 4 || ipParts.some(p => isNaN(p) || p < 0 || p > 255)) {
-        throw new Error('Dirección IP inválida (ej. 192.168.1.1).');
+        throw new Error('NET_CALC_INVALID_IP');
       }
 
       const ipInt = (ipParts[0] << 24) + (ipParts[1] << 16) + (ipParts[2] << 8) + ipParts[3];
@@ -65,13 +66,13 @@ export class NetCalculatorPopupComponent {
         netmask: intToIp(maskInt),
         totalHosts: totalHosts > 0 ? totalHosts : 0
       });
-    } catch (e: any) {
+    } catch (e) {
       this.networkResult.set({
         network: '',
         broadcast: '',
         netmask: '',
         totalHosts: 0,
-        error: e.message
+        error: e instanceof Error ? e.message : 'NET_CALC_ERROR'
       });
     }
   }

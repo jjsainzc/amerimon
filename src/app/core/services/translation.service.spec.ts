@@ -24,7 +24,9 @@ describe('TranslationService', () => {
   }
 
   it('shares the initial request and reuses cached dictionaries when switching languages', async () => {
+    const initialRevision = service.revision();
     await loadSpanish();
+    expect(service.revision()).toBe(initialRevision + 1);
     expect(service.translate('TITLE')).toBe('Configuración');
     const loading = service.loadLanguage('en');
     http.expectOne('./assets/i18n/en.json').flush({ TITLE: 'Configuration' });

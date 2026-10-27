@@ -1,4 +1,5 @@
 import { AfterViewInit, DestroyRef, Directive, ElementRef, Renderer2, effect, inject, input } from '@angular/core';
+import { TranslationService } from '../../core/services/translation.service';
 
 @Directive({ selector: '[appCopy]', standalone: true })
 export class CopyValueDirective implements AfterViewInit {
@@ -6,6 +7,7 @@ export class CopyValueDirective implements AfterViewInit {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly renderer = inject(Renderer2);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly translation = inject(TranslationService);
   private button?: HTMLButtonElement;
   private status?: HTMLSpanElement;
   private resetTimer?: ReturnType<typeof setTimeout>;
@@ -13,10 +15,12 @@ export class CopyValueDirective implements AfterViewInit {
 
   constructor() {
     effect(() => {
+      this.translation.currentLang();
+      this.translation.revision();
       const value = this.appCopy()?.trim() ?? '';
       if (this.button) {
         this.button.disabled = !value;
-        this.button.setAttribute('aria-label', `Copiar ${value} al portapapeles`);
+        this.button.setAttribute('aria-label', this.translation.translate('SHARED_COPY_VALUE_LABEL', { value }));
       }
       this.clearStatus();
     });
@@ -32,8 +36,10 @@ export class CopyValueDirective implements AfterViewInit {
     this.renderer.addClass(this.host.nativeElement, 'clipboard-value');
     this.renderer.addClass(button, 'clipboard-copy');
     button.type = 'button';
-    button.title = 'Copiar al portapapeles';
-    button.setAttribute('aria-label', `Copiar ${this.appCopy()?.trim() ?? ''} al portapapeles`);
+    button.title = this.translation.translate('SHARED_COPY_TITLE');
+    button.setAttribute('aria-label', this.translation.translate('SHARED_COPY_VALUE_LABEL', {
+      value: this.appCopy()?.trim() ?? ''
+    }));
     button.disabled = !this.appCopy()?.trim();
     const icon = this.renderer.createElement('i');
     this.renderer.addClass(icon, 'fa-regular');
@@ -58,7 +64,7 @@ export class CopyValueDirective implements AfterViewInit {
   private clearStatus(): void {
     if (this.resetTimer) { clearTimeout(this.resetTimer); }
     if (this.status) { this.status.textContent = ''; }
-    if (this.button) { this.button.title = 'Copiar al portapapeles'; }
+    if (this.button) { this.button.title = this.translation.translate('SHARED_COPY_TITLE'); }
   }
 
   private async copy(): Promise<void> {
@@ -71,9 +77,9 @@ export class CopyValueDirective implements AfterViewInit {
       } else {
         this.copyLegacy(value);
       }
-      message = 'Copiado';
+      message = this.translation.translate('SHARED_COPY_SUCCESS');
     } catch {
-      message = 'No se pudo copiar. Selecciona el valor y cópialo manualmente.';
+      message = this.translation.translate('SHARED_COPY_FAILURE');
     }
     if (this.destroyed || this.appCopy()?.trim() !== value) { return; }
     this.clearStatus();
@@ -98,7 +104,7 @@ export class CopyValueDirective implements AfterViewInit {
     document.body.appendChild(textarea);
     try {
       textarea.select();
-      if (!document.execCommand('copy')) { throw new Error('Portapapeles no disponible'); }
+      if (!document.execCommand('copy')) { throw new Error('SHARED_CLIPBOARD_UNAVAILABLE'); }
     } finally {
       textarea.remove();
       if (active instanceof HTMLElement) { active.focus({ preventScroll: true }); }

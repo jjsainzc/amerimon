@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { vi } from 'vitest';
+import { TranslationService } from '../../core/services/translation.service';
 import { NetCalculatorPopupComponent } from './net-calculator-popup.component';
 
 describe('NetCalculatorPopupComponent', () => {
@@ -8,7 +10,11 @@ describe('NetCalculatorPopupComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [NetCalculatorPopupComponent]
+      imports: [NetCalculatorPopupComponent],
+      providers: [{
+        provide: TranslationService,
+        useValue: { currentLang: signal('es'), revision: signal(0), translate: (key: string) => key },
+      }],
     }).compileComponents();
   });
 

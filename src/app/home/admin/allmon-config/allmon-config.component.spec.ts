@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { AllmonConfigService } from '../../../core/services/allmon-config.service';
+import { TranslationService } from '../../../core/services/translation.service';
 import { AllmonConfigComponent } from './allmon-config.component';
 
 describe('AllmonConfigComponent', () => {
@@ -31,6 +33,17 @@ describe('AllmonConfigComponent', () => {
       imports: [AllmonConfigComponent],
       providers: [
         { provide: AllmonConfigService, useValue: service },
+        {
+          provide: TranslationService,
+          useValue: {
+            currentLang: signal('es'),
+            revision: signal(0),
+            translate: (key: string, params?: Record<string, string | number>) => {
+              const labels: Record<string, string> = { NODO: 'Nodo', HOST: 'Host' };
+              return (labels[key] ?? key).replace('{{node}}', String(params?.['node'] ?? ''));
+            },
+          },
+        },
         provideRouter([]),
       ],
     });

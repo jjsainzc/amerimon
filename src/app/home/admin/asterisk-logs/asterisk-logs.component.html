@@ -11,7 +11,7 @@
     </button>
   </header>
 
-  @if (error()) { <p class="logs-error" role="alert">{{ error() }}</p> }
+  @if (error()) { <p class="logs-error" role="alert">{{ error() | translate }}</p> }
   @if (cargando()) { <p class="logs-estado" role="status">{{ 'CONSULTANDO_OPERACIONES_ASTERISK' | translate }}</p> }
 
   @if (!cargando() && !error()) {
@@ -47,7 +47,7 @@
                 <td>{{ registro.mode || '—' }}{{ registro.permanent ? ' · ' + ('CONEXION_PERMANENTE' | translate) : '' }}</td>
                 <td><code [title]="registro.command">{{ registro.command || '—' }}</code></td>
                 <td>
-                  <span class="logs-resultado" [class]="'logs-resultado resultado-' + registro.result">{{ etiquetaResultado(registro.result) }}</span>
+                  <span class="logs-resultado" [class]="'logs-resultado resultado-' + registro.result">{{ etiquetaResultado(registro.result) | translate }}</span>
                   @if (registro.details) { <details class="logs-detalle"><summary>{{ 'DETALLE' | translate }}</summary><p>{{ registro.details }}</p></details> }
                 </td>
                 <td>{{ registro.duration_ms }} ms</td>
@@ -59,7 +59,7 @@
       <app-table-pagination placement="bottom" [currentPage]="pagina()" [totalPages]="totalPaginas()"
         (pageChange)="pagina.set($event)" />
     } @else {
-      <p class="logs-vacio">{{ registros().length ? 'No hay operaciones que coincidan con la búsqueda.' : 'Todavía no hay operaciones registradas.' }}</p>
+      <p class="logs-vacio">{{ (registros().length ? 'AST_LOG_NO_MATCHING_OPERATIONS' : 'AST_LOG_NO_OPERATIONS') | translate }}</p>
     }
   }
 </main>

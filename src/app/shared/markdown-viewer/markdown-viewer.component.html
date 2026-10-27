@@ -4,7 +4,7 @@
       <header class="markdown-viewer-header">
         <div>
           <p class="markdown-viewer-eyebrow">{{ eyebrow }}</p>
-          <h2 id="markdown-viewer-title">{{ title }}</h2>
+          <h2 id="markdown-viewer-title">{{ title | translate }}</h2>
         </div>
         <button type="button" class="markdown-viewer-close" [attr.aria-label]="'CERRAR' | translate" (click)="close()">&times;</button>
       </header>
@@ -15,7 +15,7 @@
         <p class="markdown-viewer-state" role="status">{{ 'CARGANDO_DOCUMENTO' | translate }}</p>
       } @else if (error()) {
         <div class="markdown-viewer-state" role="alert">
-          <p>{{ error() | translate:{titulo: title} }}</p>
+          <p>{{ error() | translate:{titulo: (title | translate)} }}</p>
           <button type="button" class="markdown-viewer-retry" (click)="loadMarkdown()">{{ 'REINTENTAR' | translate }}</button>
         </div>
       } @else {

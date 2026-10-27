@@ -17,7 +17,12 @@ describe('TranslatePipe', () => {
         provide: TranslationService,
         useValue: {
           currentLang: signal('en'),
-          translate: (key: string) => translations[key] || key,
+          revision: signal(0),
+          translate: (key: string, params?: Record<string, string | number>) =>
+            Object.entries(params ?? {}).reduce(
+              (text, [name, value]) => text.replaceAll(`{{ ${name} }}`, () => String(value)),
+              translations[key] || key,
+            ),
         },
       }],
     });

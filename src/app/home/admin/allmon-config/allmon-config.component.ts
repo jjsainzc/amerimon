@@ -5,6 +5,7 @@ import { CopyValueDirective } from '../../../shared/copy-value/copy-value.direct
 import { AllmonConfigService, AllmonNodoEntrada } from '../../../core/services/allmon-config.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 
 interface Fila extends AllmonNodoEntrada {
   passwdSet: boolean;
@@ -13,7 +14,7 @@ interface Fila extends AllmonNodoEntrada {
 @Component({
   selector: 'app-allmon-config',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent, CopyValueDirective],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent, CopyValueDirective, TranslatePipe],
   templateUrl: './allmon-config.component.html',
   styleUrl: './allmon-config.component.css'
 })
@@ -54,7 +55,7 @@ export class AllmonConfigComponent implements OnInit {
       },
       error: (e: HttpErrorResponse) => {
         this.cargando.set(false);
-        this.error.set(e.error?.message ?? 'No se pudo cargar la configuración.');
+        this.error.set(e.error?.message ?? 'ALLMON_CONFIG_LOAD_ERROR');
       }
     });
   }
@@ -80,12 +81,12 @@ export class AllmonConfigComponent implements OnInit {
     this.service.guardar(this.filas().map(({ passwdSet, ...n }) => n)).subscribe({
       next: r => {
         this.guardando.set(false);
-        this.aviso.set('Guardado.');
+        this.aviso.set('ALLMON_CONFIG_SAVED');
         this.cargar();
       },
       error: (e: HttpErrorResponse) => {
         this.guardando.set(false);
-        this.error.set(e.error?.message ?? 'No se pudo guardar.');
+        this.error.set(e.error?.message ?? 'ALLMON_CONFIG_SAVE_ERROR');
       }
     });
   }

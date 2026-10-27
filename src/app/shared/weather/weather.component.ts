@@ -137,7 +137,7 @@ export class WeatherComponent implements OnInit, OnDestroy {
   useEnteredLocation(dialog: HTMLDialogElement): void {
     const location = this.locationDraft.trim();
     if (!location) {
-      this.locationError.set('Introduce una ubicación.');
+      this.locationError.set('WEATHER_LOCATION_REQUIRED');
       return;
     }
     this.temporaryLocation = location;
@@ -149,7 +149,7 @@ export class WeatherComponent implements OnInit, OnDestroy {
   useConfiguredLocation(dialog: HTMLDialogElement): void {
     const location = this.configuredLocation();
     if (!location) {
-      this.locationError.set('No hay una ubicación configurada por el administrador.');
+      this.locationError.set('WEATHER_CONFIGURED_LOCATION_MISSING');
       return;
     }
     this.temporaryLocation = undefined;
@@ -161,7 +161,7 @@ export class WeatherComponent implements OnInit, OnDestroy {
   useBrowserLocation(dialog: HTMLDialogElement): void {
     this.locationError.set('');
     if (!navigator.geolocation) {
-      this.locationError.set('Este navegador no permite geolocalización. Usa HTTPS o introduce una ubicación.');
+      this.locationError.set('WEATHER_GEOLOCATION_UNAVAILABLE');
       return;
     }
     this.cancelPendingRequest();
@@ -181,8 +181,8 @@ export class WeatherComponent implements OnInit, OnDestroy {
         this.locating.set(false);
         this.loading.set(false);
         this.locationError.set(error.code === 1
-          ? 'Permiso de ubicación denegado. Habilítalo en el navegador o introduce una ubicación.'
-          : 'No se pudo obtener tu ubicación. Inténtalo de nuevo o introduce una ubicación.');
+          ? 'WEATHER_GEOLOCATION_PERMISSION_DENIED'
+          : 'WEATHER_GEOLOCATION_FAILED');
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 10_000 },
     );
@@ -243,7 +243,7 @@ export class WeatherComponent implements OnInit, OnDestroy {
 
   private formatearCoordenadasDMS(locationStr: string): string {
     if (!locationStr) {
-      return 'ubicación automática por IP';
+      return 'WEATHER_AUTOMATIC_IP_LOCATION';
     }
 
     const partes = locationStr.split(',');
@@ -288,6 +288,6 @@ export class WeatherComponent implements OnInit, OnDestroy {
       }
       return error.error;
     }
-    return error.error?.message ?? 'Error al consultar la API de Go.';
+    return error.error?.message ?? 'WEATHER_API_ERROR';
   }
 }

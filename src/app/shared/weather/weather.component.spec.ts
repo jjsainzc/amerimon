@@ -71,7 +71,7 @@ describe('WeatherComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.location-message a')).toBeNull();
-    expect(component.consultedLocation()).toBe('ubicación automática por IP');
+    expect(component.consultedLocation()).toBe('WEATHER_AUTOMATIC_IP_LOCATION');
   });
 
   it('refreshes the current location from the manual refresh button', () => {

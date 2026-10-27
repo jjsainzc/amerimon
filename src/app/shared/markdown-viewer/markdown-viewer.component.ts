@@ -25,7 +25,7 @@ export class MarkdownViewerComponent implements OnChanges {
 
   @Input() open = false;
   @Input({ required: true }) markdownUrl!: string;
-  @Input() title = 'Documento';
+  @Input() title = 'DOCUMENTO';
   @Input() eyebrow = 'GUÍA';
   @Output() closed = new EventEmitter<void>();
 

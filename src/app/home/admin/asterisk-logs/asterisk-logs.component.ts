@@ -59,7 +59,7 @@ export class AsteriskLogsComponent {
       error: (err: HttpErrorResponse) => {
         this.cargando.set(false);
         this.registros.set([]);
-        this.error.set(err.error?.message ?? `No se pudo consultar el registro (${err.status}).`);
+        this.error.set(err.error?.message ?? 'AST_LOG_LOAD_ERROR');
       },
     });
   }
@@ -79,15 +79,15 @@ export class AsteriskLogsComponent {
   /** Traduce los códigos de resultado conocidos para mostrarlos en la tabla. */
   etiquetaResultado(result: string): string {
     switch (result) {
-      case 'success': return 'Correcto';
-      case 'ami_error': return 'Error AMI';
-      case 'not_confirmed': return 'Sin confirmar';
-      case 'configuration_error': return 'Configuración';
-      case 'invalid_request': return 'Solicitud inválida';
-      case 'database_error': return 'Error de base de datos';
-      case 'requested': return 'Solicitado';
-      case 'scheduled': return 'Programado';
-      case 'system_error': return 'Error del sistema';
+      case 'success': return 'AST_LOG_RESULT_SUCCESS';
+      case 'ami_error': return 'AST_LOG_RESULT_AMI_ERROR';
+      case 'not_confirmed': return 'AST_LOG_RESULT_NOT_CONFIRMED';
+      case 'configuration_error': return 'AST_LOG_RESULT_CONFIGURATION_ERROR';
+      case 'invalid_request': return 'AST_LOG_RESULT_INVALID_REQUEST';
+      case 'database_error': return 'AST_LOG_RESULT_DATABASE_ERROR';
+      case 'requested': return 'AST_LOG_RESULT_REQUESTED';
+      case 'scheduled': return 'AST_LOG_RESULT_SCHEDULED';
+      case 'system_error': return 'AST_LOG_RESULT_SYSTEM_ERROR';
       default: return result;
     }
   }

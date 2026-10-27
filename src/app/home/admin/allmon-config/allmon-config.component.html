@@ -1,52 +1,60 @@
 <section class="allmon">
   <app-admin-volver />
-  <h3>Nodos de allmon.ini</h3>
+  <h3>{{ 'ALLMON_CONFIG_TITLE' | translate }}</h3>
   <p class="allmon-ayuda">
-    Archivo: <code>{{ ruta() }}</code>. Solo se modifican las stanzas de los nodos; el resto del archivo se conserva.
-    Se busca en <code>/etc/allmon3</code> y <code>/var/www/html/supermon</code>; si no existe, se crea el propio en <code>/etc/amerimon</code>.
+    {{ 'ALLMON_CONFIG_HELP_PREFIX' | translate }} <code>{{ ruta() }}</code>. {{ 'ALLMON_CONFIG_HELP_PRESERVE' | translate }}
+    {{ 'ALLMON_CONFIG_HELP_PATHS' | translate }}
   </p>
   @if (!escribible()) {
-    <p class="allmon-alerta">El servicio no tiene permiso para escribir ese archivo; no se podrán guardar cambios.</p>
+    <p class="allmon-alerta">{{ 'ALLMON_CONFIG_NOT_WRITABLE' | translate }}</p>
   }
 
-  @if (cargando()) { <p role="status">Cargando…</p> }
+  @if (cargando()) { <p role="status">{{ 'CARGANDO' | translate }}</p> }
 
   <form (ngSubmit)="guardar()">
     <div class="allmon-tabla-scroll">
       <table class="allmon-tabla">
         <thead>
-          <tr><th>Se ve</th><th>Nodo</th><th>Host</th><th>Puerto</th><th>Usuario AMI</th><th>Contraseña</th><th></th></tr>
+          <tr>
+            <th>{{ 'ALLMON_TRACKING' | translate }}</th>
+            <th>{{ 'NODO' | translate }}</th>
+            <th>{{ 'HOST' | translate }}</th>
+            <th>{{ 'PUERTO' | translate }}</th>
+            <th>{{ 'USUARIO_AMI' | translate }}</th>
+            <th>{{ 'CONTRASENA' | translate }}</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
           @for (f of filas(); track $index; let i = $index) {
             <tr>
-              <td data-label="Seguimiento" class="allmon-celda-seguimiento">
+              <td [attr.data-label]="'ALLMON_TRACKING' | translate" class="allmon-celda-seguimiento">
                 <input type="checkbox" name="tracking{{ i }}" [(ngModel)]="f.tracking_enabled"
-                  [attr.aria-label]="'Seguir nodo ' + (f.node || i + 1)" />
+                  [attr.aria-label]="'ALLMON_TRACK_NODE' | translate:{node: f.node || i + 1}" />
               </td>
-              <td data-label="Nodo"><span class="clipboard-field" [appCopy]="f.node"><input name="node{{ i }}" [(ngModel)]="f.node" inputmode="numeric" maxlength="7" required /></span></td>
-              <td data-label="Host"><span class="clipboard-field" [appCopy]="f.host"><input name="host{{ i }}" [(ngModel)]="f.host" required /></span></td>
-              <td data-label="Puerto"><input name="port{{ i }}" [(ngModel)]="f.port" inputmode="numeric" maxlength="5" /></td>
-              <td data-label="Usuario AMI"><input name="user{{ i }}" [(ngModel)]="f.user" autocomplete="off" required /></td>
-              <td data-label="Contraseña"><app-password-field name="passwd{{ i }}" [(ngModel)]="f.passwd" autocomplete="new-password"
-                         [placeholder]="f.passwdSet ? 'sin cambios' : ''" /></td>
+              <td [attr.data-label]="'NODO' | translate"><span class="clipboard-field" [appCopy]="f.node"><input name="node{{ i }}" [(ngModel)]="f.node" inputmode="numeric" maxlength="7" required /></span></td>
+              <td [attr.data-label]="'HOST' | translate"><span class="clipboard-field" [appCopy]="f.host"><input name="host{{ i }}" [(ngModel)]="f.host" required /></span></td>
+              <td [attr.data-label]="'PUERTO' | translate"><input name="port{{ i }}" [(ngModel)]="f.port" inputmode="numeric" maxlength="5" /></td>
+              <td [attr.data-label]="'USUARIO_AMI' | translate"><input name="user{{ i }}" [(ngModel)]="f.user" autocomplete="off" required /></td>
+              <td [attr.data-label]="'CONTRASENA' | translate"><app-password-field name="passwd{{ i }}" [(ngModel)]="f.passwd" autocomplete="new-password"
+                         [placeholder]="f.passwdSet ? ('ALLMON_UNCHANGED' | translate) : ''" /></td>
               <td class="allmon-celda-quitar"><button type="button" class="allmon-quitar"
-                [attr.aria-label]="'Quitar nodo ' + (f.node || i + 1)" [title]="'Quitar nodo ' + (f.node || i + 1)"
+                [attr.aria-label]="'ALLMON_REMOVE_NODE' | translate:{node: f.node || i + 1}" [title]="'ALLMON_REMOVE_NODE' | translate:{node: f.node || i + 1}"
                 (click)="quitar(i)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button></td>
             </tr>
           } @empty {
-            <tr class="allmon-vacio"><td colspan="7">No hay nodos definidos.</td></tr>
+            <tr class="allmon-vacio"><td colspan="7">{{ 'ALLMON_NO_NODES' | translate }}</td></tr>
           }
         </tbody>
       </table>
     </div>
 
-    @if (error()) { <p class="allmon-error" role="alert">{{ error() }}</p> }
-    @if (aviso()) { <p class="allmon-ok" role="status">{{ aviso() }}</p> }
+    @if (error()) { <p class="allmon-error" role="alert">{{ error() | translate }}</p> }
+    @if (aviso()) { <p class="allmon-ok" role="status">{{ aviso() | translate }}</p> }
 
     <div class="allmon-acciones">
-      <button type="button" (click)="agregar()">Agregar nodo</button>
-      <button type="submit" [disabled]="guardando() || !escribible()">Guardar</button>
+      <button type="button" (click)="agregar()">{{ 'AGREGAR_NODO' | translate }}</button>
+      <button type="submit" [disabled]="guardando() || !escribible()">{{ 'GUARDAR' | translate }}</button>
     </div>
   </form>
 </section>

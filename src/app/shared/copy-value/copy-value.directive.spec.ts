@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { TranslationService } from '../../core/services/translation.service';
 import { vi } from 'vitest';
 import { CopyValueDirective } from './copy-value.directive';
 
@@ -20,10 +21,44 @@ class TestHost {
 
 describe('CopyValueDirective', () => {
   const writeText = vi.fn<Clipboard['writeText']>();
+  const currentLang = signal('es');
+  const revision = signal(0);
+  const translations: Record<string, Record<string, string>> = {
+    es: {
+      SHARED_COPY_TITLE: 'Copiar al portapapeles',
+      SHARED_COPY_VALUE_LABEL: 'Copiar {{value}} al portapapeles',
+      SHARED_COPY_SUCCESS: 'Copiado',
+      SHARED_COPY_FAILURE: 'No se pudo copiar. Selecciona el valor y cópialo manualmente.',
+    },
+    en: {
+      SHARED_COPY_TITLE: 'Copy to clipboard',
+      SHARED_COPY_VALUE_LABEL: 'Copy {{value}} to clipboard',
+      SHARED_COPY_SUCCESS: 'Copied',
+      SHARED_COPY_FAILURE: 'Could not copy. Select the value and copy it manually.',
+    },
+  };
 
   beforeEach(() => {
+    currentLang.set('es');
+    revision.set(0);
     writeText.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    TestBed.configureTestingModule({
+      providers: [{
+        provide: TranslationService,
+        useValue: {
+          currentLang,
+          revision,
+          translate: (key: string, params?: Record<string, string | number>) => {
+            let result = translations[currentLang()][key] ?? key;
+            for (const [name, value] of Object.entries(params ?? {})) {
+              result = result.replaceAll(`{{${name}}}`, String(value));
+            }
+            return result;
+          },
+        },
+      }],
+    });
   });
 
   afterEach(() => {
@@ -73,6 +108,18 @@ describe('CopyValueDirective', () => {
     await fixture.whenStable();
     expect(writeText).toHaveBeenCalledWith('616262');
     expect(fixture.componentInstance.submitted).toBe(false);
+  });
+
+  it('updates its accessible labels and feedback when the language changes', async () => {
+    const { fixture, element, button } = setup();
+    currentLang.set('en');
+    fixture.detectChanges();
+    expect(button.title).toBe('Copy to clipboard');
+    expect(button.getAttribute('aria-label')).toBe('Copy 616262 to clipboard');
+
+    button.click();
+    await fixture.whenStable();
+    expect(element.querySelector('[role="status"]')!.textContent).toBe('Copied');
   });
 
   it('does not show stale success if the field changes during an asynchronous copy', async () => {

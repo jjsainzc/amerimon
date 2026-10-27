@@ -36,7 +36,7 @@ describe('PasswordFieldComponent', () => {
       imports: [PasswordFieldHostComponent],
       providers: [{
         provide: TranslationService,
-        useValue: { currentLang: signal('es'), translate: (key: string) => key }
+        useValue: { currentLang: signal('es'), revision: signal(0), translate: (key: string) => key }
       }]
     }).compileComponents();
     fixture = TestBed.createComponent(PasswordFieldHostComponent);

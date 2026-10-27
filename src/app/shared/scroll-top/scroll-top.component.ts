@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal, inject, NgZone } from '@angular/core';
+import { TranslatePipe } from '../../core/pipes/translate.pipe';
 
 /**
  * Botón flotante reutilizable para volver al inicio.
@@ -20,12 +21,13 @@ import { Component, OnInit, OnDestroy, signal, inject, NgZone } from '@angular/c
  */
 @Component({
   selector: 'app-scroll-top',
+  imports: [TranslatePipe],
   template: `
     <button
       class="scroll-top-btn"
       [class.visible]="visible()"
       (click)="irArriba()"
-      aria-label="Ir al principio">
+      [attr.aria-label]="'IR_AL_PRINCIPIO' | translate">
       <i class="fas fa-caret-up"></i>
     </button>
   `,

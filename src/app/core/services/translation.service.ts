@@ -9,6 +9,7 @@ type Translations = Record<string, string>;
 })
 export class TranslationService {
   public currentLang = signal<string>('es');
+  public readonly revision = signal(0);
 
   private readonly loadedLanguages = new Map<string, Translations>();
   private readonly pendingLanguages = new Map<string, Promise<Translations>>();
@@ -41,6 +42,7 @@ export class TranslationService {
       if (request !== this.latestRequest) { return; }
       this.translations = data;
       this.currentLang.set(lang);
+      this.revision.update(revision => revision + 1);
 
       console.log('Idioma cambiado exitosamente a:', lang);
     } catch (error) {

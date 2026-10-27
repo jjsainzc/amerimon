@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { Subject, of } from 'rxjs';
 import { vi } from 'vitest';
@@ -43,6 +44,7 @@ describe('FavoritosAdminComponent', () => {
           provide: TranslationService,
           useValue: {
             currentLang: () => 'es',
+            revision: signal(0),
             translate: (key: string, params?: Record<string, string | number>) =>
               Object.entries(params ?? {}).reduce(
                 (text, [name, value]) => text.replaceAll(`\${${name}}`, String(value)),
