@@ -1,0 +1,24 @@
+<section class="admin-page">
+  <form class="admin-page-form" (ngSubmit)="guardar()">
+    <h2>{{ 'CAMBIAR_CONTRASENA' | translate }}</h2>
+    <div class="admin-page-password">
+      <label for="actual">{{ 'CONTRASENA_ACTUAL' | translate }}</label>
+      <app-password-field inputId="actual" name="actual" [(ngModel)]="actual" autocomplete="current-password" [required]="true" />
+    </div>
+    <div class="admin-page-password">
+      <label for="nueva">{{ 'NUEVA_CONTRASENA' | translate }}</label>
+      <app-password-field inputId="nueva" name="nueva" [(ngModel)]="nueva" autocomplete="new-password" [minlength]="8" [required]="true"
+        (visibilityChange)="nuevaVisible.set($event)" />
+    </div>
+    <div class="admin-page-password" [style.display]="nuevaVisible() ? 'none' : 'grid'">
+      <label for="repetir">{{ 'REPETIR_CONTRASENA' | translate }}</label>
+      <app-password-field inputId="repetir" name="repetir" [(ngModel)]="repetir" autocomplete="new-password"
+        [required]="!nuevaVisible()" />
+    </div>
+    @if (error()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }
+    <div class="admin-page-actions">
+      <a routerLink="/allstarlink">{{ 'CANCELAR' | translate }}</a>
+      <button type="submit" [disabled]="enviando()">{{ (enviando() ? 'GUARDANDO' : 'CAMBIAR') | translate }}</button>
+    </div>
+  </form>
+</section>
