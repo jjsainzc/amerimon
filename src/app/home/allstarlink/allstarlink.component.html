@@ -238,7 +238,7 @@
               @if (grupo.nodos.length === 0) {
                 <tr>
                   <td [class.allstarlink-error]="!grupo.servidorConectado" [attr.colspan]="esAdmin() ? 11 : 10">
-                    {{ grupo.servidorConectado ? ('NO_HAY_NODOS_CONECTADOS' | translate) : erroresServidor()[grupo.nodoLocal] ? ('ALLSTAR_SERVER_RETRY' | translate:{error: erroresServidor()[grupo.nodoLocal]}) : ('ALLSTAR_CONNECTING_IN_BACKGROUND' | translate) }}
+                    {{ grupo.servidorConectado ? ('NO_HAY_NODOS_CONECTADOS' | translate) : erroresServidor()[grupo.nodoLocal] ? ('ALLSTAR_SERVER_RETRY' | translate) : ('ALLSTAR_CONNECTING_IN_BACKGROUND' | translate) }}
                   </td>
                 </tr>
               }
@@ -347,6 +347,9 @@
           <p><strong>{{ 'COMANDO:' | translate }}</strong> <code>{{ popup.comando }}</code></p>
         }
         <pre>{{ popup.lineas.join('\n') }}</pre>
+        @if (!popup.error && popup.noticeKey) {
+          <app-notice-preference (checkedChange)="ocultarResultado($event)" />
+        }
       </div>
     </section>
   </div>
@@ -358,6 +361,7 @@
         <h3 id="allstarlink-confirmacion-titulo">{{ confirmacion.titulo }}</h3>
       </header>
       <p>{{ confirmacion.mensaje }}</p>
+      <app-notice-preference [checked]="noMostrarConfirmacion()" (checkedChange)="noMostrarConfirmacion.set($event)" />
       <div class="allstarlink-admin-cabecera">
         <button type="button" class="allstarlink-actualizar" (click)="cancelarConfirmacion()">{{ 'CANCELAR' | translate }}</button>
         <button type="button" class="allstarlink-ejecutar" (click)="confirmarAccion()">{{ 'CONFIRMAR' | translate }}</button>

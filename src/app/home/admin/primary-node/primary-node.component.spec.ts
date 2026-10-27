@@ -6,6 +6,7 @@ import { calcularRedIPv4, PrimaryNodeComponent } from './primary-node.component'
 import { environment } from '../../../core/environment';
 import { NodeAccessDocument, isNodeAccessDocument } from '../../../core/services/primary-node.service';
 import { TranslationService } from '../../../core/services/translation.service';
+import { NoticePreferencesService } from '../../../core/services/notice-preferences.service';
 import es from '../../../../../public/assets/i18n/es.json';
 import en from '../../../../../public/assets/i18n/en.json';
 
@@ -15,10 +16,12 @@ const config = { node: '616265', callsign: 'TEST1', password_set: true, password
 
 describe('Primary node administration', () => {
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       imports: [PrimaryNodeComponent],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])]
     });
+    afterEach(() => localStorage.clear());
   });
 
   async function crear(amiResponse: object = {
@@ -38,6 +41,78 @@ describe('Primary node administration', () => {
     fixture.detectChanges();
     return { fixture, http, component: fixture.componentInstance, element: fixture.nativeElement as HTMLElement };
   }
+
+  it('keeps allowlist clearing independent from denylist clearing and configuration saving', async () => {
+    const { fixture, http, component } = await crear();
+    component.solicitarVaciado('allowlist');
+    component.noMostrarVaciado.set(true);
+    component.vaciarAcceso();
+    http.expectOne(`${url}/access/clear`).flush({});
+    http.expectOne(`${url}/access`).flush({ node: config.node, entries: [] });
+    const preferences = TestBed.inject(NoticePreferencesService);
+    expect(preferences.isHidden('confirm.primary.clear.allowlist')).toBe(true);
+    component.solicitarVaciado('allowlist');
+    http.expectOne(`${url}/access/clear`).flush({});
+    http.expectOne(`${url}/access`).flush({ node: config.node, entries: [] });
+    component.solicitarVaciado('denylist');
+    expect(component.vaciadoPendiente()?.tipo).toBe('denylist');
+    http.expectNone(`${url}/access/clear`);
+    component.solicitarGuardado();
+    expect(component.confirmando()).toBe(true);
+    http.expectNone(url);
+    http.verify();
+    fixture.destroy();
+  });
+
+  it('automatically imports a suppressed type only after file reading has completed', async () => {
+    const { fixture, http, component, element } = await crear();
+    TestBed.inject(NoticePreferencesService).hide('confirm.primary.import');
+    const documento: NodeAccessDocument = {
+      format: 'amerimon-node-access', version: 1, node: config.node,
+      entries: [{ type: 'allowlist', node: '448511', reason: 'Imported' }],
+    };
+    const input = element.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(input, 'files', {
+      configurable: true, value: [{ size: 100, text: async () => JSON.stringify(documento) }],
+    });
+    input.dispatchEvent(new Event('change'));
+    expect(component.leyendoArchivo()).toBe(true);
+    http.expectNone(`${url}/access/import`);
+    await fixture.whenStable();
+    expect(component.leyendoArchivo()).toBe(false);
+    expect(component.importacionPendiente()).toBeNull();
+    const request = http.expectOne(`${url}/access/import`);
+    expect(request.request.body).toEqual({ primary_node: config.node, document: documento });
+    request.flush({ imported: 1 });
+    http.expectOne(`${url}/access`).flush({ node: config.node, entries: documento.entries });
+    http.verify();
+    fixture.destroy();
+  });
+
+  it('retains form validation and error reporting when save confirmation is hidden', async () => {
+    const { fixture, http, component, element } = await crear();
+    TestBed.inject(NoticePreferencesService).hide('confirm.primary.save');
+    const nodeInput = element.querySelector<HTMLInputElement>('input[name="numero"]')!;
+    nodeInput.value = '1';
+    nodeInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    element.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    http.expectNone(url);
+    nodeInput.value = '616266';
+    nodeInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    element.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    expect(component.confirmando()).toBe(false);
+    const request = http.expectOne(url);
+    expect(request.request.body.node).toBe('616266');
+    request.flush({ message: 'Save failed' }, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('Save failed');
+    http.verify();
+    fixture.destroy();
+  });
 
   it('translates the full template and substitutes node values when the language changes', async () => {
     const { fixture, http, component, element } = await crear();

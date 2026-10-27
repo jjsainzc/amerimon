@@ -236,13 +236,29 @@ Built-in actions use `rpt cmd` over AMI:
 
 For temporary connections, Amerimon queries `XStat` until the link is confirmed as `ESTABLISHED`. The default timeout is 15 seconds and can be configured from 1 to 300 seconds in the request. Permanent connections do not wait for this automatic confirmation.
 
+#### Already-linked node: changing mode or permanence
+
+In **Connect remote node**, the selected server, remote node, mode (**Transceive**, **Monitor**, or **Local Monitor**), and **Permanent connection** checkbox define the requested connection settings. After confirmation, Amerimon queries the live state through AMI:
+
+- **Same mode and same verifiable permanence:** a notice reports that the node is already connected or connecting with those settings, without disconnecting it or sending another connection command. The API returns HTTP `409`.
+- **Different mode or permanence:** only that remote node's direct link on the selected server is disconnected using `ilink 11`, which also removes permanent links. Other links and servers are not disconnected.
+- **Previous permanence cannot be verified:** the confirmation notice explains that the link will be disconnected and reconnected using the requested settings. A connection without a record is not assumed to be temporary.
+
+For example, changing a **permanent Transceive** link to **temporary Monitor** first removes the old link and then sends `ilink 2`; changing only permanence also requires reconnection. Amerimon waits up to 15 seconds for `XStat` to confirm that the old link has disappeared, validates the complete topology again, and only then sends the new command. If disconnection, querying, or absence verification fails, the new connection is not started. It also refuses to connect if another route would create a loop afterward. A removed link is not automatically restored if reconnection fails; review **Asterisk Logs** before retrying.
+
+`XStat` reports mode, but not permanence. Amerimon compares the current state with the latest compatible link command retained in **Asterisk Logs**. A later disconnection invalidates that reference. Connections created outside Amerimon or without a compatible record are treated as having unknown permanence; external permanence changes without a mode change cannot be detected through `XStat`.
+
+This behavior applies to both `POST /mon/asterisk/commands` and `POST /mon/asterisk/connections`. The explicit **Disconnect all before connecting** option remains different: when selected, it removes all RPT links from the selected server first, not just the requested node. Leave it unchecked to change only the settings of an existing link.
+
 #### Preventing loops among visible nodes
 
-All nodes are treated as peers: no hub is required and there is no hop limit. Before starting a link, Amerimon queries the `XStat` of tracked local and remote nodes, as well as the requested source, through AMI. It builds an undirected graph from their established or connecting `Conn:` links and the reachability announced in `LinkedNodes:`. `LinkedNodes: <NONE>` is Asterisk's marker for an empty list, not an invalid route; `Conn:` links in the same response are still checked. If source and destination already belong to the same component, the new link is rejected with HTTP `409`, showing the visible or pending route that prevents it. Self-connections, duplicate links, and mirrored connections are also rejected. `LinkedNodes:` routes indicate reachability, not necessarily every physical hop. `XStat` is requested through AMI (`Action: RptStatus`, `Command: XStat`, `Node: <node>`), not through the `rpt xstat` CLI command.
+All nodes are treated as peers: no hub is required and there is no hop limit. Before starting a link, Amerimon queries the `XStat` of tracked local and remote nodes, as well as the requested source, through AMI. It builds an undirected graph from their established or connecting `Conn:` links and the reachability announced in `LinkedNodes:`. `LinkedNodes: <NONE>` is Asterisk's marker for an empty list, not an invalid route; `Conn:` links in the same response are still checked. An existing direct link at the source is handled according to the connection-setting rules above; if removed, the graph is queried again. If source and destination still belong to the same component, the new link is rejected with HTTP `409`, showing the visible or pending route that prevents it. Self-connections and mirrored connections visible only from the other endpoint are also rejected. `LinkedNodes:` routes indicate reachability, not necessarily every physical hop. `XStat` is requested through AMI (`Action: RptStatus`, `Command: XStat`, `Node: <node>`), not through the `rpt xstat` CLI command.
 
 On the server, this validation applies to Connect, Monitor, and Local Monitor requests to `POST /mon/asterisk/commands`, both temporary and permanent, and to every mode of `POST /mon/asterisk/connections`. Validation rejections are recorded in **Asterisk Logs**. The monitor displays the reason and removes the pending connection from the interface. SQLite history is not treated as proof of an active connection: AMI is queried again before the command is sent.
 
-If any node in scope cannot be queried, or the response does not contain an interpretable link list, the new command is not sent and HTTP `503` is returned: a failure is never interpreted as a network with no links. Nodes excluded through **Tracking** are not queried; routes to them announced by other nodes can still be detected. Disconnect does not require a complete topology. With `disconnect_before_connect`, the source disconnect is confirmed first and the remaining topology is then validated; a self-link request is rejected before anything is disconnected.
+If any node in scope cannot be queried, or its response does not contain an interpretable link list, that response is omitted and the available information from other nodes and pending reservations is checked. An incomplete topology does not itself block the new command or display a validation error; diagnostics remain in the server log. If the topology inventory cannot be loaded, at least the selected source is queried. Self-links and visible or pending routes that are detected are still rejected with HTTP `409`. **Loop prevention cannot be guaranteed when nodes are unreachable.** Failure of the requested AMI operation is still displayed as an error. Nodes excluded through **Tracking** are not queried; routes to them announced by other nodes can still be detected. Disconnect does not require a complete topology. With `disconnect_before_connect`, the source disconnect is confirmed first and the available topology is then checked again; a self-link request is rejected before anything is disconnected. Verification that the old link has disconnected remains mandatory when changing its settings.
+
+In the monitor, node-query failures, including the primary node, do not display the unreachable node's error message. Its group retains the background retry status every 5 seconds without blocking other servers. General configuration errors and failures of user-requested actions remain visible.
 
 Amerimon serializes link operations within this process; a concurrent request receives HTTP `409` and must be retried. After AMI accepts a link, Amerimon keeps an in-memory reservation for the connection timeout (15 seconds by default) until it is observed in `XStat`, preventing another request from closing a loop while the link is being established. Reservations do not survive a restart; visible connections are queried again. This protection cannot guarantee hidden routes, simultaneous changes made outside Amerimon, or future Asterisk reconnections of permanent links after the reservation expires.
 
@@ -299,6 +315,16 @@ To restore, stop the service, keep a copy of the current database, replace the f
 ## 8. Administration and endpoints
 
 On first access, click **Admin** and set the username and password. The username must contain 3 to 32 characters allowed by the application; the password must contain at least 8 characters and is stored with bcrypt. Administrative endpoints require an administrator-role JWT.
+
+### Warning and confirmation preferences
+
+Warnings and confirmations include **Do not show this type of notice again**. Preferences are saved per notice type, not globally: hiding connection confirmations does not hide disconnection confirmations or the confirmation for disconnecting all links before connecting. Maintenance actions, deleting favorites and external links, and saving, importing, and clearing primary-node lists have independent preferences; allowlist and denylist clearing are also separate.
+
+For confirmations, checking the box saves the preference only when the action is confirmed; cancelling does not save it. Subsequent requests of that type, initiated by the user, execute without asking for confirmation, including destructive actions. For maintenance, after the first valid typed confirmation, the backend confirmation contract is preserved even when the dialog is no longer shown. Hiding notices does not trigger actions by itself or remove server-side validation.
+
+Preferences are stored in Local Storage under `amerimon.notice-preferences.v1`, for the same origin and browser profile. They survive reloads, sign-out, and subsequent sign-in; they are not synchronized with other browsers or devices. **Error messages and failed-operation diagnostics are always displayed and never include a suppression checkbox.** If the browser prevents reading or saving preferences, an error is displayed; failed writes do not hide the notice in memory.
+
+Temporarily, **Admin → Customize Header → Reset warnings and confirmations** restores all hidden notice types. It does not save header fields or modify credentials, sessions, nodes, or server configuration. Reset reports success only if the browser preference is successfully removed.
 
 ### Resetting the administrator account
 
@@ -505,6 +531,8 @@ Before providing APT instructions, confirm that `https://jjsainzc.github.io/repo
 | Local node does not appear | Confirm `rpt_config_path`, numeric sections, and the primary node's loopback entry in `rpt.conf`; Allmon provides remote servers only |
 | AMI rejects an operation | Check `AMI_USER`/`AMI_SECRET` without printing them; validate host/port and permissions for the existing user; inspect `journalctl -u amerimon` |
 | AMI accepts but does not confirm a connection | Open Asterisk Logs and review `XStat` details, remote status, and timeout |
+| Notice about the same mode and permanence | The link already has the requested settings; no commands were sent. Change mode or permanence only if reconnection is actually intended |
+| New connection was not started when changing settings | Review Asterisk Logs for the old link's disconnection, confirmation of its absence in `XStat`, and possible alternate routes; a removed link is not automatically restored |
 | `/amerimon` returns 404 | Confirm Apache/Nginx configuration is enabled, the path is correct, `configtest` passes, and the correct VirtualHost proxy is used |
 | `apt` offers an older version | Run `apt update`, check `apt-cache policy amerimon`, and confirm the public Pages index |
 | Temperature/voltage unavailable | Check kernel sensors, `vcgencmd` on ARM, or `hwmon` entries on AMD |

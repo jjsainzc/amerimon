@@ -6,17 +6,22 @@ import { SystemInfo } from '../../core/models/system-info.model';
 import { SystemAction, SystemControlResponse, SystemInfoService } from '../../core/services/system-info.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
+import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
+import { NoticePreferenceComponent } from '../notice-preference/notice-preference.component';
+import { DismissibleNoticeComponent } from '../dismissible-notice/dismissible-notice.component';
 
 @Component({
   selector: 'app-system-info-dialog',
   standalone: true,
-  imports: [CommonModule, CopyValueDirective, TranslatePipe],
+  imports: [CommonModule, CopyValueDirective, TranslatePipe, NoticePreferenceComponent, DismissibleNoticeComponent],
   templateUrl: './system-info-dialog.component.html',
   styleUrl: './system-info-dialog.component.css',
 })
 export class SystemInfoDialogComponent {
   private readonly service = inject(SystemInfoService);
   private readonly translation = inject(TranslationService);
+  protected readonly noticePreferences = inject(NoticePreferencesService);
+  readonly noMostrarConfirmacion = signal(false);
 
   readonly cerrar = output<void>();
   readonly informacion = signal<SystemInfo | null>(null);
@@ -39,19 +44,25 @@ export class SystemInfoDialogComponent {
     }
   }
 
-  /** Abre la confirmación sin ejecutar aún ningún comando. */
+  /** Solicita la acción respetando la preferencia de confirmación de su tipo. */
   preparar(action: SystemAction): void {
     if (this.ejecutando() || this.programado()) { return; }
     this.accion.set(action);
     this.confirmacion.set('');
     this.resultado.set(null);
     this.errorControl.set('');
+    this.noMostrarConfirmacion.set(false);
+    if (this.noticePreferences.isHidden(`confirm.system.${action}`)) {
+      this.confirmacion.set(this.textoConfirmacion(action));
+      this.ejecutar();
+    }
   }
 
   /** Ejecuta solo una acción confirmada y conserva los diagnósticos tanto de éxito como de fallo. */
   ejecutar(): void {
     const action = this.accion();
     if (!action || this.ejecutando() || this.programado() || this.confirmacion() !== this.textoConfirmacion(action)) { return; }
+    if (this.noMostrarConfirmacion()) { this.noticePreferences.hide(`confirm.system.${action}`); }
     this.ejecutando.set(true);
     this.errorControl.set('');
     this.service.controlar(action, this.confirmacion()).subscribe({

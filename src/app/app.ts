@@ -11,6 +11,7 @@ import { WeatherComponent } from './shared/weather/weather.component';
 import { AboutModalComponent } from './shared/about-modal/about-modal.component';
 import { TranslationService } from './core/services/translation.service';
 import { TranslatePipe } from './core/pipes/translate.pipe';
+import { NoticePreferencesService } from './core/services/notice-preferences.service';
 
 type Modo = 'login' | 'crear';
 type ErrorHttp = { error?: { message?: string } };
@@ -22,6 +23,7 @@ type ErrorHttp = { error?: { message?: string } };
   templateUrl: './app.html',
 })
 export class App implements OnInit {
+  protected readonly noticePreferences = inject(NoticePreferencesService);
   private readonly auth = inject(AuthService);
   private readonly siteSettingsService = inject(SiteSettingsService);
   private readonly enlacesService = inject(EnlacesExternosService);

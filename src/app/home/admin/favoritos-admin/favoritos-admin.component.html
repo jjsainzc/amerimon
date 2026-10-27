@@ -59,7 +59,11 @@
         @if (buscando()) { <p class="fa-busqueda" role="status">{{ 'BUSCANDO_EN_ASTDB_Y_ECHOLINK' | translate }}</p> }
         @if (estadoBusqueda()) { <p class="fa-busqueda" role="status">{{ estadoBusqueda() }}</p> }
         @if (errorBusqueda()) { <p class="fa-mensaje fa-error" role="alert">{{ errorBusqueda() }}</p> }
-        @if (avisoBusqueda()) { <p class="fa-mensaje fa-aviso" role="alert">{{ avisoBusqueda() }}</p> }
+        @if (avisoBusqueda()) {
+          <app-dismissible-notice noticeKey="notice.favorites.search-limit">
+            <p class="fa-mensaje fa-aviso" role="alert">{{ avisoBusqueda() }}</p>
+          </app-dismissible-notice>
+        }
         @if (coincidencias().length > 1) {
           <fieldset class="fa-coincidencias">
             <legend>{{ 'DESTINOS_ENCONTRADOS_ELIGE_EL_NODO_QUE_QUIERES_AGREGAR' | translate }}</legend>
@@ -90,6 +94,7 @@
 }
 
 <app-confirmacion-dialog
+  noticeKey="confirm.favorite.delete"
   [open]="pendienteBorrar() !== null"
   [title]="'ELIMINAR_FAVORITO' | translate"
   [message]="pendienteBorrar() ? ('CONFIRMAR_ELIMINAR_FAVORITO' | translate:{numero: pendienteBorrar()!.numero}) : ''"

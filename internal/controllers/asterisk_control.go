@@ -269,7 +269,7 @@ func ExecuteSupermonCommand(c echo.Context) error {
 	}
 
 	if isRPTConnectionAction(request.Action) {
-		if status, err := validateRPTConnection(c.Request().Context(), instance, request.RemoteNode); err != nil {
+		if status, err := validateRPTConnection(c.Request().Context(), instance, request.RemoteNode, request); err != nil {
 			log.Printf("asterisk: validación de enlace local=%s remoto=%s: %v", request.LocalNode, request.RemoteNode, err)
 			recordAsteriskOperation(c.Request().Context(), request.Action, request.LocalNode, request.RemoteNode, "", request.Permanent, command, "connection_rejected", err.Error(), startedAt)
 			return c.JSON(status, echo.Map{"status": "error", "message": err.Error()})
@@ -325,7 +325,7 @@ func isRPTConnectionAction(action string) bool {
 	}
 }
 
-func disconnectRPTConnections(ctx context.Context, instance allmonInstance, timeout time.Duration) error {
+func disconnectRPTConnections(ctx context.Context, instance allmonInstance, timeout time.Duration, remote ...string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	sent := make(map[string]bool)
@@ -339,7 +339,19 @@ func disconnectRPTConnections(ctx context.Context, instance allmonInstance, time
 		if err != nil {
 			return fmt.Errorf("no se pudieron consultar los enlaces de %s: %w", instance.Node, err)
 		}
+		if err := addRPTVisibleLinks(make(rptLinkGraph), instance.Node, xstat); err != nil {
+			return err
+		}
 		connections := parseRPTConnections(xstat, "")
+		if len(remote) > 0 {
+			filtered := make([]rptConnection, 0, 1)
+			for _, connection := range connections {
+				if connection.Node == remote[0] {
+					filtered = append(filtered, connection)
+				}
+			}
+			connections = filtered
+		}
 		if len(connections) == 0 {
 			return ctx.Err()
 		}
@@ -480,7 +492,9 @@ func AddNodeConnection(c echo.Context) error {
 		return c.JSON(http.StatusConflict, echo.Map{"status": "error", "message": "Hay otra operación de enlace en curso. Espera a que termine y vuelve a intentar."})
 	}
 	defer rptConnectionSafety.Unlock()
-	if status, err := validateRPTConnection(c.Request().Context(), instance, request.RemoteNode); err != nil {
+	action := map[string]string{"transceiver": "connect", "permanent": "connect", "monitor": "monitor", "local_monitor": "localmonitor"}[request.Mode]
+	desired := SupermonCommandRequest{LocalNode: request.LocalNode, RemoteNode: request.RemoteNode, Action: action, Permanent: request.Mode == "permanent"}
+	if status, err := validateRPTConnection(c.Request().Context(), instance, request.RemoteNode, desired); err != nil {
 		log.Printf("asterisk: validación de enlace local=%s remoto=%s: %v", request.LocalNode, request.RemoteNode, err)
 		recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "connection_rejected", err.Error(), startedAt)
 		return c.JSON(status, echo.Map{"status": "error", "message": err.Error()})
@@ -495,7 +509,7 @@ func AddNodeConnection(c echo.Context) error {
 	if len(lines) == 0 {
 		lines = []string{"No data returned"}
 	}
-	recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, false, command, "success", strings.Join(lines, " | "), startedAt)
+	recordAsteriskOperation(c.Request().Context(), "add_connection", request.LocalNode, request.RemoteNode, request.Mode, desired.Permanent, command, "success", strings.Join(lines, " | "), startedAt)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "success",
 		"data": map[string]any{

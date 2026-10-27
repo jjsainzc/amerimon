@@ -10,11 +10,12 @@ import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog
 import { TranslationService } from '../../../core/services/translation.service';
 import { LoadingIndicatorComponent } from '../../../shared/loading-indicator/loading-indicator.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { DismissibleNoticeComponent } from '../../../shared/dismissible-notice/dismissible-notice.component';
 
 @Component({
   selector: 'app-favoritos-admin',
   standalone: true,
-  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, LoadingIndicatorComponent, CopyValueDirective, TranslatePipe],
+  imports: [ReactiveFormsModule, AdminVolverComponent, ConfirmacionDialogComponent, LoadingIndicatorComponent, CopyValueDirective, TranslatePipe, DismissibleNoticeComponent],
   templateUrl: './favoritos-admin.component.html',
   styleUrl: './favoritos-admin.component.css'
 })

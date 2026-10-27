@@ -1,14 +1,17 @@
-@if (open) {
+@if (open && !preferences.isHidden(noticeKey)) {
   <div class="confirmacion-overlay">
     <section class="confirmacion-dialogo" role="alertdialog" aria-modal="true" aria-labelledby="confirmacion-titulo" aria-describedby="confirmacion-mensaje">
       <div class="confirmacion-icono" aria-hidden="true">!</div>
       <div class="confirmacion-contenido">
         <h2 id="confirmacion-titulo">{{ title || ('CONFIRMAR_ACCION' | translate) }}</h2>
         <p id="confirmacion-mensaje">{{ message }}</p>
+        @if (noticeKey) {
+          <app-notice-preference [checked]="doNotShow" [disabled]="busy" (checkedChange)="doNotShow = $event" />
+        }
       </div>
       <div class="confirmacion-acciones">
         <button type="button" class="confirmacion-cancelar" (click)="cancelled.emit()" [disabled]="busy">{{ 'CANCELAR' | translate }}</button>
-        <button type="button" class="confirmacion-confirmar" (click)="confirmed.emit()" [disabled]="busy" [attr.aria-busy]="busy">
+        <button type="button" class="confirmacion-confirmar" (click)="confirm()" [disabled]="busy" [attr.aria-busy]="busy">
           @if (busy) {
             <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
           } @else if (showDeleteIcon) { <i class="fa-solid fa-trash-can" aria-hidden="true"></i> }

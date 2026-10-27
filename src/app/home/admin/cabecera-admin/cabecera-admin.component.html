@@ -24,4 +24,12 @@
     }
     @if (error() && cargando()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }
   </form>
+  <section class="admin-page-form">
+    <h2>{{ 'NOTICE_PREFERENCES_TITLE' | translate }}</h2>
+    <p>{{ 'NOTICE_PREFERENCES_HELP' | translate }}</p>
+    <div class="admin-page-actions">
+      <button type="button" (click)="restablecerAvisos()">{{ 'NOTICE_RESET' | translate }}</button>
+    </div>
+    @if (avisosRestablecidos()) { <p role="status">{{ 'NOTICE_RESET_DONE' | translate }}</p> }
+  </section>
 </section>

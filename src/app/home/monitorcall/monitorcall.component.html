@@ -136,6 +136,7 @@
 </section>
 
 <app-confirmacion-dialog
+  noticeKey="confirm.listen.disconnect"
   [open]="sesionPendiente() !== null"
   [title]="'DESCONECTAR_ESCUCHA' | translate"
   [message]="sesionPendiente() ? ('CONFIRMAR_DESCONECTAR_ESCUCHA' | translate:{usuario: sesionPendiente()!.callsign || sesionPendiente()!.nombre || ('ESTE_USUARIO' | translate)}) : ''"

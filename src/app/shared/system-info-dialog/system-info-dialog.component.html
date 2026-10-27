@@ -18,13 +18,16 @@
 
     <section class="sys-mantenimiento" aria-labelledby="sys-mantenimiento-titulo">
       <h3 id="sys-mantenimiento-titulo">{{ 'MANTENIMIENTO_DEL_SERVIDOR' | translate }}</h3>
-      <p>{{ 'ACCIONES_INTERRUMPEN_COMUNICACIONES' | translate }}</p>
+      <app-dismissible-notice noticeKey="notice.system.interruption">
+        <p>{{ 'ACCIONES_INTERRUMPEN_COMUNICACIONES' | translate }}</p>
+      </app-dismissible-notice>
       <div class="sys-control-botones">
         <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('asterisk_restart')">{{ 'REINICIAR_ASTERISK' | translate }}</button>
         <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_reboot')">{{ 'REINICIAR_LINUX' | translate }}</button>
         <button type="button" class="sys-peligro" [disabled]="ejecutando() || programado()" (click)="preparar('linux_poweroff')">{{ 'APAGAR_LINUX' | translate }}</button>
       </div>
       @if (accion(); as action) {
+        @if (!noticePreferences.isHidden('confirm.system.' + action)) {
         <div class="sys-confirmacion">
           <p>{{ 'SE_INTERRUMPIRAN_TODAS_LAS_COMUNICACIONES_DEL_SERVIDOR' | translate }}</p>
           @if (action == 'linux_poweroff') {
@@ -38,11 +41,13 @@
           }
           <label for="sys-confirmacion">{{ 'ESCRIBE_TEXTO_CONFIRMACION' | translate }} <strong>{{ textoConfirmacion(action) }}</strong> {{ 'PARA_CONFIRMAR' | translate }}:</label>
           <input #confirmationInput id="sys-confirmacion" type="text" autocomplete="off" [value]="confirmacion()" (input)="confirmacion.set(confirmationInput.value)" [disabled]="ejecutando()">
+          <app-notice-preference [checked]="noMostrarConfirmacion()" [disabled]="ejecutando()" (checkedChange)="noMostrarConfirmacion.set($event)" />
           <div class="sys-control-botones">
             <button type="button" class="sys-peligro" [disabled]="ejecutando() || confirmacion() !== textoConfirmacion(action)" (click)="ejecutar()">{{ ejecutando() ? ('EJECUTANDO_Y_VERIFICANDO' | translate) : ('CONFIRMAR_ACCION' | translate) }}</button>
             <button type="button" class="sys-actualizar" [disabled]="ejecutando()" (click)="accion.set(null)">{{ 'CANCELAR' | translate }}</button>
           </div>
         </div>
+        }
       }
       @if (ejecutando()) { <p role="status">{{ 'MANTENIMIENTO_EN_CURSO' | translate }} {{ 'LA_VERIFICACION_PUEDE_TARDAR_APROXIMADAMENTE_UN_MINUTO' | translate }}</p> }
       @if (errorControl()) { <p class="sys-error" role="alert">{{ errorControl() }}</p> }
@@ -50,7 +55,9 @@
         @if (result.status === 'success') { <p class="sys-resultado" role="status">{{ result.message }}</p> }
         @for (detail of result.data.details; track $index) { <p class="sys-control-detalle">{{ detail }}</p> }
         @if (result.data.warnings) {
-          <div class="sys-advertencia" role="alert"><strong>{{ 'ADVERTENCIAS_DEL_DIAGNOSTICO' | translate }}</strong><pre>{{ result.data.warnings }}</pre></div>
+          <app-dismissible-notice noticeKey="notice.system.diagnostics" [alwaysShow]="!!errorControl() || result.status !== 'success'">
+            <div class="sys-advertencia" role="alert"><strong>{{ 'ADVERTENCIAS_DEL_DIAGNOSTICO' | translate }}</strong><pre>{{ result.data.warnings }}</pre></div>
+          </app-dismissible-notice>
         }
       }
     </section>

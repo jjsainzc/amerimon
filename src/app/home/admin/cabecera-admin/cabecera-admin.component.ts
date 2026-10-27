@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { SiteSettingsService } from '../../../core/services/site-settings.service';
+import { NoticePreferencesService } from '../../../core/services/notice-preferences.service';
 
 type ErrorHttp = { error?: { message?: string } };
 
@@ -16,6 +17,8 @@ type ErrorHttp = { error?: { message?: string } };
 export class CabeceraAdminComponent implements OnInit {
   private readonly settingsService = inject(SiteSettingsService);
   private readonly router = inject(Router);
+  protected readonly noticePreferences = inject(NoticePreferencesService);
+  protected readonly avisosRestablecidos = signal(false);
 
   protected titulo = '';
   protected subtitulo = '';
@@ -52,5 +55,9 @@ export class CabeceraAdminComponent implements OnInit {
         this.guardando.set(false);
       },
     });
+  }
+
+  protected restablecerAvisos(): void {
+    this.avisosRestablecidos.set(this.noticePreferences.reset());
   }
 }

@@ -5,7 +5,7 @@
   <p>{{ 'NODO_CAMBIOS_CON_RESPALDO' | translate }} <strong>{{ 'SISTEMA' | translate }}</strong>{{ 'EL_REINICIO_INTERRUMPE_LAS_CONEXIONES_ACTIVAS' | translate }}</p>
   @if (cargando()) { <p role="status">{{ 'CARGANDO_CONFIGURACION' | translate }}</p> }
   @if (ruta()) { <p>{{ 'CONFIGURACION' | translate }} <code>{{ ruta() }}</code></p> }
-  <form #configForm="ngForm" (ngSubmit)="confirmando.set(true)">
+  <form #configForm="ngForm" (ngSubmit)="configForm.valid && solicitarGuardado()">
     <fieldset [disabled]="cargando() || guardando() || !actual()">
       <label>{{ 'NODO' | translate }}
         <span class="clipboard-field" [appCopy]="numero"><input name="numero" [(ngModel)]="numero" required pattern="[2-9][0-9]{3,5}" maxlength="6" inputmode="numeric" /></span>
@@ -29,13 +29,14 @@
   @if (confirmando()) {
     <section class="confirmacion" role="group" [attr.aria-label]="'CONFIRMAR_CONFIGURACION' | translate">
       <p>{{ 'NODO_CONFIRMAR_GUARDADO' | translate: { actual: actual(), nuevo: numero } }}</p>
+      <app-notice-preference [checked]="noMostrarGuardado()" (checkedChange)="noMostrarGuardado.set($event)" />
       <button type="button" (click)="guardar()" [disabled]="configForm.invalid || guardando() || guardandoAcceso()">{{ 'CONFIRMAR_GUARDADO' | translate }}</button>
       <button type="button" (click)="confirmando.set(false)">{{ 'CANCELAR' | translate }}</button>
     </section>
   }
   @if (guardando()) { <p role="status">{{ 'GUARDANDO_CONFIGURACION' | translate }}</p> }
   @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
-  @if (aviso()) { <p class="ok" role="status">{{ aviso() }}</p> }
+  @if (aviso()) { <app-dismissible-notice noticeKey="notice.primary.saved"><p class="ok" role="status">{{ aviso() }}</p></app-dismissible-notice> }
 
   <section class="ami-config" aria-labelledby="ami-config-titulo">
     <h3 id="ami-config-titulo">{{ 'ACCESO_AMI_DE_ASTERISK' | translate }}</h3>
@@ -109,7 +110,7 @@
     }
     @if (guardandoAMI()) { <p role="status">{{ 'APLICANDO_Y_VERIFICANDO_ACCESO_AMI' | translate }}</p> }
     @if (errorAMI()) { <p class="error" role="alert">{{ errorAMI() }}</p> }
-    @if (avisoAMI()) { <p class="ok" role="status">{{ avisoAMI() }}</p> }
+    @if (avisoAMI()) { <app-dismissible-notice noticeKey="notice.primary.ami"><p class="ok" role="status">{{ avisoAMI() }}</p></app-dismissible-notice> }
   </section>
 
   <h3>{{ 'LISTA_DE_ACCESO_DEL_NODO_NODOACCESO_ACTUAL' | translate: { nodo: nodoAcceso() || actual() } }}</h3>
@@ -136,6 +137,7 @@
     <section class="confirmacion" role="group" [attr.aria-label]="'CONFIRMAR_IMPORTACION_DE_LISTAS' | translate">
       <p>{{ 'NODO_CONFIRMAR_IMPORTACION' | translate: { cantidad: pendiente.documento.entries.length, origen: pendiente.documento.node, destino: pendiente.nodo } }}</p>
       <p>{{ 'LOS_CAMBIOS_DE_ACCESO_SE_APLICARAN_INMEDIATAMENTE_SIN_REINICIAR_ASTERISK' | translate }}</p>
+      <app-notice-preference [checked]="noMostrarImportacion()" (checkedChange)="noMostrarImportacion.set($event)" />
       <button type="button" (click)="importarAcceso()"
         [disabled]="cargandoAcceso() || guardandoAcceso() || guardando() || leyendoArchivo()">{{ 'CONFIRMAR_IMPORTACION' | translate }}</button>
       <button type="button" (click)="importacionPendiente.set(null)">{{ 'CANCELAR' | translate }}</button>
@@ -144,6 +146,7 @@
   @if (vaciadoPendiente(); as pendiente) {
     <section class="confirmacion" role="group" [attr.aria-label]="'CONFIRMAR_VACIADO_DE_LISTA' | translate">
       <p>{{ (pendiente.tipo === 'allowlist' ? 'NODO_CONFIRMAR_VACIADO_PERMITIDOS' : 'NODO_CONFIRMAR_VACIADO_DENEGADOS') | translate: { nodo: pendiente.nodo } }}</p>
+      <app-notice-preference [checked]="noMostrarVaciado()" (checkedChange)="noMostrarVaciado.set($event)" />
       @if (pendiente.tipo === 'allowlist') {
         <p>{{ 'AL_VACIAR_PERMITIDOS_SE_ELIMINA_LA_RESTRICCION_A_LOS_NODOS_AUTORIZADOS_LA_LISTA_DE_DENEGADOS_SEGUIRA_APLICANDOSE' | translate }}</p>
       }

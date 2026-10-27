@@ -8,9 +8,11 @@
         </div>
         <button type="button" class="markdown-viewer-close" [attr.aria-label]="'CERRAR' | translate" (click)="close()">&times;</button>
       </header>
-      <p class="markdown-viewer-diagram-note" role="note">
-        {{ 'NOTA_DIAGRAMAS_PANTALLA_PEQUENA' | translate }}
-      </p>
+      <app-dismissible-notice class="markdown-viewer-diagram-notice" noticeKey="notice.manual.small-screen">
+        <p class="markdown-viewer-diagram-note" role="note">
+          {{ 'NOTA_DIAGRAMAS_PANTALLA_PEQUENA' | translate }}
+        </p>
+      </app-dismissible-notice>
       @if (loading()) {
         <p class="markdown-viewer-state" role="status">{{ 'CARGANDO_DOCUMENTO' | translate }}</p>
       } @else if (error()) {

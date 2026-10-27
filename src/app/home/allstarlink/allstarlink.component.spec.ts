@@ -7,6 +7,9 @@ import { vi } from 'vitest';
 import { signal } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
+import { TranslationService } from '../../core/services/translation.service';
+import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
+import spanish from '../../../../public/assets/i18n/es.json';
 
 const nodesUrl = `${environment.apiUrl}/allstarlink/nodes`;
 const tablas = ['616265', '700001'].map(nodo_local => ({
@@ -14,7 +17,8 @@ const tablas = ['616265', '700001'].map(nodo_local => ({
 }));
 
 describe('Allstarlink connection target safety', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       imports: [ TranslatePipe, AllstarlinkComponent],
       providers: [
@@ -23,6 +27,9 @@ describe('Allstarlink connection target safety', () => {
         { provide: AuthService, useValue: { esAdmin: signal(true) } }
       ]
     });
+    const translation = TestBed.inject(TranslationService);
+    TestBed.inject(HttpTestingController).expectOne('./assets/i18n/es.json').flush(spanish);
+    await translation.loadLanguage('es');
   });
 
   async function crearMonitor() {
@@ -53,6 +60,99 @@ describe('Allstarlink connection target safety', () => {
     fixture.detectChanges();
     return { fixture, component, http, element: fixture.nativeElement as HTMLElement };
   }
+
+  it('skips only a suppressed connection confirmation while still displaying backend errors', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      const preferences = TestBed.inject(NoticePreferencesService);
+      preferences.hide('confirm.asterisk.connect');
+      preferences.hide('notice.asterisk.connected');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      expect(component.confirmacionPendiente()).toBeNull();
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      request.flush({ message: 'Connection failed' }, { status: 502, statusText: 'Bad Gateway' });
+      fixture.detectChanges();
+      expect(component.resultadoPopup()?.error).toBe(true);
+      expect(fixture.nativeElement.querySelector('.allstarlink-resultado')?.textContent).toContain('Connection failed');
+      expect(fixture.nativeElement.querySelector('.allstarlink-resultado input[type="checkbox"]')).toBeNull();
+      component.cerrarPopup();
+      component.desconectar('616262', '1964');
+      expect(component.confirmacionPendiente()).not.toBeNull();
+      component.cancelarConfirmacion();
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('saves confirmation suppression only when accepted and restores the prompt on reset', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      component.noMostrarConfirmacion.set(true);
+      component.cancelarConfirmacion();
+      const preferences = TestBed.inject(NoticePreferencesService);
+      expect(preferences.isHidden('confirm.asterisk.connect')).toBe(false);
+      component.conectarNodo();
+      expect(component.noMostrarConfirmacion()).toBe(false);
+      component.noMostrarConfirmacion.set(true);
+      component.confirmarAccion();
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({ status: 'error', message: 'Rejected' });
+      expect(preferences.isHidden('confirm.asterisk.connect')).toBe(true);
+      preferences.reset();
+      component.conectarNodo();
+      expect(component.confirmacionPendiente()).not.toBeNull();
+      component.cancelarConfirmacion();
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('warns about an identical existing modality without retrying the command', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      expect(component.confirmacionPendiente()?.mensaje).toContain('se desconectará solo ese enlace');
+      expect(component.confirmacionPendiente()?.mensaje).toContain('no se puede verificar la permanencia');
+      component.confirmarAccion();
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      const message = 'El nodo 46818 ya está conectado con el mismo modo y la misma permanencia solicitados.';
+      request.flush({ status: 'error', message }, { status: 409, statusText: 'Conflict' });
+      expect(component.resultadoConexion()).toEqual({ texto: message, error: true });
+      expect(component.conectando()).toBe(false);
+      expect(component.conexionesPendientes()).toEqual([]);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('allows the backend time to disconnect an old permanent link before reconnecting', async () => {
+    const { fixture, component, http } = await crearMonitor();
+    vi.useFakeTimers();
+    try {
+      component.nodoRemotoConexion.set('46818');
+      component.permanenteConexion.set(true);
+      component.modoConexion.set('monitor');
+      component.conectarNodo();
+      component.confirmarAccion();
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(request.cancelled).toBe(false);
+      expect(component.conectando()).toBe(true);
+      request.flush({ status: 'success', data: { command: 'rpt cmd 616262 ilink 12 46818', lines: ['OK'] } });
+      expect(component.resultadoConexion()?.error).toBe(false);
+      expect(component.conectando()).toBe(false);
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
 
   it('displays the actual local target after options arrive asynchronously, in both panels', async () => {
     const { fixture, component, http, element } = await crearMonitor();
@@ -195,7 +295,7 @@ describe('Allstarlink connection target safety', () => {
         new Event('submit', { cancelable: true })
       );
       expect(component.confirmacionPendiente()?.mensaje)
-        .toBe('Conectar el nodo 46818 a 56502 en modo Local Monitor (temporal).');
+        .toBe('Conectar el nodo 46818 a 56502 en modo Local Monitor (temporal). ' + spanish.CONFIRMACION_CAMBIO_MODALIDAD_EXISTENTE);
       http.expectNone(request => request.method === 'POST');
       component.nodoLocal.set('616262');
       component.nodoRemotoConexion.set('99999');
@@ -598,12 +698,15 @@ function respuestaServidor(local: string, conectado = true) {
 }
 
 describe('Allstarlink server selection', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
     TestBed.configureTestingModule({
       imports: [AllstarlinkComponent],
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
+    const translation = TestBed.inject(TranslationService);
+    TestBed.inject(HttpTestingController).expectOne('./assets/i18n/es.json').flush(spanish);
+    await translation.loadLanguage('es');
   });
 
   it('puts the primary table first and shows remote metadata even before AMI responds', async () => {
@@ -736,6 +839,8 @@ describe('Allstarlink server selection', () => {
       expect(component.error()).toBe('');
       expect(component.erroresServidor()['700001']).toContain('700001');
       expect((fixture.nativeElement as HTMLElement).querySelector('.allstarlink > .allstarlink-error')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(component.erroresServidor()['700001']);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Reintentando en segundo plano');
 
       vi.advanceTimersByTime(5000);
       http.expectNone(`${nodesUrl}?local_node=616265`);
@@ -756,7 +861,7 @@ describe('Allstarlink server selection', () => {
     }
   });
 
-  it('shows only the primary connection failure globally and clears it after recovery', () => {
+  it('retries an unreachable primary without displaying its connection error', () => {
     vi.useFakeTimers();
     const fixture = TestBed.createComponent(AllstarlinkComponent);
     try {
@@ -768,10 +873,10 @@ describe('Allstarlink server selection', () => {
       http.expectOne(`${nodesUrl}?local_node=616265`).flush(respuestaServidor('616265', false));
       http.expectOne(`${nodesUrl}?local_node=700001`).flush(respuestaServidor('700001'));
       fixture.detectChanges();
-      expect(component.error()).toContain('616265');
+      expect(component.error()).toBe('');
       expect(component.nodos().map(nodo => nodo.nodo_local)).toEqual(['700001']);
-      expect((fixture.nativeElement as HTMLElement).querySelector('.allstarlink > .allstarlink-error')?.textContent)
-        .toContain('616265');
+      expect((fixture.nativeElement as HTMLElement).querySelector('.allstarlink > .allstarlink-error')).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(component.erroresServidor()['616265']);
       vi.advanceTimersByTime(5000);
       http.expectOne(`${nodesUrl}?local_node=616265`).flush(respuestaServidor('616265'));
       expect(component.error()).toBe('');

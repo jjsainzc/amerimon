@@ -115,8 +115,6 @@ func TestConnectionAPIsRejectVisibleLoops(t *testing.T) {
 		wantStatus          int
 	}{
 		{name: "self", local: "50001", remote: "50001", wantStatus: http.StatusConflict},
-		{name: "direct duplicate", local: "50001", remote: "50002", wantStatus: http.StatusConflict,
-			statuses: map[string]string{"50001": "Conn: 50002 192.0.2.1 OUT 00:01"}},
 		{name: "mirror", local: "50001", remote: "50002", wantStatus: http.StatusConflict,
 			statuses: map[string]string{"50002": "Conn: 50001 192.0.2.1 OUT 00:01"}},
 		{name: "indirect chain", local: "50001", remote: "50003", wantStatus: http.StatusConflict,
@@ -129,14 +127,18 @@ func TestConnectionAPIsRejectVisibleLoops(t *testing.T) {
 			statuses: map[string]string{"50001": "Conn: 50002 192.0.2.1 OUT 00:01", "50002": "Conn: 50003 192.0.2.2 OUT 00:01"}},
 		{name: "asterisk empty announcements allow connection", local: "50001", remote: "50002", wantStatus: http.StatusOK,
 			statuses: map[string]string{"50001": "LinkedNodes: <NONE>", "50002": "LinkedNodes: <NONE>", "50003": "LinkedNodes: <NONE>"}},
-		{name: "empty announcement preserves duplicate detection", local: "50001", remote: "50002", wantStatus: http.StatusConflict,
-			statuses: map[string]string{"50001": "Conn: 50002 192.0.2.1 OUT 00:01\r\nLinkedNodes: <NONE>"}},
 		{name: "independent components", local: "50001", remote: "50003", wantStatus: http.StatusOK,
 			statuses: map[string]string{"50001": "Conn: 90001 192.0.2.1 OUT 00:01", "50003": "Conn: 90002 192.0.2.2 OUT 00:01"}},
-		{name: "unavailable topology", local: "50001", remote: "90001", wantStatus: http.StatusServiceUnavailable,
+		{name: "unavailable topology", local: "50001", remote: "90001", wantStatus: http.StatusOK,
 			statuses: map[string]string{"50002": "Response: Error\r\nMessage: unavailable"}},
-		{name: "malformed topology", local: "50001", remote: "90001", wantStatus: http.StatusServiceUnavailable,
+		{name: "malformed topology", local: "50001", remote: "90001", wantStatus: http.StatusOK,
 			statuses: map[string]string{"50002": "Response: Success"}},
+		{name: "unavailable origin topology", local: "50001", remote: "90001", wantStatus: http.StatusOK,
+			statuses: map[string]string{"50001": "Response: Error\r\nMessage: unavailable"}},
+		{name: "visible loop with unavailable peer", local: "50001", remote: "90001", wantStatus: http.StatusConflict,
+			statuses: map[string]string{"50001": "LinkedNodes: T90001", "50002": "Response: Error\r\nMessage: unavailable"}},
+		{name: "malformed snapshot is not a partial route", local: "50001", remote: "90001", wantStatus: http.StatusOK,
+			statuses: map[string]string{"50002": "LinkedNodes: T50001,T90001\nConn:"}},
 	} {
 		for _, mode := range []string{"connect", "monitor", "localmonitor", "temporary-connect", "temporary-monitor", "temporary-localmonitor", "transceiver", "permanent", "local_monitor", "add-monitor"} {
 			t.Run(test.name+"/"+mode, func(t *testing.T) {

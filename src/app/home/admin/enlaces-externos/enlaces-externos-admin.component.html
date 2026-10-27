@@ -85,6 +85,7 @@
 }
 
 <app-confirmacion-dialog
+  noticeKey="confirm.external-link.delete"
   [open]="pendienteBorrar() !== null"
   [title]="'ELIMINAR_ENLACE_EXTERNO' | translate"
   [message]="pendienteBorrar() ? ('CONFIRMAR_ELIMINAR_ENLACE_EXTERNO' | translate:{descripcion: pendienteBorrar()!.descripcion || pendienteBorrar()!.dashid}) : ''"

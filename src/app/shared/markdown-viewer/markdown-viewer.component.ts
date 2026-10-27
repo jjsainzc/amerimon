@@ -7,11 +7,12 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import mermaid from 'mermaid';
+import { DismissibleNoticeComponent } from '../dismissible-notice/dismissible-notice.component';
 
 @Component({
   selector: 'app-markdown-viewer',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, DismissibleNoticeComponent],
   templateUrl: './markdown-viewer.component.html',
   styleUrl: './markdown-viewer.component.css'
 })

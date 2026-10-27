@@ -3,6 +3,7 @@ package controllers
 import (
 	"amerimon/internal/config"
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -107,7 +108,7 @@ func addRPTVisibleLinks(graph rptLinkGraph, local, raw string) error {
 }
 
 // El llamador mantiene rptConnectionSafety bloqueado hasta terminar la operación AMI.
-func validateRPTConnection(ctx context.Context, selected allmonInstance, remote string) (int, error) {
+func validateRPTConnection(ctx context.Context, selected allmonInstance, remote string, desired ...SupermonCommandRequest) (int, error) {
 	if selected.Node == remote {
 		return http.StatusConflict, fmt.Errorf("Conexión rechazada: un nodo no puede enlazarse consigo mismo")
 	}
@@ -116,7 +117,7 @@ func validateRPTConnection(ctx context.Context, selected allmonInstance, remote 
 		instances, err = reconcileLocalAllmonInstances(nil)
 	}
 	if err != nil {
-		return http.StatusServiceUnavailable, fmt.Errorf("No se pudo validar la topología visible: %w", err)
+		log.Printf("asterisk: topología incompleta; se comprobarán los enlaces disponibles: %v", err)
 	}
 	// También se comprueba el origen cuando se usa la AMI global sin Allmon.
 	byNode := map[string]allmonInstance{selected.Node: selected}
@@ -141,6 +142,7 @@ func validateRPTConnection(ctx context.Context, selected allmonInstance, remote 
 		}(instance)
 	}
 	observed := make(map[pendingRPTLink]bool)
+	var existing *rptConnection
 	for range byNode {
 		var result snapshot
 		select {
@@ -150,19 +152,53 @@ func validateRPTConnection(ctx context.Context, selected allmonInstance, remote 
 		}
 		if result.err != nil {
 			log.Printf("asterisk: no se pudo consultar XStat para validar el nodo %s: %v", result.instance.Node, result.err)
-			return http.StatusServiceUnavailable, fmt.Errorf("No se pudo validar la topología: no se pudieron consultar los enlaces del nodo %s", result.instance.Node)
+			continue
 		}
-		if err := addRPTVisibleLinks(graph, result.instance.Node, result.raw); err != nil {
-			return http.StatusServiceUnavailable, err
+		links := make(rptLinkGraph)
+		if err := addRPTVisibleLinks(links, result.instance.Node, result.raw); err != nil {
+			log.Printf("asterisk: se omite XStat no interpretable del nodo %s: %v", result.instance.Node, err)
+			continue
+		}
+		for local, neighbors := range links {
+			for linked := range neighbors {
+				graph.add(local, linked)
+			}
 		}
 		for _, link := range parseRPTConnections(result.raw, "") {
 			if link.Link == "ESTABLISHED" || link.Link == "CONNECTING" {
 				observed[pendingRPTLink{rptServerKey(result.instance), result.instance.Node, link.Node}] = true
+				if result.instance.Node == selected.Node && link.Node == remote {
+					copy := link
+					existing = &copy
+				}
 			}
 		}
 	}
 	if err := ctx.Err(); err != nil {
 		return http.StatusServiceUnavailable, fmt.Errorf("No se pudo completar la validación de topología: %w", err)
+	}
+	if existing != nil && len(desired) > 0 {
+		request := desired[0]
+		same, known, err := matchesRecordedRPTConnection(ctx, selected.Node, *existing, request)
+		if err != nil {
+			return http.StatusServiceUnavailable, fmt.Errorf("No se pudo verificar la modalidad del enlace existente: %w", err)
+		}
+		if same {
+			return http.StatusConflict, fmt.Errorf("El nodo %s ya está conectado o conectándose en el servidor %s con el mismo modo y la misma permanencia solicitados. No se modificó el enlace", remote, selected.Node)
+		}
+		if !known {
+			log.Printf("asterisk: permanencia no verificable local=%s remoto=%s; se reconectará con la modalidad solicitada", selected.Node, remote)
+		}
+		started := time.Now()
+		if err := disconnectRPTConnections(ctx, selected, 15*time.Second, remote); err != nil {
+			recordAsteriskOperation(ctx, "disconnect", selected.Node, remote, "", false, "", "error", err.Error(), started)
+			return http.StatusBadGateway, fmt.Errorf("No se inició la nueva conexión: %w", err)
+		}
+		forgetPendingRPTLinks(selected.Node, remote)
+		recordAsteriskOperation(ctx, "disconnect", selected.Node, remote, "", false,
+			fmt.Sprintf("rpt cmd %s ilink 11 %s", selected.Node, remote), "success", "Cambio de modalidad: XStat confirmó la desconexión del enlace anterior", started)
+		// Tras retirar el enlace anterior, se valida de nuevo la topología real completa.
+		return validateRPTConnection(ctx, selected, remote)
 	}
 	now := time.Now()
 	for link, expires := range rptConnectionSafety.pending {
@@ -177,6 +213,34 @@ func validateRPTConnection(ctx context.Context, selected allmonInstance, remote 
 		return http.StatusConflict, fmt.Errorf("Conexión rechazada para evitar un bucle: ya existe una ruta visible o pendiente entre los nodos (%s)", strings.Join(path, " -> "))
 	}
 	return 0, nil
+}
+
+func matchesRecordedRPTConnection(ctx context.Context, local string, existing rptConnection, request SupermonCommandRequest) (same, known bool, err error) {
+	if config.App.DB == nil {
+		return false, false, fmt.Errorf("base de datos no disponible")
+	}
+	var command string
+	err = config.App.DB.QueryRowContext(ctx, `
+		SELECT command FROM asterisk_operation_logs
+		WHERE local_node = ? AND (remote_node = ? OR action = 'disconnect_before_connect')
+		  AND result IN ('success', 'not_confirmed')
+		  AND action IN ('connect', 'monitor', 'localmonitor', 'add_connection', 'disconnect', 'disconnect_before_connect')
+		ORDER BY id DESC LIMIT 1`, local, existing.Node).Scan(&command)
+	if err == sql.ErrNoRows {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	for action, mode := range map[string]string{"connect": "T", "monitor": "R", "localmonitor": "L"} {
+		for _, permanent := range []bool{false, true} {
+			expected := fmt.Sprintf("rpt cmd %s ilink %d %s", local, supermonConnectionCode(action, permanent), existing.Node)
+			if command == expected && (existing.Mode == mode || existing.Mode == "C") && existing.Direction == "OUT" {
+				return action == request.Action && permanent == request.Permanent, true, nil
+			}
+		}
+	}
+	return false, false, nil
 }
 
 func rptServerKey(instance allmonInstance) string {

@@ -24,6 +24,8 @@ import { FavoritosPopupComponent } from '../../shared/favoritos-popup/favoritos-
 import { ScrollTopComponent } from '../../shared/scroll-top/scroll-top.component';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
+import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
+import { NoticePreferenceComponent } from '../../shared/notice-preference/notice-preference.component';
 
 type CampoOrden = 'protocolo' | 'nodo' | 'callsign' | 'informacion' | 'ubicacion' | 'enlace' | 'direccion' | 'actividad' | 'conectado' | 'modo';
 type SolicitudConexion = Readonly<SupermonCommandRequest & {
@@ -34,7 +36,7 @@ type SolicitudConexion = Readonly<SupermonCommandRequest & {
 @Component({
   selector: 'app-allstarlink',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective, TranslatePipe],
+  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective, TranslatePipe, NoticePreferenceComponent],
   templateUrl: './allstarlink.component.html',
   styleUrl: './allstarlink.component.css'
 })
@@ -44,6 +46,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly noticePreferences = inject(NoticePreferencesService);
+  readonly noMostrarConfirmacion = signal(false);
 
   // Para hacer translate dentro de los ts
   private readonly translation = inject(TranslationService);
@@ -97,8 +101,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly ejecutando = signal(false);
   readonly errorEjecucion = signal('');
   readonly resultado = signal<SupermonCommandResult | null>(null);
-  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean } | null>(null);
-  readonly confirmacionPendiente = signal<{ titulo: string; mensaje: string; confirmar: () => void } | null>(null);
+  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean; noticeKey: string } | null>(null);
+  readonly confirmacionPendiente = signal<{ titulo: string; mensaje: string; confirmar: () => void; noticeKey: string } | null>(null);
   readonly desconexionEnCurso = signal<string | null>(null);
   readonly audioEnCurso = signal<string | null>(null);
   readonly resultadoDesconexion = signal<{ clave: string; texto: string; error: boolean } | null>(null);
@@ -401,6 +405,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     };
     if (this.requiereConfirmacion()) {
       this.solicitarConfirmacion(
+        `confirm.asterisk.command.${comando.id}`,
         this.translation.translate('CONFIRMAR_OPERACION'),
         this.translation.translate('SE_EJECUTARA_LA_OPERACION_EN_EL_NODO', {
           accion: comando.label,
@@ -425,7 +430,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.ejecutando.set(false);
         if (respuesta?.status === 'success' && respuesta.data) {
           this.resultado.set(respuesta.data);
-          this.mostrarPopup(comando.label, respuesta.data.command, respuesta.data.lines);
+          this.mostrarPopup(comando.label, respuesta.data.command, respuesta.data.lines, false, `notice.asterisk.command.${comando.id}`);
         } else {
           this.errorEjecucion.set(respuesta?.message || this.translation.translate('NO_SE_PUDO_EJECUTAR_LA_OPERACION'));
           this.mostrarPopup(this.translation.translate('ERROR_DE_OPERACION'), '', [this.errorEjecucion()], true);
@@ -467,6 +472,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       ...(this.desconectarAntesConexion() ? { disconnect_before_connect: true } : {})
     };
     this.solicitarConfirmacion(
+      request.disconnect_before_connect ? 'confirm.asterisk.connect-replace-all' : 'confirm.asterisk.connect',
       this.translation.translate('CONFIRMAR_CONEXION'),
       this.translation.translate('CONFIRMACION_DE_CONEXION', {
         desconectar: request.disconnect_before_connect
@@ -476,7 +482,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         local,
         modo: this.translation.translate(modo === 'connect' ? 'TRANSCEIVE' : modo === 'monitor' ? 'MONITOR' : 'LOCAL_MONITOR'),
         tipo: tipoConexion
-      }),
+      }) + (request.disconnect_before_connect ? '' : ' ' + this.translation.translate('CONFIRMACION_CAMBIO_MODALIDAD_EXISTENTE')),
       () => this.ejecutarConexion(request, modoLabel)
     );
   }
@@ -495,7 +501,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
       }),
       switchMap(() => this.service.ejecutarComando(solicitud).pipe(
-        timeout({ each: permanente ? 10_000 : timeoutSegundos * 1000 + 10_000 })
+        timeout({ each: permanente ? 40_000 : timeoutSegundos * 1000 + 40_000 })
       )),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
@@ -503,7 +509,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.conectando.set(false);
         this.desconectandoAntesConexion.set(false);
         if (respuesta?.status !== 'success') { this.quitarConexionPendiente(local, remoto); }
-        if (request.disconnect_before_connect || respuesta?.status === 'success') { this.programarRecargaConexiones(); }
+        this.programarRecargaConexiones();
         this.resultadoConexion.set(respuesta?.status === 'success' && respuesta.data
           ? { texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
           : { texto: respuesta?.message || this.translation.translate('NO_SE_PUDO_CONECTAR_EL_NODO'), error: true });
@@ -511,14 +517,15 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultadoConexion()!.error ?  this.translation.translate('ERROR_DE_CONEXION') : this.translation.translate('CONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoConexion()!.texto],
-          this.resultadoConexion()!.error
+          this.resultadoConexion()!.error,
+          'notice.asterisk.connected'
         );
       },
       error: err => {
         this.conectando.set(false);
         this.desconectandoAntesConexion.set(false);
         this.quitarConexionPendiente(local, remoto);
-        if (request.disconnect_before_connect) { this.programarRecargaConexiones(); }
+        this.programarRecargaConexiones();
         this.resultadoConexion.set({
           texto: err?.name === 'TimeoutError'
             ? this.translation.translate('SERVIDOR_NO_RESPONDIO_A_TIEMPO')
@@ -591,6 +598,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const muted = audio.muted !== true;
     const connectionId = audio.connection_id;
     this.solicitarConfirmacion(
+      muted ? 'confirm.asterisk.mute' : 'confirm.asterisk.unmute',
       muted ? this.translation.translate('SILENCIAR_AUDIO_DE_ESTACION') : this.translation.translate('HABILITAR_AUDIO_DE_ESTACION'),
       muted
         ? this.translation.translate('IMPEDIR_QUE_EL_AUDIO_DEL_NODO_SE_RETRANSMITA')
@@ -647,6 +655,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     if (!confirmado) {
       // Para hacer translate dentro de los ts
       this.solicitarConfirmacion(
+        'confirm.asterisk.disconnect',
         this.translation.translate('CONFIRMAR_DESCONEXION'),
         this.translation.translate('DESCONECTAR_EL_NODO_REMOTO_DEL NODO_LOCAL', { remoto, local }),
         () => this.desconectar(local, remoto, true)
@@ -677,7 +686,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultadoDesconexion()!.error ? this.translation.translate('ERROR_DE_DESCONEXION') : this.translation.translate('DESCONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoDesconexion()!.texto],
-          this.resultadoDesconexion()!.error
+          this.resultadoDesconexion()!.error,
+          'notice.asterisk.disconnected'
         );
       },
       error: err => {
@@ -702,23 +712,40 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   /** Cancela el diálogo de confirmación sin ejecutar su acción. */
   cancelarConfirmacion(): void {
     this.confirmacionPendiente.set(null);
+    this.noMostrarConfirmacion.set(false);
   }
 
   /** Ejecuta la acción asociada a la confirmación y cierra el diálogo. */
   confirmarAccion(): void {
     const confirmacion = this.confirmacionPendiente();
     this.confirmacionPendiente.set(null);
+    if (confirmacion && this.noMostrarConfirmacion()) { this.noticePreferences.hide(confirmacion.noticeKey); }
+    this.noMostrarConfirmacion.set(false);
     confirmacion?.confirmar();
   }
 
   /** Guarda en el estado la pregunta y la acción que requieren confirmación. */
-  private solicitarConfirmacion(titulo: string, mensaje: string, confirmar: () => void): void {
-    this.confirmacionPendiente.set({ titulo, mensaje, confirmar });
+  private solicitarConfirmacion(noticeKey: string, titulo: string, mensaje: string, confirmar: () => void): void {
+    this.noMostrarConfirmacion.set(false);
+    if (this.noticePreferences.isHidden(noticeKey)) {
+      confirmar();
+      return;
+    }
+    this.confirmacionPendiente.set({ titulo, mensaje, confirmar, noticeKey });
   }
 
   /** Publica el detalle de resultado que se presentará en el diálogo emergente. */
-  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false): void {
-    this.resultadoPopup.set({ titulo, comando, lineas, error });
+  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false, noticeKey = ''): void {
+    if (!error && this.noticePreferences.isHidden(noticeKey)) { return; }
+    this.resultadoPopup.set({ titulo, comando, lineas, error, noticeKey });
+  }
+
+  ocultarResultado(checked: boolean): void {
+    const popup = this.resultadoPopup();
+    if (checked && popup && !popup.error && popup.noticeKey) {
+      this.noticePreferences.hide(popup.noticeKey);
+      this.cerrarPopup();
+    }
   }
 
   /** Asigna la clase visual correspondiente al modo de conexión. */
@@ -876,7 +903,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           if (!this.nodosLocales().includes(this.nodoLocal())) {
             this.nodoLocal.set(this.nodosLocales().includes(this.nodoPrincipal()) ? this.nodoPrincipal() : '');
           }
-          this.error.set(this.erroresServidor()[this.nodoPrincipal()] ?? '');
+          this.error.set('');
           for (const tabla of tablas) { this.consultarServidor(tabla.nodo_local, forzar); }
         } else {
           this.limpiarDatosNodos();
@@ -939,7 +966,6 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           delete siguientes[local];
           return siguientes;
         });
-        if (local === this.nodoPrincipal()) { this.error.set(''); }
         this.tablasLocales.update(tablas => tablas.map(actual => actual.nodo_local === local ? tabla : actual));
         this.nodos.update(nodos => [
           ...nodos.filter(nodo => nodo.nodo_local !== local),
@@ -961,7 +987,6 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
 
   private falloServidor(local: string, mensaje: string): void {
     this.erroresServidor.update(errores => ({ ...errores, [local]: mensaje }));
-    if (local === this.nodoPrincipal()) { this.error.set(mensaje); }
     this.tablasLocales.update(tablas => tablas.map(tabla =>
       tabla.nodo_local === local ? { ...tabla, servidor_conectado: false } : tabla
     ));

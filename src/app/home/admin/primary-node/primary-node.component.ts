@@ -11,6 +11,9 @@ import { NetCalculatorPopupComponent } from '../../../shared/net-calculator-popu
 import { ScrollTopComponent } from '../../../shared/scroll-top/scroll-top.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { TranslationService } from '../../../core/services/translation.service';
+import { NoticePreferencesService } from '../../../core/services/notice-preferences.service';
+import { NoticePreferenceComponent } from '../../../shared/notice-preference/notice-preference.component';
+import { DismissibleNoticeComponent } from '../../../shared/dismissible-notice/dismissible-notice.component';
 
 
 
@@ -43,7 +46,7 @@ export function calcularRedIPv4(value: string): string | null {
 @Component({
   selector: 'app-primary-node',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent, CopyValueDirective, TranslatePipe],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent,NetCalculatorPopupComponent, ScrollTopComponent, CopyValueDirective, TranslatePipe, NoticePreferenceComponent, DismissibleNoticeComponent],
   templateUrl: './primary-node.component.html',
   styleUrl: './primary-node.component.css'
 })
@@ -51,6 +54,10 @@ export class PrimaryNodeComponent implements OnInit {
   private readonly service = inject(PrimaryNodeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly translation = inject(TranslationService);
+  private readonly noticePreferences = inject(NoticePreferencesService);
+  readonly noMostrarGuardado = signal(false);
+  readonly noMostrarImportacion = signal(false);
+  readonly noMostrarVaciado = signal(false);
 
   readonly actual = signal('');
   readonly ruta = signal('');
@@ -192,8 +199,18 @@ export class PrimaryNodeComponent implements OnInit {
     });
   }
 
+  solicitarGuardado(): void {
+    this.noMostrarGuardado.set(false);
+    if (this.noticePreferences.isHidden('confirm.primary.save')) {
+      this.guardar();
+    } else {
+      this.confirmando.set(true);
+    }
+  }
+
   guardar(): void {
     if (this.guardando() || this.guardandoAcceso() || !this.actual()) { return; }
+    if (this.noMostrarGuardado()) { this.noticePreferences.hide('confirm.primary.save'); }
     this.guardando.set(true);
     this.confirmando.set(false);
     this.error.set('');
@@ -258,11 +275,14 @@ export class PrimaryNodeComponent implements OnInit {
   solicitarVaciado(tipo: NodeAccessEntry['type']): void {
     if (this.guardandoAcceso() || this.guardando() || this.cargandoAcceso() || !this.nodoAcceso()) { return; }
     this.vaciadoPendiente.set({ tipo, nodo: this.nodoAcceso() });
+    this.noMostrarVaciado.set(false);
+    if (this.noticePreferences.isHidden(`confirm.primary.clear.${tipo}`)) { this.vaciarAcceso(); }
   }
 
   vaciarAcceso(): void {
     const pendiente = this.vaciadoPendiente();
     if (!pendiente || this.guardandoAcceso() || this.guardando() || this.cargandoAcceso()) { return; }
+    if (this.noMostrarVaciado()) { this.noticePreferences.hide(`confirm.primary.clear.${pendiente.tipo}`); }
     this.vaciadoPendiente.set(null);
     this.guardandoAcceso.set(true);
     this.errorAcceso.set('');
@@ -328,6 +348,7 @@ export class PrimaryNodeComponent implements OnInit {
         return;
       }
       this.importacionPendiente.set({ documento, nodo });
+      this.noMostrarImportacion.set(false);
     } catch (err: unknown) {
       this.errorAcceso.set(this.translation.translate(
         err instanceof SyntaxError ? 'PRIMARY_NODE_IMPORT_INVALID_JSON' : 'PRIMARY_NODE_IMPORT_READ_FAILED'
@@ -335,11 +356,13 @@ export class PrimaryNodeComponent implements OnInit {
     } finally {
       this.leyendoArchivo.set(false);
     }
+    if (this.importacionPendiente() && this.noticePreferences.isHidden('confirm.primary.import')) { this.importarAcceso(); }
   }
 
   importarAcceso(): void {
     const pendiente = this.importacionPendiente();
     if (!pendiente || this.guardandoAcceso() || this.guardando() || this.cargandoAcceso() || this.leyendoArchivo()) { return; }
+    if (this.noMostrarImportacion()) { this.noticePreferences.hide('confirm.primary.import'); }
     this.importacionPendiente.set(null);
     this.guardandoAcceso.set(true);
     this.errorAcceso.set('');

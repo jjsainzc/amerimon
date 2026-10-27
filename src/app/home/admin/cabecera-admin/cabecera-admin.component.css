@@ -1,5 +1,5 @@
 :host { display: block; }
-.admin-page { display: grid; place-items: start center; padding: 1.5rem 1rem; }
+.admin-page { display: grid; place-items: start center; gap: 1rem; padding: 1.5rem 1rem; }
 .admin-page-form { display: grid; gap: .75rem; width: min(100%, 34rem); padding: 1.25rem; border: 1px solid #405461; border-radius: 7px; background: #1d2a34; color: #dce5eb; }
 .admin-page-form h2 { margin: 0; font-size: 1.1rem; }
 .admin-page-form label { display: grid; gap: .25rem; font-size: .85rem; }

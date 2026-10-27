@@ -85,6 +85,9 @@
 </header>
 
 <main class="main-content">
+  @if (noticePreferences.error()) {
+    <p class="error" role="alert">{{ noticePreferences.error() | translate }}</p>
+  }
   <router-outlet />
 </main>
 
