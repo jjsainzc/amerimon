@@ -16,6 +16,8 @@ describe('App', () => {
 
   afterEach(() => {
     const http = TestBed.inject(HttpTestingController);
+    http.match(req => req.url === './assets/i18n/es.json')
+      .forEach(req => req.flush({}));
     http.match(req => req.url === `${environment.apiUrl}/weather`)
       .filter(req => !req.cancelled)
       .forEach(req => req.flush(''));
@@ -32,7 +34,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.sesion button')?.textContent).toContain('Admin');
+    expect(compiled.querySelector('.menu .sesion > button.boton-enlace')?.textContent).toContain('Admin');
     TestBed.inject(HttpTestingController).expectOne(`${environment.apiUrl}/site-settings`)
       .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
   });
@@ -44,12 +46,42 @@ describe('App', () => {
     http.expectOne(`${environment.apiUrl}/site-settings`)
       .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
     const element = fixture.nativeElement as HTMLElement;
-    element.querySelector<HTMLButtonElement>('.sesion button')!.click();
+    element.querySelector<HTMLButtonElement>('.menu .sesion > button.boton-enlace')!.click();
     http.expectOne(`${environment.apiUrl}/auth/status`).flush({ configured: true });
     await fixture.whenStable();
     expect(element.querySelector<HTMLImageElement>('.login-logo')?.getAttribute('src'))
       .toBe('assets/images/amerimon.png');
     expect(element.querySelector('input[name="recordarSesion"]')).not.toBeNull();
+  });
+
+  it('does not validate the repeated password when the new password is visible', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/site-settings`)
+      .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelector<HTMLButtonElement>('.menu .sesion > button.boton-enlace')!.click();
+    http.expectOne(`${environment.apiUrl}/auth/status`).flush({ configured: false });
+    await fixture.whenStable();
+
+    const username = element.querySelector<HTMLInputElement>('input[name="usuario"]')!;
+    username.value = 'admin';
+    username.dispatchEvent(new Event('input', { bubbles: true }));
+    const password = element.querySelector<HTMLInputElement>('#dialogo-nueva')!;
+    password.value = 'pass1234';
+    password.dispatchEvent(new Event('input', { bubbles: true }));
+    password.parentElement!.querySelector<HTMLButtonElement>('.pf-ojo')!.click();
+    await fixture.whenStable();
+
+    element.querySelector<HTMLFormElement>('form.dialogo')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    const request = http.expectOne(`${environment.apiUrl}/auth/setup`);
+    expect(request.request.body).toEqual({ user: 'admin', new: 'pass1234' });
+    request.flush({ status: 'ok', token: 'header.payload.signature' });
+    await fixture.whenStable();
+    expect(element.querySelector('.error')).toBeNull();
+    expect(element.querySelector('form.dialogo')).toBeNull();
   });
 
   it('shows a compact footer with the backend version and SQLite instead of MariaDB', async () => {
@@ -80,7 +112,7 @@ describe('App', () => {
       .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
     const element = fixture.nativeElement as HTMLElement;
     for (let attempt = 0; attempt < 2; attempt++) {
-      element.querySelector<HTMLButtonElement>('.sesion button')!.click();
+      element.querySelector<HTMLButtonElement>('.menu .sesion > button.boton-enlace')!.click();
       http.expectOne(`${environment.apiUrl}/auth/status`).flush({ configured: true });
       await fixture.whenStable();
       expect(element.querySelector<HTMLInputElement>('input[name="recordarSesion"]')?.checked).toBe(true);
@@ -98,7 +130,7 @@ describe('App', () => {
     http.expectOne(`${environment.apiUrl}/site-settings`)
       .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
     let element = fixture.nativeElement as HTMLElement;
-    element.querySelector<HTMLButtonElement>('.sesion button')!.click();
+    element.querySelector<HTMLButtonElement>('.menu .sesion > button.boton-enlace')!.click();
     http.expectOne(`${environment.apiUrl}/auth/status`).flush({ configured: true });
     await fixture.whenStable();
     const username = element.querySelector<HTMLInputElement>('input[name="usuario"]')!;
@@ -120,10 +152,10 @@ describe('App', () => {
     expect(element.querySelector('.sesion a[routerLink="/admin/favoritos"]')).not.toBeNull();
     expect(element.querySelector('.sesion a[routerLink="/admin/enlaces-externos"]')).not.toBeNull();
     expect(element.querySelector('.sesion a[routerLink="/admin/allmon"]')).toBeNull();
-    const adminMenuButton = element.querySelector<HTMLButtonElement>('.admin-desplegable-boton')!;
+    const adminMenuButton = element.querySelector<HTMLButtonElement>('.menu .admin-desplegable-boton')!;
     adminMenuButton.click();
     await fixture.whenStable();
-    expect(element.querySelector('.admin-desplegable-panel a[routerLink="/admin/allmon"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/allmon"]')).not.toBeNull();
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await fixture.whenStable();
     expect(element.querySelector('.admin-desplegable-panel')).toBeNull();
@@ -131,8 +163,10 @@ describe('App', () => {
     hamburger.click();
     await fixture.whenStable();
     expect(element.querySelector('.menu')?.classList.contains('abierto')).toBe(true);
-    expect(element.querySelector('.admin-desplegable-panel a[routerLink="/admin/allmon"]')).not.toBeNull();
-    expect(element.querySelector('.admin-desplegable-panel button')?.textContent).toContain('Personalizar cabecera');
+    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/allmon"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/cabecera"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/cambiar-contrasena"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel a[href="/manual-tecnico"]')).not.toBeNull();
     hamburger.click();
     await fixture.whenStable();
     expect(element.querySelector('.admin-desplegable-panel')).toBeNull();
@@ -145,7 +179,7 @@ describe('App', () => {
     http.expectOne(`${environment.apiUrl}/site-settings`)
       .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
     element = fixture.nativeElement as HTMLElement;
-    element.querySelector<HTMLButtonElement>('.sesion button')!.click();
+    element.querySelector<HTMLButtonElement>('.menu .sesion > button.boton-enlace')!.click();
     http.expectOne(`${environment.apiUrl}/auth/status`).flush({ configured: true });
     await fixture.whenStable();
     expect(element.querySelector<HTMLInputElement>('input[name="recordarSesion"]')?.checked).toBe(true);

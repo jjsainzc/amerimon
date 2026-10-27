@@ -46,5 +46,19 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/favoritos-admin/favoritos-admin.component').then((m) => m.FavoritosAdminComponent),
   },
+  {
+    path: 'admin/cabecera',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/cabecera-admin/cabecera-admin.component').then((m) => m.CabeceraAdminComponent),
+  },
+  {
+    path: 'admin/cambiar-contrasena',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/cambiar-contrasena/cambiar-contrasena.component').then((m) => m.CambiarContrasenaComponent),
+  },
+  {
+    path: 'manual-tecnico',
+    loadComponent: () => import('./home/manual-tecnico/manual-tecnico.component').then((m) => m.ManualTecnicoComponent),
+  },
   { path: '**', redirectTo: 'allstarlink' },
 ];

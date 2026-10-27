@@ -65,9 +65,9 @@
               <a routerLink="/admin/allmon" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODOS_ALLMON' | translate }}</a>
               <a routerLink="/admin/primary-node" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODO_PRINCIPAL' | translate }}</a>
               <a routerLink="/admin/private-nodes" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'NODOS_PRIVADOS' | translate }}</a>
-              <button type="button" (click)="abrirEdicionCabecera()">{{ 'PERSONALIZAR_CABECERA' | translate }}</button>
-              <button type="button" (click)="abrirCambio()">{{ 'CAMBIAR_CONTRASENA' | translate }}</button>
-              <button type="button" (click)="abrirManual(); cerrarMenu()">{{ 'MANUAL_TECNICO' | translate }}</button>
+              <a routerLink="/admin/cabecera" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'PERSONALIZAR_CABECERA' | translate }}</a>
+              <a routerLink="/admin/cambiar-contrasena" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'CAMBIAR_CONTRASENA' | translate }}</a>
+              <a routerLink="/manual-tecnico" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'MANUAL_TECNICO' | translate }}</a>
             </nav>
           }
         </div>
@@ -147,30 +147,6 @@
   <app-system-info-dialog (cerrar)="cerrarSistema()" />
 }
 
-@if (edicionCabeceraAbierta()) {
-  <div class="fondo">
-    <form class="dialogo dialogo-cabecera" role="dialog" aria-modal="true" aria-labelledby="cabecera-titulo" (ngSubmit)="guardarCabecera()">
-      <button type="button" class="cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="edicionCabeceraAbierta.set(false)">&times;</button>
-      <h2 id="cabecera-titulo">{{ 'PERSONALIZAR_CABECERA' | translate }}</h2>
-      <label>{{ 'TITULO' | translate }}
-        <input type="text" name="tituloCabecera" [(ngModel)]="tituloCabecera" maxlength="80" required />
-      </label>
-      <label>{{ 'SUBTITULO' | translate }}
-        <input type="text" name="subtituloCabecera" [(ngModel)]="subtituloCabecera" maxlength="120" />
-      </label>
-      <p class="nota-cabecera">{{ 'HEADER_ASTERISK_VERSION_NOTE' | translate }}</p>
-      <label>{{ 'UBICACION_DEL_CLIMA' | translate }}
-        <input type="text" name="ubicacionClima" [(ngModel)]="ubicacionClimaCabecera" maxlength="120" [placeholder]="'CIUDAD_CODIGO_POSTAL_O_LAT_LON' | translate" />
-      </label>
-      <p class="nota-cabecera">{{ 'HEADER_WEATHER_LOCATION_NOTE' | translate }}</p>
-      @if (errorCabecera()) { <p class="error" role="alert">{{ errorCabecera() | translate }}</p> }
-      <div class="acciones">
-        <button type="submit" [disabled]="guardandoCabecera()">{{ (guardandoCabecera() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
-      </div>
-    </form>
-  </div>
-}
-
 @if (dialogoAbierto()) {
   <div class="fondo">
     <form class="dialogo" role="dialog" aria-modal="true" (ngSubmit)="enviar()">
@@ -184,20 +160,20 @@
           <input type="text" name="usuario" [(ngModel)]="usuario" autocomplete="username" required />
         </label>
       }
-      @if (modo() === 'login' || modo() === 'cambiar') {
+      @if (modo() === 'login') {
         <div class="campo-password">
-          <label for="dialogo-password">{{ (modo() === 'cambiar' ? 'CONTRASENA_ACTUAL' : 'CONTRASENA') | translate }}</label>
+          <label for="dialogo-password">{{ 'CONTRASENA' | translate }}</label>
           <app-password-field inputId="dialogo-password" name="password" [(ngModel)]="password" autocomplete="current-password" [required]="true" />
         </div>
       }
-      @if (modo() === 'crear' || modo() === 'cambiar') {
+      @if (modo() === 'crear') {
         <div class="campo-password">
           <label for="dialogo-nueva">{{ 'NUEVA_CONTRASENA' | translate }}</label>
           <app-password-field inputId="dialogo-nueva" name="nueva" [(ngModel)]="nueva" autocomplete="new-password" [minlength]="8" [required]="true"
             (visibilityChange)="nuevaContrasenaVisible.set($event)" />
         </div>
       }
-      @if (modo() === 'crear' || modo() === 'cambiar') {
+      @if (modo() === 'crear') {
         <div class="campo-password" [style.display]="nuevaContrasenaVisible() ? 'none' : 'grid'">
           <label for="dialogo-repetir">{{ 'REPETIR_CONTRASENA' | translate }}</label>
           <app-password-field inputId="dialogo-repetir" name="repetir" [(ngModel)]="repetir" autocomplete="new-password"
@@ -216,7 +192,7 @@
 
       <div class="acciones">
         <button type="submit" [disabled]="enviando()">
-          {{ (modo() === 'login' ? 'ENTRAR' : modo() === 'crear' ? 'GUARDAR_Y_ENTRAR' : 'CAMBIAR') | translate }}
+          {{ (modo() === 'login' ? 'ENTRAR' : 'GUARDAR_Y_ENTRAR') | translate }}
         </button>
       </div>
     </form>
@@ -228,12 +204,3 @@
   [isOpen]="isAboutOpen()"
   (closed)="isAboutOpen.set(false)">
 </app-about-modal>
-
-<!-- Componente Popup del Manual -->
-<app-markdown-viewer
-  [open]="isMarkdownOpen()"
-  [markdownUrl]="translationService.currentLang() === 'en' ? 'assets/docs/technical-operations-manual.en.md' : 'assets/docs/technical-operations-manual.es.md'"
-  [title]="'MANUAL_TECNICO' | translate"
-  [eyebrow]="'DOCUMENTACION' | translate"
-  (closed)="isMarkdownOpen.set(false)">
-</app-markdown-viewer>

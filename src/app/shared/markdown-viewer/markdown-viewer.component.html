@@ -1,5 +1,5 @@
 @if (open) {
-  <div class="markdown-viewer-overlay">
+  <div class="markdown-viewer-overlay" [class.markdown-viewer-page]="presentation === 'page'">
     <section class="markdown-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="markdown-viewer-title">
       <header class="markdown-viewer-header">
         <div>

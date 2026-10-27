@@ -1,0 +1,12 @@
+:host { display: block; }
+.admin-page { display: grid; place-items: start center; padding: 1.5rem 1rem; }
+.admin-page-form { display: grid; gap: .75rem; width: min(100%, 34rem); padding: 1.25rem; border: 1px solid #405461; border-radius: 7px; background: #1d2a34; color: #dce5eb; }
+.admin-page-form h2 { margin: 0; font-size: 1.1rem; }
+.admin-page-form label { display: grid; gap: .25rem; font-size: .85rem; }
+.admin-page-form input { padding: .45rem .6rem; border: 1px solid #3a4f5e; border-radius: 5px; background: #111a22; color: inherit; font: inherit; }
+.admin-page-note { margin: -.25rem 0 0; color: #a9bac5; font-size: .8rem; }
+.admin-page-error { margin: 0; color: #ff8a80; }
+.admin-page-actions { display: flex; justify-content: flex-end; gap: .5rem; }
+.admin-page-actions a, .admin-page-actions button { padding: .4rem .75rem; border: 1px solid #3a4f5e; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; text-decoration: none; cursor: pointer; }
+.admin-page-actions a:hover, .admin-page-actions button:hover:not(:disabled) { background: #304651; }
+.admin-page-actions button:disabled { cursor: wait; opacity: .7; }

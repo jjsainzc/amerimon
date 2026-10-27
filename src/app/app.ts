@@ -2,22 +2,21 @@ import { Component, HostListener, OnInit, computed, inject, signal } from '@angu
 import { FormsModule } from '@angular/forms';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
-import { SiteSettings, SiteSettingsService } from './core/services/site-settings.service';
+import { SiteSettingsService } from './core/services/site-settings.service';
 import { SystemInfoDialogComponent } from './shared/system-info-dialog/system-info-dialog.component';
 import { PasswordFieldComponent } from './shared/password-field/password-field.component';
 import { EnlaceExterno } from './core/models/enlace-externo.model';
 import { EnlacesExternosService } from './core/services/enlaces-externos.service';
 import { WeatherComponent } from './shared/weather/weather.component';
 import { AboutModalComponent } from './shared/about-modal/about-modal.component';
-import { MarkdownViewerComponent } from './shared/markdown-viewer/markdown-viewer.component';
 import { TranslationService } from './core/services/translation.service';
 import { TranslatePipe } from './core/pipes/translate.pipe';
 
-type Modo = 'login' | 'crear' | 'cambiar';
+type Modo = 'login' | 'crear';
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  imports: [ TranslatePipe, MarkdownViewerComponent, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
+  imports: [ TranslatePipe, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -30,14 +29,13 @@ export class App implements OnInit {
   protected readonly esAdmin = this.auth.esAdmin;
   protected readonly headerOculto = signal(false);
   protected readonly anioActual = new Date().getFullYear();
-  protected readonly ajustesCabecera = signal<SiteSettings>({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
+  protected readonly ajustesCabecera = this.siteSettingsService.settings;
   /** Devuelve el título configurado o el nombre predeterminado del sitio. */
-  /** Ubicación del clima configurada; `undefined` mientras no se han cargado los ajustes. */
-  protected readonly ubicacionClima = signal<string | undefined>(undefined);
-  protected readonly tituloAplicacion = computed(() => this.ajustesCabecera().title.trim() || 'Amerimon');
+  protected readonly ubicacionClima = computed(() => this.siteSettingsService.settings().weather_location?.trim() || undefined);
+  protected readonly tituloAplicacion = computed(() => this.siteSettingsService.settings().title.trim() || 'Amerimon');
   /** Combina el subtítulo y la versión de Asterisk, con texto alternativo si faltan. */
   protected readonly subtituloAplicacion = computed(() => {
-    const settings = this.ajustesCabecera();
+    const settings = this.siteSettingsService.settings();
     const subtitle = settings.subtitle.trim();
     const version = settings.asterisk_version ? `Asterisk ${settings.asterisk_version}` : '';
     return [subtitle, version].filter(Boolean).join(' · ') || 'Monitoreo AllStarLink';
@@ -46,12 +44,6 @@ export class App implements OnInit {
   protected readonly adminMenuAbierto = signal(false);
   protected readonly dialogoAbierto = signal(false);
   protected readonly sistemaAbierto = signal(false);
-  protected readonly edicionCabeceraAbierta = signal(false);
-  protected readonly guardandoCabecera = signal(false);
-  protected readonly errorCabecera = signal('');
-  protected tituloCabecera = 'Amerimon';
-  protected subtituloCabecera = '';
-  protected ubicacionClimaCabecera = '';
   protected readonly modo = signal<Modo>('login');
   protected readonly nuevaContrasenaVisible = signal(false);
   protected readonly error = signal('');
@@ -63,7 +55,6 @@ export class App implements OnInit {
   protected readonly errorEnlaces = signal('');
 
   readonly isAboutOpen = signal(false);
-  readonly isMarkdownOpen = signal(false);
 
   public translationService = inject(TranslationService);
   public idiomaMenuAbierto = signal<boolean>(false);
@@ -88,11 +79,6 @@ export class App implements OnInit {
     this.translationService.loadLanguage(idiomaInicial);
   }
 
-  /** Abrir manual */
-  abrirManual(): void {
-    this.isMarkdownOpen.set(true);
-  }
-
   /** Cambia el idioma de la aplicación. */
   alternarMenuIdioma() {
     this.idiomaMenuAbierto.update(v => !v);
@@ -114,7 +100,6 @@ export class App implements OnInit {
   /** Devuelve la clave del título adecuado al modo actual del diálogo de acceso. */
   protected readonly titulo = computed(() =>
     this.modo() === 'crear' ? 'DEFINIR_CONTRASENA_ADMINISTRADOR'
-      : this.modo() === 'cambiar' ? 'CAMBIAR_CONTRASENA'
       : 'ACCESO_ADMINISTRADOR'
   );
 
@@ -184,15 +169,6 @@ export class App implements OnInit {
     });
   }
 
-  /** Abre el diálogo para cambiar la contraseña de la sesión actual. */
-  protected abrirCambio(): void {
-    this.menuAbierto.set(false);
-    this.adminMenuAbierto.set(false);
-    this.limpiar();
-    this.modo.set('cambiar');
-    this.dialogoAbierto.set(true);
-  }
-
   /** Muestra el diálogo con información del sistema. */
   protected abrirSistema(): void {
     this.menuAbierto.set(false);
@@ -203,35 +179,6 @@ export class App implements OnInit {
   /** Oculta el diálogo de información del sistema. */
   protected cerrarSistema(): void {
     this.sistemaAbierto.set(false);
-  }
-
-  /** Copia los ajustes actuales a los campos de edición de la cabecera. */
-  protected abrirEdicionCabecera(): void {
-    this.menuAbierto.set(false);
-    this.adminMenuAbierto.set(false);
-    this.tituloCabecera = this.ajustesCabecera().title;
-    this.subtituloCabecera = this.ajustesCabecera().subtitle;
-    this.ubicacionClimaCabecera = this.ajustesCabecera().weather_location ?? '';
-    this.errorCabecera.set('');
-    this.edicionCabeceraAbierta.set(true);
-  }
-
-  /** Guarda los textos de cabecera y actualiza la vista con la respuesta recibida. */
-  protected guardarCabecera(): void {
-    this.errorCabecera.set('');
-    this.guardandoCabecera.set(true);
-    this.siteSettingsService.guardar(this.tituloCabecera, this.subtituloCabecera, this.ubicacionClimaCabecera).subscribe({
-      next: settings => {
-        this.ajustesCabecera.set(settings);
-        this.ubicacionClima.set(settings.weather_location?.trim() ?? '');
-        this.guardandoCabecera.set(false);
-        this.edicionCabeceraAbierta.set(false);
-      },
-      error: error => {
-        this.guardandoCabecera.set(false);
-        this.errorCabecera.set(error.error?.message ?? 'HEADER_SAVE_ERROR');
-      }
-    });
   }
 
   /** Cierra el diálogo de acceso y limpia los campos sensibles. */
@@ -253,11 +200,11 @@ export class App implements OnInit {
     this.aviso.set('');
     const modo = this.modo();
 
-    if (modo !== 'login' && this.nueva.length < 8) {
+    if (modo === 'crear' && this.nueva.length < 8) {
       this.error.set('ERROR_CONTRASENA_MINIMO_8_CARACTERES');
       return;
     }
-    if (modo !== 'login' && this.nueva !== this.repetir) {
+    if (modo === 'crear' && !this.nuevaContrasenaVisible() && this.nueva !== this.repetir) {
       this.error.set('ERROR_CONTRASENAS_NO_COINCIDEN');
       return;
     }
@@ -270,13 +217,8 @@ export class App implements OnInit {
 
     if (modo === 'login') {
       this.auth.login(this.usuario, this.password, this.recordarSesion).subscribe({ next: () => this.cerrar(), error: alFallar });
-    } else if (modo === 'crear') {
-      this.auth.configurar(this.usuario, this.nueva, this.recordarSesion).subscribe({ next: () => this.cerrar(), error: alFallar });
     } else {
-      this.auth.cambiarPassword(this.password, this.nueva).subscribe({
-        next: () => this.cerrar(),
-        error: alFallar,
-      });
+      this.auth.configurar(this.usuario, this.nueva, this.recordarSesion).subscribe({ next: () => this.cerrar(), error: alFallar });
     }
   }
 
@@ -294,11 +236,7 @@ export class App implements OnInit {
   /** Recupera los ajustes de cabecera; conserva los valores actuales si falla. */
   private cargarAjustesCabecera(): void {
     this.siteSettingsService.obtener().subscribe({
-      next: settings => {
-        this.ajustesCabecera.set(settings);
-        this.ubicacionClima.set(settings.weather_location?.trim() ?? '');
-      },
-      error: () => this.ubicacionClima.set(''),
+      error: error => console.error('No se pudieron cargar los ajustes de cabecera.', error),
     });
   }
 }

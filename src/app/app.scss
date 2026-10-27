@@ -62,10 +62,12 @@
 .enlaces { display: flex; flex-wrap: wrap; gap: .4rem; margin-right: auto; }
 .enlaces a, .enlaces button { padding: .4rem .65rem; border: 0; border-radius: 5px; background: transparent; color: #dce5eb; text-decoration: none; font: inherit; cursor: pointer; }
 .enlaces a.activo { background: #263d47; color: #79d3dd; }
+
 .sesion { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-left: auto; }
 .sesion .boton-enlace { padding: .42rem .65rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; font-size: .82rem; text-decoration: none; cursor: pointer; }
 .sesion .boton-enlace:hover, .enlaces a:hover, .enlaces button:hover { background: #304651; }
 .sesion .boton-enlace.activo { color: #79d3dd; }
+
 .admin-desplegable { position: relative; }
 .admin-desplegable-boton { display: inline-flex; align-items: center; gap: .4rem; }
 .admin-desplegable-panel {
@@ -81,8 +83,10 @@
   background: #1d2a34;
   box-shadow: 0 8px 24px rgb(0 0 0 / .3);
 }
+
+.session,
 .admin-desplegable-panel a,
-.sesion .admin-desplegable-panel button {
+.admin-desplegable-panel button {
   padding: .5rem .65rem;
   border: 0;
   border-radius: 4px;
@@ -97,6 +101,7 @@
 .admin-desplegable-panel a:hover,
 .admin-desplegable-panel button:hover,
 .admin-desplegable-panel a.activo { background: #263d47; color: #79d3dd; }
+
 .sesion .boton-salir { margin-left: .25rem; padding-inline: .7rem; }
 
 @media (max-width: 900px) {

@@ -1,0 +1,27 @@
+<section class="admin-page">
+  <form class="admin-page-form" (ngSubmit)="guardar()">
+    <h2>{{ 'PERSONALIZAR_CABECERA' | translate }}</h2>
+    @if (cargando()) {
+      <p role="status">{{ 'CARGANDO' | translate }}</p>
+    } @else {
+      <label>{{ 'TITULO' | translate }}
+        <input type="text" name="tituloCabecera" [(ngModel)]="titulo" maxlength="80" required />
+      </label>
+      <label>{{ 'SUBTITULO' | translate }}
+        <input type="text" name="subtituloCabecera" [(ngModel)]="subtitulo" maxlength="120" />
+      </label>
+      <p class="admin-page-note">{{ 'HEADER_ASTERISK_VERSION_NOTE' | translate }}</p>
+      <label>{{ 'UBICACION_DEL_CLIMA' | translate }}
+        <input type="text" name="ubicacionClima" [(ngModel)]="ubicacionClima" maxlength="120"
+          [placeholder]="'CIUDAD_CODIGO_POSTAL_O_LAT_LON' | translate" />
+      </label>
+      <p class="admin-page-note">{{ 'HEADER_WEATHER_LOCATION_NOTE' | translate }}</p>
+      @if (error()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }
+      <div class="admin-page-actions">
+        <a routerLink="/allstarlink">{{ 'CANCELAR' | translate }}</a>
+        <button type="submit" [disabled]="guardando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
+      </div>
+    }
+    @if (error() && cargando()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }
+  </form>
+</section>
