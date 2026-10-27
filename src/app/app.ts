@@ -229,7 +229,7 @@ export class App implements OnInit {
       },
       error: error => {
         this.guardandoCabecera.set(false);
-        this.errorCabecera.set(error.error?.message ?? 'No se pudo guardar el encabezado.');
+        this.errorCabecera.set(error.error?.message ?? 'HEADER_SAVE_ERROR');
       }
     });
   }

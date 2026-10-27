@@ -150,22 +150,22 @@
 @if (edicionCabeceraAbierta()) {
   <div class="fondo">
     <form class="dialogo dialogo-cabecera" role="dialog" aria-modal="true" aria-labelledby="cabecera-titulo" (ngSubmit)="guardarCabecera()">
-      <button type="button" class="cerrar" aria-label="Cerrar" (click)="edicionCabeceraAbierta.set(false)">&times;</button>
-      <h2 id="cabecera-titulo">Personalizar cabecera</h2>
-      <label>Título
+      <button type="button" class="cerrar" [attr.aria-label]="'CERRAR' | translate" (click)="edicionCabeceraAbierta.set(false)">&times;</button>
+      <h2 id="cabecera-titulo">{{ 'PERSONALIZAR_CABECERA' | translate }}</h2>
+      <label>{{ 'TITULO' | translate }}
         <input type="text" name="tituloCabecera" [(ngModel)]="tituloCabecera" maxlength="80" required />
       </label>
-      <label>Subtítulo
+      <label>{{ 'SUBTITULO' | translate }}
         <input type="text" name="subtituloCabecera" [(ngModel)]="subtituloCabecera" maxlength="120" />
       </label>
-      <p class="nota-cabecera">La versión de Asterisk se mostrará junto al subtítulo.</p>
-      <label>Ubicación del clima
-        <input type="text" name="ubicacionClima" [(ngModel)]="ubicacionClimaCabecera" maxlength="120" placeholder="Ciudad, código postal o lat,lon" />
+      <p class="nota-cabecera">{{ 'HEADER_ASTERISK_VERSION_NOTE' | translate }}</p>
+      <label>{{ 'UBICACION_DEL_CLIMA' | translate }}
+        <input type="text" name="ubicacionClima" [(ngModel)]="ubicacionClimaCabecera" maxlength="120" [placeholder]="'CIUDAD_CODIGO_POSTAL_O_LAT_LON' | translate" />
       </label>
-      <p class="nota-cabecera">Se usa como ubicación predeterminada. Si queda vacía, se pide la ubicación al navegador y, si el visitante no la autoriza, se estima por su IP. Cada visitante puede cambiarla temporalmente sin modificar este valor.</p>
-      @if (errorCabecera()) { <p class="error" role="alert">{{ errorCabecera() }}</p> }
+      <p class="nota-cabecera">{{ 'HEADER_WEATHER_LOCATION_NOTE' | translate }}</p>
+      @if (errorCabecera()) { <p class="error" role="alert">{{ errorCabecera() | translate }}</p> }
       <div class="acciones">
-        <button type="submit" [disabled]="guardandoCabecera()">{{ guardandoCabecera() ? 'Guardando…' : 'Guardar' }}</button>
+        <button type="submit" [disabled]="guardandoCabecera()">{{ (guardandoCabecera() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
       </div>
     </form>
   </div>
