@@ -78,6 +78,10 @@ describe('IaxUsersComponent', () => {
     http.expectOne(url).flush({ radio: user });
     fixture.componentInstance.seleccionarUsuario(user);
     fixture.componentInstance.guardarUsuario();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('no parece un indicativo de radioaficionado');
+    http.expectNone(url);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
     const request = http.expectOne(url);
     expect(request.request.method).toBe('POST');
     expect(request.request.body.secret).toBe('test-secret');
@@ -86,6 +90,8 @@ describe('IaxUsersComponent', () => {
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain('No se pudo escribir');
     expect(fixture.nativeElement.querySelector('form')).not.toBeNull();
     fixture.componentInstance.guardarUsuario();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
     http.expectOne(url).flush({ message: 'Guardado' });
     http.expectOne(url).flush({ radio: user });
     expect(fixture.componentInstance.editando()).toBe(false);
@@ -157,6 +163,9 @@ describe('IaxUsersComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(false);
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    fixture.detectChanges();
+    http.expectNone(url);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
     const request = http.expectOne(url);
     expect(request.request.body.secret).toBe('edited-secret');
     fixture.detectChanges();
@@ -230,6 +239,8 @@ describe('IaxUsersComponent', () => {
         errorMessage = operation === 'save' ? 'IAX_USERS_SAVE_ERROR' : 'IAX_USERS_DELETE_ERROR';
         if (operation === 'save') {
           component.guardarUsuario();
+          fixture.detectChanges();
+          (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
         } else {
           component.eliminarUsuario(user.name);
           fixture.detectChanges();
@@ -263,5 +274,26 @@ describe('IaxUsersComponent', () => {
     http.expectNone(`${url}/radio`);
     expect(fixture.componentInstance.usuariosList()).toEqual([user]);
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+
+  it('saves callsign sections directly and requires confirmation for system sections', () => {
+    http.expectOne(url).flush({ 'HC1LNM': { ...user, name: 'HC1LNM' }, 'system-user': { ...user, name: 'system-user' } });
+    fixture.componentInstance.seleccionarUsuario({ ...user, name: 'HC1LNM' });
+    fixture.componentInstance.guardarUsuario();
+    http.expectOne(url).flush({ message: 'Guardado' });
+    http.expectOne(url).flush({});
+
+    fixture.componentInstance.seleccionarUsuario({ ...user, name: 'system-user' });
+    fixture.componentInstance.guardarUsuario();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('system-user');
+    http.expectNone(url);
+    (fixture.nativeElement.querySelector('.confirmacion-cancelar') as HTMLButtonElement).click();
+    http.expectNone(url);
+    fixture.componentInstance.guardarUsuario();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
+    http.expectOne(url).flush({ message: 'Guardado' });
+    http.expectOne(url).flush({});
   });
 });

@@ -8,6 +8,7 @@ import { IAXUser } from '../../../core/models/iax-user.model';
 import { IaxUsersService } from '../../../core/services/iax-users.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
+import { isRadioAmateurCallsign } from '../../../core/utils/radio-callsign';
 
 @Component({
   selector: 'app-iax-users',
@@ -26,6 +27,7 @@ export class IaxUsersComponent implements OnInit {
   readonly esEdicion = signal(false);
   readonly guardando = signal(false);
   readonly pendienteEliminar = signal<string | null>(null);
+  readonly confirmacionGuardadoPendiente = signal(false);
 
   readonly usuarioActual = signal<IAXUser>({
     name: '',
@@ -60,6 +62,7 @@ export class IaxUsersComponent implements OnInit {
 
   nuevoUsuario(): void {
     this.error.set('');
+    this.confirmacionGuardadoPendiente.set(false);
     this.esEdicion.set(false);
     this.usuarioActual.set({
       name: '',
@@ -77,12 +80,32 @@ export class IaxUsersComponent implements OnInit {
 
   seleccionarUsuario(u: IAXUser): void {
     this.error.set('');
+    this.confirmacionGuardadoPendiente.set(false);
     this.esEdicion.set(true);
     this.usuarioActual.set({ ...u, allow: [...(u.allow ?? [])], disallow: [...(u.disallow ?? [])] });
     this.editando.set(true);
   }
 
   guardarUsuario(): void {
+    if (this.guardando()) { return; }
+    if (!isRadioAmateurCallsign(this.usuarioActual().name)) {
+      this.confirmacionGuardadoPendiente.set(true);
+      return;
+    }
+    this.persistirUsuario();
+  }
+
+  confirmarGuardado(): void {
+    if (!this.confirmacionGuardadoPendiente() || this.guardando()) { return; }
+    this.confirmacionGuardadoPendiente.set(false);
+    this.persistirUsuario();
+  }
+
+  cancelarGuardado(): void {
+    if (!this.guardando()) { this.confirmacionGuardadoPendiente.set(false); }
+  }
+
+  private persistirUsuario(): void {
     if (this.guardando()) { return; }
     this.error.set('');
     this.guardando.set(true);

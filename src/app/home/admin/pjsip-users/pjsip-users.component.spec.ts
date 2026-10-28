@@ -85,6 +85,10 @@ describe('PjsipUsersComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.componentInstance.guardarExtension();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('no parece un indicativo de radioaficionado');
+    http.expectNone(url);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
     const request = http.expectOne(url);
     expect(request.request.method).toBe('POST');
     expect(request.request.body.password).toBe('test-secret');
@@ -94,6 +98,8 @@ describe('PjsipUsersComponent', () => {
     expect(fixture.nativeElement.querySelector('form')).not.toBeNull();
     expect(fixture.componentInstance.guardando()).toBe(false);
     fixture.componentInstance.guardarExtension();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
     http.expectOne(url).flush({ message: 'Guardado' });
     http.expectOne(url).flush([extension]);
     expect(fixture.componentInstance.editando()).toBe(false);
@@ -165,6 +171,9 @@ describe('PjsipUsersComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(false);
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    fixture.detectChanges();
+    http.expectNone(url);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
     const request = http.expectOne(url);
     expect(request.request.body.password).toBe('edited-password');
     fixture.detectChanges();
@@ -240,6 +249,8 @@ describe('PjsipUsersComponent', () => {
         errorMessage = operation === 'save' ? 'PJSIP_USERS_SAVE_ERROR' : 'PJSIP_USERS_DELETE_ERROR';
         if (operation === 'save') {
           component.guardarExtension();
+          fixture.detectChanges();
+          (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
         } else {
           component.eliminarExtension(extension.id);
           fixture.detectChanges();
@@ -273,6 +284,30 @@ describe('PjsipUsersComponent', () => {
     http.expectNone(`${url}/1001`);
     expect(fixture.componentInstance.extensionesList()).toEqual([extension]);
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+
+  it('saves callsign endpoints directly and requires confirmation for system endpoints', () => {
+    http.expectOne(url).flush([
+      { ...extension, id: 'HC1LNM' },
+      { ...extension, id: '1001' },
+    ]);
+    fixture.componentInstance.seleccionarExtension({ ...extension, id: 'HC1LNM' });
+    fixture.componentInstance.guardarExtension();
+    http.expectOne(url).flush({ message: 'Guardado' });
+    http.expectOne(url).flush([]);
+
+    fixture.componentInstance.seleccionarExtension(extension);
+    fixture.componentInstance.guardarExtension();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('1001');
+    http.expectNone(url);
+    (fixture.nativeElement.querySelector('.confirmacion-cancelar') as HTMLButtonElement).click();
+    http.expectNone(url);
+    fixture.componentInstance.guardarExtension();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
+    http.expectOne(url).flush({ message: 'Guardado' });
+    http.expectOne(url).flush([]);
   });
 });
 

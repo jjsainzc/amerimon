@@ -333,8 +333,9 @@ Open **Admin → More options → IAX users / PJSIP extensions**, at `/admin/iax
 1. Click **New IAX user** or **New PJSIP extension**, or select a list entry to edit it.
 2. IAX exposes **Name (section)**, **Context**, **Secret (password)**, and **Authentication**. PJSIP exposes **Extension number (ID)**, **Context**, **Password**, **Caller ID**, and **Maximum contacts**.
 3. The name or ID is locked while editing; renaming is not supported by these forms. Context and secret or password are required; maximum contacts must be a positive integer. Identifiers accept 1 to 80 ASCII letters, numbers, periods, hyphens, and underscores; IAX reserves `general`. The backend rejects newlines, null characters, and the `;` and `#` comment delimiters in submitted values.
-4. **Save** applies changes and reloads the list. **Cancel** closes the editor without saving. **Delete** is available while editing and requests native browser confirmation containing the entry's identifier; this confirmation does not use notice-suppression preferences.
-5. If an operation fails, the error is displayed and the edited data is retained for correction or retry. **Reload list** retries the query without saving the form. Saving and deleting are disabled while another modification is in progress.
+4. **Save** applies changes and reloads the list. If the IAX name or PJSIP ID does not match the recognized amateur radio callsign format, a confirmation is requested because the section may belong to system configuration. Recognized callsigns are saved directly. **Cancel** closes the editor without saving. **Delete** is available while editing and requests confirmation containing the entry's identifier.
+5. The save confirmation for sections that do not look like callsigns is shared by IAX and PJSIP. You can select **Do not show this type of notice again**; the preference is stored in this browser and future saves of this type proceed without asking. It can also be reset from **Admin → Customize Header → Reset warnings and confirmations**.
+6. If an operation fails, the error is displayed and the edited data is retained for correction or retry. **Reload list** retries the query without saving the form. Saving and deleting are disabled while another modification is in progress.
 
 #### Files and reloads
 

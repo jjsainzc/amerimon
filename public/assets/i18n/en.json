@@ -2,6 +2,7 @@
   "USUARIOS_IAX": "IAX users",
   "EXTENSIONES_PJSIP": "PJSIP extensions",
   "SIP_USERS_CONTEXT": "Context",
+  "SIP_USERS_SYSTEM_SAVE_CONFIRM": "Section ${name} does not look like an amateur radio callsign and may belong to the system configuration. Are you sure you want to save these changes?",
   "IAX_USERS_TITLE": "IAX user management",
   "IAX_USERS_NEW": "New IAX user",
   "IAX_USERS_EMPTY": "No IAX users configured.",

@@ -2,6 +2,7 @@
   "USUARIOS_IAX": "Usuarios IAX",
   "EXTENSIONES_PJSIP": "Extensiones PJSIP",
   "SIP_USERS_CONTEXT": "Contexto",
+  "SIP_USERS_SYSTEM_SAVE_CONFIRM": "La sección ${name} no parece un indicativo de radioaficionado y podría pertenecer a la configuración del sistema. ¿Confirmas que deseas guardar los cambios?",
   "IAX_USERS_TITLE": "Gestión de usuarios IAX",
   "IAX_USERS_NEW": "Nuevo usuario IAX",
   "IAX_USERS_EMPTY": "No hay usuarios IAX configurados.",

@@ -71,3 +71,13 @@
   [busy]="guardando()"
   (confirmed)="confirmarEliminacion()"
   (cancelled)="cancelarEliminacion()" />
+
+<app-confirmacion-dialog
+  noticeKey="confirm.sip-user.system-save"
+  [open]="confirmacionGuardadoPendiente()"
+  [title]="'CONFIRMAR_ACCION' | translate"
+  [message]="'SIP_USERS_SYSTEM_SAVE_CONFIRM' | translate:{name: usuarioActual().name}"
+  [confirmLabel]="'GUARDAR' | translate"
+  [busy]="guardando()"
+  (confirmed)="confirmarGuardado()"
+  (cancelled)="cancelarGuardado()" />

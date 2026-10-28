@@ -8,6 +8,7 @@ import { PJSIPExtension } from '../../../core/models/pjsip-extension.model';
 import { PjsipUsersService } from '../../../core/services/pjsip-users.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
+import { isRadioAmateurCallsign } from '../../../core/utils/radio-callsign';
 
 @Component({
   selector: 'app-pjsip-users',
@@ -26,6 +27,7 @@ export class PjsipUsersComponent implements OnInit {
   readonly esEdicion = signal(false);
   readonly guardando = signal(false);
   readonly pendienteEliminar = signal<string | null>(null);
+  readonly confirmacionGuardadoPendiente = signal(false);
 
   readonly extActual = signal<PJSIPExtension>({
     id: '',
@@ -60,6 +62,7 @@ export class PjsipUsersComponent implements OnInit {
 
   nuevaExtension(): void {
     this.error.set('');
+    this.confirmacionGuardadoPendiente.set(false);
     this.esEdicion.set(false);
     this.extActual.set({
       id: '',
@@ -77,12 +80,32 @@ export class PjsipUsersComponent implements OnInit {
 
   seleccionarExtension(ext: PJSIPExtension): void {
     this.error.set('');
+    this.confirmacionGuardadoPendiente.set(false);
     this.esEdicion.set(true);
     this.extActual.set({ ...ext, allow: [...(ext.allow ?? [])], disallow: [...(ext.disallow ?? [])] });
     this.editando.set(true);
   }
 
   guardarExtension(): void {
+    if (this.guardando()) { return; }
+    if (!isRadioAmateurCallsign(this.extActual().id)) {
+      this.confirmacionGuardadoPendiente.set(true);
+      return;
+    }
+    this.persistirExtension();
+  }
+
+  confirmarGuardado(): void {
+    if (!this.confirmacionGuardadoPendiente() || this.guardando()) { return; }
+    this.confirmacionGuardadoPendiente.set(false);
+    this.persistirExtension();
+  }
+
+  cancelarGuardado(): void {
+    if (!this.guardando()) { this.confirmacionGuardadoPendiente.set(false); }
+  }
+
+  private persistirExtension(): void {
     if (this.guardando()) { return; }
     this.error.set('');
     this.guardando.set(true);
