@@ -175,20 +175,18 @@ describe('PjsipUsersComponent', () => {
 
   it('deletes the selected extension and refreshes the list', () => {
     http.expectOne(url).flush([extension]);
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    try {
-      fixture.componentInstance.seleccionarExtension(extension);
-      fixture.componentInstance.eliminarExtension(extension.id);
-      expect(confirm).toHaveBeenCalledWith('¿Eliminar la extensión PJSIP 1001?');
-      const request = http.expectOne(`${url}/1001`);
-      expect(request.request.method).toBe('DELETE');
-      request.flush({ message: 'Eliminado' });
-      http.expectOne(url).flush([]);
-      expect(fixture.componentInstance.editando()).toBe(false);
-      expect(fixture.componentInstance.extensionesList()).toEqual([]);
-    } finally {
-      confirm.mockRestore();
-    }
+    fixture.componentInstance.seleccionarExtension(extension);
+    fixture.componentInstance.eliminarExtension(extension.id);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('¿Eliminar la extensión PJSIP 1001?');
+    http.expectNone(`${url}/1001`);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
+    const request = http.expectOne(`${url}/1001`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ message: 'Eliminado' });
+    http.expectOne(url).flush([]);
+    expect(fixture.componentInstance.editando()).toBe(false);
+    expect(fixture.componentInstance.extensionesList()).toEqual([]);
   });
 
   it('switches loading, list, empty state and form labels without changing configuration', async () => {
@@ -233,32 +231,32 @@ describe('PjsipUsersComponent', () => {
   for (const operation of ['load', 'save', 'delete']) {
     it(`translates ${operation} fallback errors when switching languages`, async () => {
       const component = fixture.componentInstance;
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-      try {
-        let errorMessage: string;
-        if (operation === 'load') {
-          errorMessage = 'PJSIP_USERS_LOAD_ERROR';
+      let errorMessage: string;
+      if (operation === 'load') {
+        errorMessage = 'PJSIP_USERS_LOAD_ERROR';
+      } else {
+        http.expectOne(url).flush([extension]);
+        component.seleccionarExtension(extension);
+        errorMessage = operation === 'save' ? 'PJSIP_USERS_SAVE_ERROR' : 'PJSIP_USERS_DELETE_ERROR';
+        if (operation === 'save') {
+          component.guardarExtension();
         } else {
-          http.expectOne(url).flush([extension]);
-          component.seleccionarExtension(extension);
-          errorMessage = operation === 'save' ? 'PJSIP_USERS_SAVE_ERROR' : 'PJSIP_USERS_DELETE_ERROR';
-          if (operation === 'save') { component.guardarExtension(); }
-          else { component.eliminarExtension(extension.id); }
+          component.eliminarExtension(extension.id);
+          fixture.detectChanges();
+          (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
         }
-        http.expectOne(operation === 'delete' ? `${url}/1001` : url)
-          .flush({}, { status: 503, statusText: 'Unavailable' });
-        fixture.detectChanges();
-        const spanish: Record<string, string> = es;
-        const english: Record<string, string> = en;
-        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(spanish[errorMessage]);
-        const loading = TestBed.inject(TranslationService).loadLanguage('en');
-        http.expectOne('./assets/i18n/en.json').flush(en);
-        await loading;
-        fixture.detectChanges();
-        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(english[errorMessage]);
-      } finally {
-        confirm.mockRestore();
       }
+      http.expectOne(operation === 'delete' ? `${url}/1001` : url)
+        .flush({}, { status: 503, statusText: 'Unavailable' });
+      fixture.detectChanges();
+      const spanish: Record<string, string> = es;
+      const english: Record<string, string> = en;
+      expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(spanish[errorMessage]);
+      const loading = TestBed.inject(TranslationService).loadLanguage('en');
+      http.expectOne('./assets/i18n/en.json').flush(en);
+      await loading;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(english[errorMessage]);
     });
   }
 
@@ -267,15 +265,14 @@ describe('PjsipUsersComponent', () => {
     const loading = TestBed.inject(TranslationService).loadLanguage('en');
     http.expectOne('./assets/i18n/en.json').flush(en);
     await loading;
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    try {
-      fixture.componentInstance.eliminarExtension(extension.id);
-      expect(confirm).toHaveBeenCalledWith('Delete PJSIP extension 1001?');
-      http.expectNone(`${url}/1001`);
-      expect(fixture.componentInstance.extensionesList()).toEqual([extension]);
-    } finally {
-      confirm.mockRestore();
-    }
+    fixture.componentInstance.eliminarExtension(extension.id);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('Delete PJSIP extension 1001?');
+    (fixture.nativeElement.querySelector('.confirmacion-cancelar') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    http.expectNone(`${url}/1001`);
+    expect(fixture.componentInstance.extensionesList()).toEqual([extension]);
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
   });
 });
 

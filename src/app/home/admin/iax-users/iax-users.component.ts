@@ -7,18 +7,17 @@ import { CopyValueDirective } from '../../../shared/copy-value/copy-value.direct
 import { IAXUser } from '../../../core/models/iax-user.model';
 import { IaxUsersService } from '../../../core/services/iax-users.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
-import { TranslationService } from '../../../core/services/translation.service';
+import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
 
 @Component({
   selector: 'app-iax-users',
   standalone: true,
-  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent, CopyValueDirective, TranslatePipe],
+  imports: [FormsModule, AdminVolverComponent, PasswordFieldComponent, CopyValueDirective, ConfirmacionDialogComponent, TranslatePipe],
   templateUrl: './iax-users.component.html',
   styleUrls: ['./iax-users.component.css']
 })
 export class IaxUsersComponent implements OnInit {
   private readonly service = inject(IaxUsersService);
-  private readonly translation = inject(TranslationService);
 
   readonly usuariosList = signal<IAXUser[]>([]);
   readonly cargando = signal(false);
@@ -26,6 +25,7 @@ export class IaxUsersComponent implements OnInit {
   readonly editando = signal(false);
   readonly esEdicion = signal(false);
   readonly guardando = signal(false);
+  readonly pendienteEliminar = signal<string | null>(null);
 
   readonly usuarioActual = signal<IAXUser>({
     name: '',
@@ -101,20 +101,30 @@ export class IaxUsersComponent implements OnInit {
 
   eliminarUsuario(name: string): void {
     if (this.guardando()) { return; }
-    if (confirm(this.translation.translate('IAX_USERS_DELETE_CONFIRM', { name }))) {
-      this.error.set('');
-      this.guardando.set(true);
-      this.service.eliminar(name).subscribe({
-        next: () => {
-          this.guardando.set(false);
-          this.editando.set(false);
-          this.cargarUsuarios();
-        },
-        error: (error: HttpErrorResponse) => {
-          this.guardando.set(false);
-          this.error.set(error.error?.message ?? error.error?.error ?? 'IAX_USERS_DELETE_ERROR');
-        }
-      });
-    }
+    this.error.set('');
+    this.pendienteEliminar.set(name);
+  }
+
+  cancelarEliminacion(): void {
+    if (!this.guardando()) { this.pendienteEliminar.set(null); }
+  }
+
+  confirmarEliminacion(): void {
+    const name = this.pendienteEliminar();
+    if (!name || this.guardando()) { return; }
+    this.guardando.set(true);
+    this.service.eliminar(name).subscribe({
+      next: () => {
+        this.guardando.set(false);
+        this.pendienteEliminar.set(null);
+        this.editando.set(false);
+        this.cargarUsuarios();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.guardando.set(false);
+        this.pendienteEliminar.set(null);
+        this.error.set(error.error?.message ?? error.error?.error ?? 'IAX_USERS_DELETE_ERROR');
+      }
+    });
   }
 }

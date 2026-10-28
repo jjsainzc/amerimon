@@ -167,20 +167,18 @@ describe('IaxUsersComponent', () => {
 
   it('deletes the selected user and refreshes the list', () => {
     http.expectOne(url).flush({ radio: user });
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    try {
-      fixture.componentInstance.seleccionarUsuario(user);
-      fixture.componentInstance.eliminarUsuario(user.name);
-      expect(confirm).toHaveBeenCalledWith('¿Eliminar el usuario IAX radio?');
-      const request = http.expectOne(`${url}/radio`);
-      expect(request.request.method).toBe('DELETE');
-      request.flush({ message: 'Eliminado' });
-      http.expectOne(url).flush({});
-      expect(fixture.componentInstance.editando()).toBe(false);
-      expect(fixture.componentInstance.usuariosList()).toEqual([]);
-    } finally {
-      confirm.mockRestore();
-    }
+    fixture.componentInstance.seleccionarUsuario(user);
+    fixture.componentInstance.eliminarUsuario(user.name);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('¿Eliminar el usuario IAX radio?');
+    http.expectNone(`${url}/radio`);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
+    const request = http.expectOne(`${url}/radio`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ message: 'Eliminado' });
+    http.expectOne(url).flush({});
+    expect(fixture.componentInstance.editando()).toBe(false);
+    expect(fixture.componentInstance.usuariosList()).toEqual([]);
   });
 
   it('switches loading, list, empty state and form labels without changing configuration', async () => {
@@ -223,32 +221,32 @@ describe('IaxUsersComponent', () => {
   for (const operation of ['load', 'save', 'delete']) {
     it(`translates ${operation} fallback errors when switching languages`, async () => {
       const component = fixture.componentInstance;
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-      try {
-        let errorMessage: string;
-        if (operation === 'load') {
-          errorMessage = 'IAX_USERS_LOAD_ERROR';
+      let errorMessage: string;
+      if (operation === 'load') {
+        errorMessage = 'IAX_USERS_LOAD_ERROR';
+      } else {
+        http.expectOne(url).flush({ radio: user });
+        component.seleccionarUsuario(user);
+        errorMessage = operation === 'save' ? 'IAX_USERS_SAVE_ERROR' : 'IAX_USERS_DELETE_ERROR';
+        if (operation === 'save') {
+          component.guardarUsuario();
         } else {
-          http.expectOne(url).flush({ radio: user });
-          component.seleccionarUsuario(user);
-          errorMessage = operation === 'save' ? 'IAX_USERS_SAVE_ERROR' : 'IAX_USERS_DELETE_ERROR';
-          if (operation === 'save') { component.guardarUsuario(); }
-          else { component.eliminarUsuario(user.name); }
+          component.eliminarUsuario(user.name);
+          fixture.detectChanges();
+          (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
         }
-        http.expectOne(operation === 'delete' ? `${url}/radio` : url)
-          .flush({}, { status: 503, statusText: 'Unavailable' });
-        fixture.detectChanges();
-        const spanish: Record<string, string> = es;
-        const english: Record<string, string> = en;
-        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(spanish[errorMessage]);
-        const loading = TestBed.inject(TranslationService).loadLanguage('en');
-        http.expectOne('./assets/i18n/en.json').flush(en);
-        await loading;
-        fixture.detectChanges();
-        expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(english[errorMessage]);
-      } finally {
-        confirm.mockRestore();
       }
+      http.expectOne(operation === 'delete' ? `${url}/radio` : url)
+        .flush({}, { status: 503, statusText: 'Unavailable' });
+      fixture.detectChanges();
+      const spanish: Record<string, string> = es;
+      const english: Record<string, string> = en;
+      expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(spanish[errorMessage]);
+      const loading = TestBed.inject(TranslationService).loadLanguage('en');
+      http.expectOne('./assets/i18n/en.json').flush(en);
+      await loading;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toBe(english[errorMessage]);
     });
   }
 
@@ -257,14 +255,13 @@ describe('IaxUsersComponent', () => {
     const loading = TestBed.inject(TranslationService).loadLanguage('en');
     http.expectOne('./assets/i18n/en.json').flush(en);
     await loading;
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    try {
-      fixture.componentInstance.eliminarUsuario(user.name);
-      expect(confirm).toHaveBeenCalledWith('Delete IAX user radio?');
-      http.expectNone(`${url}/radio`);
-      expect(fixture.componentInstance.usuariosList()).toEqual([user]);
-    } finally {
-      confirm.mockRestore();
-    }
+    fixture.componentInstance.eliminarUsuario(user.name);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('Delete IAX user radio?');
+    (fixture.nativeElement.querySelector('.confirmacion-cancelar') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    http.expectNone(`${url}/radio`);
+    expect(fixture.componentInstance.usuariosList()).toEqual([user]);
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
   });
 });

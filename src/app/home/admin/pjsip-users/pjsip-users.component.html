@@ -64,3 +64,14 @@
     }
   }
 </section>
+
+<app-confirmacion-dialog
+  noticeKey="confirm.pjsip-user.delete"
+  [open]="pendienteEliminar() !== null"
+  [title]="'ELIMINAR' | translate"
+  [message]="pendienteEliminar() ? ('PJSIP_USERS_DELETE_CONFIRM' | translate:{id: pendienteEliminar()!}) : ''"
+  [confirmLabel]="'ELIMINAR' | translate"
+  [showDeleteIcon]="true"
+  [busy]="guardando()"
+  (confirmed)="confirmarEliminacion()"
+  (cancelled)="cancelarEliminacion()" />
