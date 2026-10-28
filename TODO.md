@@ -5,6 +5,8 @@
 
 ## 1.3. El clima no se esta ejecutando automaticamente cuando se carga la pagina o cuando cambia de idioma, hay que hacerlo manual.
 
+## 1.4. Habilitacion del pjsip, modulos y patch en el extensions si es que hace crash 
+
 # 2. Opciones admin
 
 ## 2.1. Quitar personalizar cabecera y hacer un perfil de usuario admin para configuraciones generales.
@@ -18,7 +20,7 @@
 ```
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
-## 2.3. Completar traducción.
+
 
 # 3. Bugs
 
