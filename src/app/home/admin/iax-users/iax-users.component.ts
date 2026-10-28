@@ -86,6 +86,10 @@ export class IaxUsersComponent implements OnInit {
     this.editando.set(true);
   }
 
+  puedeEliminarUsuario(name: string): boolean {
+    return isRadioAmateurCallsign(name);
+  }
+
   guardarUsuario(): void {
     if (this.guardando()) { return; }
     if (!isRadioAmateurCallsign(this.usuarioActual().name)) {
@@ -123,7 +127,7 @@ export class IaxUsersComponent implements OnInit {
   }
 
   eliminarUsuario(name: string): void {
-    if (this.guardando()) { return; }
+    if (this.guardando() || !this.puedeEliminarUsuario(name)) { return; }
     this.error.set('');
     this.pendienteEliminar.set(name);
   }
@@ -134,7 +138,7 @@ export class IaxUsersComponent implements OnInit {
 
   confirmarEliminacion(): void {
     const name = this.pendienteEliminar();
-    if (!name || this.guardando()) { return; }
+    if (!name || this.guardando() || !this.puedeEliminarUsuario(name)) { return; }
     this.guardando.set(true);
     this.service.eliminar(name).subscribe({
       next: () => {

@@ -3,10 +3,13 @@ package controllers
 import (
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
+
+var iaxRadioCallsign = regexp.MustCompile(`^(?:[A-Z]{1,2}|[A-Z]\d|\d[A-Z])\d[A-Z]{1,4}(?:[-/][A-Z0-9]{1,6})*$`)
 
 type IAXUser struct {
 	Name     string   `json:"name"`
@@ -95,6 +98,9 @@ func (p sipUsersControl) deleteIAX(c echo.Context) error {
 	name := c.Param("name")
 	if !sipUserName.MatchString(name) || strings.EqualFold(name, "general") {
 		return apiError(http.StatusBadRequest, "Nombre de usuario IAX inválido")
+	}
+	if !iaxRadioCallsign.MatchString(name) {
+		return apiError(http.StatusForbidden, "No se pueden eliminar secciones IAX que no sean indicativos de radioaficionado")
 	}
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()

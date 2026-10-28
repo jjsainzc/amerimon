@@ -140,8 +140,24 @@ describe('IaxUsersComponent', () => {
     fixture.detectChanges();
     expect(password.type).toBe('password');
     expect(fixture.componentInstance.usuarioActual().secret).toBe(user.secret);
-    expect(fixture.nativeElement.querySelector('.sip-users-eliminar i.fa-trash-can')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.sip-users-eliminar')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
     http.expectNone(url);
+  });
+
+  it('only offers deletion for callsign sections', () => {
+    http.expectOne(url).flush({
+      radio: user,
+      HC1LNM: { ...user, name: 'HC1LNM' },
+    });
+    fixture.componentInstance.seleccionarUsuario(user);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.sip-users-eliminar')).toBeNull();
+
+    fixture.componentInstance.seleccionarUsuario({ ...user, name: 'HC1LNM' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.sip-users-eliminar')).not.toBeNull();
+    http.expectNone(`${url}/HC1LNM`);
   });
 
   it('validates the shared secret field and sends its edited value', async () => {
@@ -174,22 +190,6 @@ describe('IaxUsersComponent', () => {
     http.expectOne(url).flush({ radio: user });
   });
 
-  it('deletes the selected user and refreshes the list', () => {
-    http.expectOne(url).flush({ radio: user });
-    fixture.componentInstance.seleccionarUsuario(user);
-    fixture.componentInstance.eliminarUsuario(user.name);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('¿Eliminar el usuario IAX radio?');
-    http.expectNone(`${url}/radio`);
-    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
-    const request = http.expectOne(`${url}/radio`);
-    expect(request.request.method).toBe('DELETE');
-    request.flush({ message: 'Eliminado' });
-    http.expectOne(url).flush({});
-    expect(fixture.componentInstance.editando()).toBe(false);
-    expect(fixture.componentInstance.usuariosList()).toEqual([]);
-  });
-
   it('switches loading, list, empty state and form labels without changing configuration', async () => {
     expect(fixture.nativeElement.querySelector('[role="status"]').textContent).toBe(es.CARGANDO);
     const loading = TestBed.inject(TranslationService).loadLanguage('en');
@@ -206,12 +206,12 @@ describe('IaxUsersComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     const before = structuredClone(fixture.componentInstance.usuarioActual());
-    for (const label of [en.IAX_USERS_NAME, en.SIP_USERS_CONTEXT, en.IAX_USERS_SECRET, en.IAX_USERS_AUTH, en.GUARDAR, en.CANCELAR, en.ELIMINAR]) {
+    for (const label of [en.IAX_USERS_NAME, en.SIP_USERS_CONTEXT, en.IAX_USERS_SECRET, en.IAX_USERS_AUTH, en.GUARDAR, en.CANCELAR]) {
       expect(fixture.nativeElement.querySelector('form').textContent).toContain(label);
     }
     await TestBed.inject(TranslationService).loadLanguage('es');
     fixture.detectChanges();
-    for (const label of [es.IAX_USERS_NAME, es.SIP_USERS_CONTEXT, es.IAX_USERS_SECRET, es.IAX_USERS_AUTH, es.GUARDAR, es.CANCELAR, es.ELIMINAR]) {
+    for (const label of [es.IAX_USERS_NAME, es.SIP_USERS_CONTEXT, es.IAX_USERS_SECRET, es.IAX_USERS_AUTH, es.GUARDAR, es.CANCELAR]) {
       expect(fixture.nativeElement.querySelector('form').textContent).toContain(label);
     }
     expect(fixture.componentInstance.usuarioActual()).toEqual(before);
@@ -227,7 +227,7 @@ describe('IaxUsersComponent', () => {
     http.expectNone(url);
   });
 
-  for (const operation of ['load', 'save', 'delete']) {
+  for (const operation of ['load', 'save']) {
     it(`translates ${operation} fallback errors when switching languages`, async () => {
       const component = fixture.componentInstance;
       let errorMessage: string;
@@ -236,19 +236,12 @@ describe('IaxUsersComponent', () => {
       } else {
         http.expectOne(url).flush({ radio: user });
         component.seleccionarUsuario(user);
-        errorMessage = operation === 'save' ? 'IAX_USERS_SAVE_ERROR' : 'IAX_USERS_DELETE_ERROR';
-        if (operation === 'save') {
-          component.guardarUsuario();
-          fixture.detectChanges();
-          (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
-        } else {
-          component.eliminarUsuario(user.name);
-          fixture.detectChanges();
-          (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
-        }
+        errorMessage = 'IAX_USERS_SAVE_ERROR';
+        component.guardarUsuario();
+        fixture.detectChanges();
+        (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
       }
-      http.expectOne(operation === 'delete' ? `${url}/radio` : url)
-        .flush({}, { status: 503, statusText: 'Unavailable' });
+      http.expectOne(url).flush({}, { status: 503, statusText: 'Unavailable' });
       fixture.detectChanges();
       const spanish: Record<string, string> = es;
       const english: Record<string, string> = en;
@@ -261,19 +254,21 @@ describe('IaxUsersComponent', () => {
     });
   }
 
-  it('uses the selected language and identifier in a cancelled deletion confirmation', async () => {
-    http.expectOne(url).flush({ radio: user });
-    const loading = TestBed.inject(TranslationService).loadLanguage('en');
-    http.expectOne('./assets/i18n/en.json').flush(en);
-    await loading;
-    fixture.componentInstance.eliminarUsuario(user.name);
+  it('deletes a callsign user and refreshes the list', () => {
+    const callsignUser = { ...user, name: 'HC1LNM' };
+    http.expectOne(url).flush({ HC1LNM: callsignUser });
+    fixture.componentInstance.seleccionarUsuario(callsignUser);
+    fixture.componentInstance.eliminarUsuario(callsignUser.name);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('Delete IAX user radio?');
-    (fixture.nativeElement.querySelector('.confirmacion-cancelar') as HTMLButtonElement).click();
-    fixture.detectChanges();
-    http.expectNone(`${url}/radio`);
-    expect(fixture.componentInstance.usuariosList()).toEqual([user]);
-    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('¿Eliminar el usuario IAX HC1LNM?');
+    http.expectNone(`${url}/HC1LNM`);
+    (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
+    const request = http.expectOne(`${url}/HC1LNM`);
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ message: 'Eliminado' });
+    http.expectOne(url).flush({});
+    expect(fixture.componentInstance.editando()).toBe(false);
+    expect(fixture.componentInstance.usuariosList()).toEqual([]);
   });
 
   it('saves callsign sections directly and requires confirmation for system sections', () => {

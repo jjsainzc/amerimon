@@ -400,7 +400,7 @@ The Listen Live sessions report no longer shows the **User** and **Callsign** co
 | `/mon/listen-live/*` | Public, token optional depending on operation | Sessions, status, and audio WebSocket |
 | `/mon/allmon/config` | Administrator | Read/save Allmon nodes |
 | `/mon/iax-users` | Administrator | GET: users keyed by name; POST: create or update an IAX user |
-| `/mon/iax-users/:name` | Administrator | DELETE: remove the specified IAX section |
+| `/mon/iax-users/:name` | Administrator | DELETE: remove an IAX section only when its name matches an amateur radio callsign |
 | `/mon/pjsip-users` | Administrator | GET: endpoints with auth/AOR; POST: create or update an extension |
 | `/mon/pjsip-users/:id` | Administrator | DELETE: remove the endpoint and its exclusive auth/AOR objects |
 | `/mon/asterisk/commands` | Administrator | List and run Asterisk actions |

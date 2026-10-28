@@ -62,7 +62,7 @@ func TestSIPUsersConfiguredPaths(t *testing.T) {
 	}
 }
 
-func TestSIPUsersIAXCRUDPreservesOtherSettings(t *testing.T) {
+func TestSIPUsersIAXSavePreservesOtherSettings(t *testing.T) {
 	original := "[general]\nbindport=4569\n#include iax-extra.conf\n[radio] ; station\nsecret=old\ncontext=old\nqualify=yes\n[other]\nsecret=untouched\n"
 	p := sipTestControl(t, original, "")
 	rec := sipTestRequest(t, p.getIAX, http.MethodGet, "", "")
@@ -94,17 +94,31 @@ func TestSIPUsersIAXCRUDPreservesOtherSettings(t *testing.T) {
 	if err != nil || info.Mode().Perm() != 0o640 {
 		t.Fatalf("permissions changed: %v", err)
 	}
-	rec = sipTestRequest(t, p.deleteIAX, http.MethodDelete, "", "radio")
-	if rec.Code != 200 {
-		t.Fatalf("delete: %s", rec.Body.String())
+}
+
+func TestSIPUsersIAXDeleteOnlyAllowsCallsignSections(t *testing.T) {
+	content := "[HC1LNM]\nsecret=radio-secret\n[system-user]\nsecret=system-secret\n"
+	p := sipTestControl(t, content, "")
+
+	rec := sipTestRequest(t, p.deleteIAX, http.MethodDelete, "", "system-user")
+	data, err := os.ReadFile(p.iaxPath)
+	if err != nil {
+		t.Fatal(err)
 	}
-	data, _ = os.ReadFile(p.iaxPath)
-	if strings.Contains(string(data), "[radio]") || !strings.Contains(string(data), "[other]") {
-		t.Fatalf("bad delete: %s", data)
+	if rec.Code != http.StatusForbidden || string(data) != content {
+		t.Fatalf("system section was not protected: %d %s %s", rec.Code, rec.Body.String(), data)
 	}
-	rec = sipTestRequest(t, p.deleteIAX, http.MethodDelete, "", "missing")
-	if rec.Code != 404 {
-		t.Fatalf("expected 404, got %d", rec.Code)
+
+	rec = sipTestRequest(t, p.deleteIAX, http.MethodDelete, "", "HC1LNM")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("callsign delete failed: %d %s", rec.Code, rec.Body.String())
+	}
+	data, err = os.ReadFile(p.iaxPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "[HC1LNM]") || !strings.Contains(string(data), "[system-user]") {
+		t.Fatalf("unexpected IAX sections after callsign delete: %s", data)
 	}
 }
 
@@ -240,27 +254,19 @@ func TestSIPUsersReloadErrorsAreNotSuccess(t *testing.T) {
 
 }
 
-func TestSIPUsersRejectAmbiguousSectionsWithoutWriting(t *testing.T) {
+func TestSIPUsersRejectAmbiguousPJSIPSectionsWithoutWriting(t *testing.T) {
 	for _, tc := range []struct {
 		name, content, id string
-		iax               bool
 	}{
-		{"iax-template", "[radio](!)\nsecret=old\n", "radio", true},
-		{"iax-duplicate", "[radio]\nsecret=old\n[radio]\nsecret=other\n", "radio", true},
-		{"iax-include", "[radio]\nsecret=old\n#include extra.conf\n", "radio", true},
-		{"pjsip-template", strings.Replace(sipSeparateObjects, "[1001] ; endpoint", "[1001](base)", 1), "1001", false},
-		{"pjsip-duplicate", sipSeparateObjects + "[1001]\ntype=endpoint\n", "1001", false},
-		{"pjsip-include", sipSeparateObjects + "#include extra.conf\n", "1001", false},
+		{"pjsip-template", strings.Replace(sipSeparateObjects, "[1001] ; endpoint", "[1001](base)", 1), "1001"},
+		{"pjsip-duplicate", sipSeparateObjects + "[1001]\ntype=endpoint\n", "1001"},
+		{"pjsip-include", sipSeparateObjects + "#include extra.conf\n", "1001"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := sipTestControl(t, tc.content, tc.content)
 			p.reload = func(string) (string, error) { t.Fatal("unexpected reload"); return "", nil }
-			handler, path := p.deletePJSIP, p.pjsipPath
-			if tc.iax {
-				handler, path = p.deleteIAX, p.iaxPath
-			}
-			rec := sipTestRequest(t, handler, http.MethodDelete, "", tc.id)
-			data, err := os.ReadFile(path)
+			rec := sipTestRequest(t, p.deletePJSIP, http.MethodDelete, "", tc.id)
+			data, err := os.ReadFile(p.pjsipPath)
 			if err != nil {
 				t.Fatal(err)
 			}

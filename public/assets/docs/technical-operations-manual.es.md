@@ -400,7 +400,7 @@ El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e *
 | `/mon/listen-live/*` | Público, token opcional según operación | Sesiones, estado y WebSocket de audio |
 | `/mon/allmon/config` | Administrador | Leer/guardar nodos Allmon |
 | `/mon/iax-users` | Administrador | GET: mapa de usuarios por nombre; POST: crear o actualizar un usuario IAX |
-| `/mon/iax-users/:name` | Administrador | DELETE: eliminar la sección IAX indicada |
+| `/mon/iax-users/:name` | Administrador | DELETE: eliminar la sección IAX solo si su nombre tiene formato de indicativo de radioaficionado |
 | `/mon/pjsip-users` | Administrador | GET: lista de endpoints con auth/AOR; POST: crear o actualizar una extensión |
 | `/mon/pjsip-users/:id` | Administrador | DELETE: eliminar endpoint y sus objetos auth/AOR exclusivos |
 | `/mon/asterisk/commands` | Administrador | Listar y ejecutar acciones Asterisk |
