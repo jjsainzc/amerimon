@@ -6,13 +6,13 @@ import { provideRouter } from '@angular/router';
 import { NoticePreferencesService } from '../../../core/services/notice-preferences.service';
 import { TranslationService } from '../../../core/services/translation.service';
 import { environment } from '../../../core/environment';
-import { CabeceraAdminComponent } from './cabecera-admin.component';
+import { PerfilAdminComponent } from './perfil-admin.component';
 
 describe('Admin profile settings', () => {
   beforeEach(() => {
     localStorage.clear();
     TestBed.configureTestingModule({
-      imports: [CabeceraAdminComponent],
+      imports: [PerfilAdminComponent],
       providers: [
         provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
         { provide: TranslationService, useValue: { revision: signal(0), translate: (key: string) => key } },
@@ -26,7 +26,7 @@ describe('Admin profile settings', () => {
     preferences.hide('confirm.asterisk.connect');
     preferences.hide('notice.system.diagnostics');
     localStorage.setItem('amerimon.admin.user', 'admin');
-    const fixture = TestBed.createComponent(CabeceraAdminComponent);
+    const fixture = TestBed.createComponent(PerfilAdminComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(`${environment.apiUrl}/site-settings`).flush({
@@ -47,7 +47,7 @@ describe('Admin profile settings', () => {
   it('keeps the reset button available when header settings cannot be loaded', () => {
     const preferences = TestBed.inject(NoticePreferencesService);
     preferences.hide('confirm.asterisk.connect');
-    const fixture = TestBed.createComponent(CabeceraAdminComponent);
+    const fixture = TestBed.createComponent(PerfilAdminComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(`${environment.apiUrl}/site-settings`).flush(

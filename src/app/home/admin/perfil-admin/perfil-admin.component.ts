@@ -8,13 +8,13 @@ import { NoticePreferencesService } from '../../../core/services/notice-preferen
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  selector: 'app-cabecera-admin',
+  selector: 'app-perfil-admin',
   standalone: true,
   imports: [FormsModule, RouterLink, TranslatePipe],
-  templateUrl: './cabecera-admin.component.html',
-  styleUrl: './cabecera-admin.component.css',
+  templateUrl: './perfil-admin.component.html',
+  styleUrl: './perfil-admin.component.css',
 })
-export class CabeceraAdminComponent implements OnInit {
+export class PerfilAdminComponent implements OnInit {
   private readonly settingsService = inject(SiteSettingsService);
   private readonly router = inject(Router);
   protected readonly noticePreferences = inject(NoticePreferencesService);

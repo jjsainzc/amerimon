@@ -49,7 +49,7 @@ export const routes: Routes = [
   {
     path: 'admin/perfil',
     canActivate: [adminGuard],
-    loadComponent: () => import('./home/admin/cabecera-admin/cabecera-admin.component').then((m) => m.CabeceraAdminComponent),
+    loadComponent: () => import('./home/admin/perfil-admin/perfil-admin.component').then((m) => m.PerfilAdminComponent),
   },
   { path: 'admin/cabecera', pathMatch: 'full', redirectTo: 'admin/perfil' },
   {
