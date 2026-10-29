@@ -1,10 +1,11 @@
-import { Component, computed, Input, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, Input, OnDestroy, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { WeatherService } from '../../core/services/weather.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
+import { TranslationService } from '../../core/services/translation.service';
 
 interface CoordenadaDMS {
   grados: number;
@@ -34,8 +35,10 @@ export class WeatherComponent implements OnInit, OnDestroy {
   readonly locating = signal(false);
   locationDraft = '';
 
+  private readonly translation = inject(TranslationService);
   private temporaryLocation: string | undefined;
   private lastWeatherLocation: string | undefined;
+  private previousLanguage: string | undefined;
   private weatherRequest: Subscription | undefined;
   private requestVersion = 0;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -43,7 +46,20 @@ export class WeatherComponent implements OnInit, OnDestroy {
   private static readonly retryDelayMs = 30_000;
   private static readonly refreshIntervalMs = 300_000;
 
-  constructor(private weatherService: WeatherService) {}
+  constructor(private weatherService: WeatherService) {
+    effect(() => {
+      const language = this.translation.currentLang();
+      if (this.previousLanguage === undefined) {
+        this.previousLanguage = language;
+        return;
+      }
+      if (language === this.previousLanguage) { return; }
+      this.previousLanguage = language;
+      if (this.configuredLocation() !== undefined || this.lastWeatherLocation !== undefined) {
+        this.refreshWeather();
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.refreshTimer = setInterval(() => {

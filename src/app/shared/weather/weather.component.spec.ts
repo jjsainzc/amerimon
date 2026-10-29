@@ -3,7 +3,9 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 import { environment } from '../../core/environment';
+import { TranslationService } from '../../core/services/translation.service';
 import { WeatherComponent } from './weather.component';
+import spanish from '../../../../public/assets/i18n/es.json';
 
 describe('WeatherComponent', () => {
   let http: HttpTestingController;
@@ -11,7 +13,7 @@ describe('WeatherComponent', () => {
   let fixture: ComponentFixture<WeatherComponent>;
   let dialog: HTMLDialogElement;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     TestBed.configureTestingModule({
       imports: [WeatherComponent],
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -21,6 +23,9 @@ describe('WeatherComponent', () => {
     component = fixture.componentInstance;
     vi.spyOn(component, 'getWeatherForBrowserLocation').mockImplementation(() => {});
     fixture.detectChanges();
+    http.expectOne('./assets/i18n/es.json').flush(spanish);
+    await fixture.whenStable();
+    TestBed.inject(TranslationService).currentLang.set('es');
     dialog = fixture.nativeElement.querySelector('dialog');
     dialog.showModal = vi.fn(() => dialog.setAttribute('open', ''));
     dialog.close = vi.fn(() => {
@@ -49,7 +54,7 @@ describe('WeatherComponent', () => {
     request.flush('68°F / Sunny');
 
     expect(component.weatherReport()).toBe('68°F / Sunny');
-    expect(component.consultedLocation()).toBe('37.7749,-122.4194');
+    expect(component.consultedLocation()).toBe('37° 46\' 29.64" N, 122° 25\' 9.84" O');
     expect(component.loading()).toBe(false);
   });
 
@@ -59,7 +64,7 @@ describe('WeatherComponent', () => {
     fixture.detectChanges();
 
     const link: HTMLAnchorElement = fixture.nativeElement.querySelector('.location-message a');
-    expect(link.textContent).toBe(location);
+    expect(link.textContent).toBe(component.consultedLocation());
     expect(link.href).toBe(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`);
     expect(link.target).toBe('_blank');
     expect(link.rel).toBe('noopener noreferrer');
@@ -146,6 +151,33 @@ describe('WeatherComponent', () => {
     component.ubicacionConfigurada = ' Quito ';
 
     expect(component.getWeatherForBrowserLocation).not.toHaveBeenCalled();
+    http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 60°F');
+    expect(component.weatherReport()).toBe('Quito: 60°F');
+  });
+
+  it('starts the weather request when loaded settings have no configured location', () => {
+    vi.mocked(component.getWeatherForBrowserLocation).mockRestore();
+    vi.stubGlobal('navigator', {
+      geolocation: {
+        getCurrentPosition: vi.fn((_success: PositionCallback, fail?: PositionErrorCallback | null) =>
+          fail?.({ code: 1, message: 'denied' } as GeolocationPositionError))
+      }
+    });
+
+    component.ubicacionConfigurada = '';
+    http.expectOne(req => req.url === `${environment.apiUrl}/weather` && !req.params.has('location'))
+      .flush('Quito: 60°F');
+
+    expect(component.weatherReport()).toBe('Quito: 60°F');
+  });
+
+  it('refreshes the current location automatically when the language changes', () => {
+    component.ubicacionConfigurada = 'Quito';
+    http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 60°F');
+
+    TestBed.inject(TranslationService).currentLang.set('en');
+    fixture.detectChanges();
+
     http.expectOne(req => req.params.get('location') === 'Quito').flush('Quito: 60°F');
     expect(component.weatherReport()).toBe('Quito: 60°F');
   });
@@ -266,7 +298,9 @@ describe('WeatherComponent', () => {
   it('explains unavailable browser geolocation without falling back to the admin default', () => {
     vi.stubGlobal('navigator', {});
     component.useBrowserLocation(dialog);
-    expect(component.locationError()).toContain('Usa HTTPS');
+    fixture.detectChanges();
+    expect(component.locationError()).toBe('WEATHER_GEOLOCATION_UNAVAILABLE');
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toContain('Usa HTTPS');
     http.expectNone(req => req.url === `${environment.apiUrl}/weather`);
   });
 
