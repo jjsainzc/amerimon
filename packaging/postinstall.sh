@@ -78,6 +78,13 @@ fi
 # preserve existing Asterisk configuration; no Asterisk restart is performed.
 AST_DIR=/etc/asterisk
 if [ -d "$AST_DIR" ]; then
+    if [ -r /usr/lib/amerimon/configure-pjsip.sh ]; then
+        sh /usr/lib/amerimon/configure-pjsip.sh
+    else
+        echo "Error: no se encuentra /usr/lib/amerimon/configure-pjsip.sh; no se configuró PJSIP." >&2
+        exit 1
+    fi
+
     MODULES_CONF="$AST_DIR/modules.conf"
     MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so app_verbose.so func_config.so func_strings.so func_logic.so func_cut.so res_mutestream.so"
 
