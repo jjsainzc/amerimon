@@ -86,6 +86,95 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('expands only the confirmed connection server and leaves cancelled connections collapsed', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.alternarTodasLasTablas();
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      component.cancelarConfirmacion();
+      expect(component.tablaContraida('56502')).toBe(true);
+      http.expectNone(request => request.method === 'POST');
+
+      component.conectarNodo();
+      component.nodoLocal.set('59201');
+      component.confirmarAccion();
+      fixture.detectChanges();
+      expect(component.tablaContraida('56502')).toBe(false);
+      expect(component.tablaContraida('59201')).toBe(true);
+      expect(component.tablaContraida('616262')).toBe(true);
+      const grupo = element.querySelector('[aria-label="Conexiones del nodo remoto 56502"]')!;
+      expect(grupo.querySelector('.allstarlink-tabla-scroll')?.textContent).toContain('46818');
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({ status: 'error', message: 'Rejected' });
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('expands matching servers during search without expanding unrelated tables or clearing their state', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.nodos.set([
+        { nodo_local: '56502', nodo: '46818', protocolo: 'iax', callsign: 'HC1LNM' },
+        { nodo_local: '59201', nodo: '46818', protocolo: 'iax', callsign: 'HC1LNM' },
+        { nodo_local: '616262', nodo: '1964', protocolo: 'iax' }
+      ]);
+      component.alternarTodasLasTablas();
+      fixture.detectChanges();
+      const search = element.querySelector<HTMLInputElement>('input[type="search"]')!;
+      search.value = '46818';
+      search.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(component.tablaContraida('56502')).toBe(false);
+      expect(component.tablaContraida('59201')).toBe(false);
+      expect(component.tablaContraida('616262')).toBe(true);
+      expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(2);
+
+      search.value = 'missing';
+      search.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(0);
+      expect(component.tablaContraida('616262')).toBe(true);
+      search.value = '';
+      search.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(2);
+      expect(component.tablaContraida('616262')).toBe(true);
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('expands search results arriving after the query while respecting the selected server', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.alternarTodasLasTablas();
+      component.servidorSeleccionado.set('56502');
+      component.filtroBusqueda.set('HC1LNM');
+      fixture.detectChanges();
+      expect(component.tablaContraida('56502')).toBe(true);
+      component.nodos.set([
+        { nodo_local: '56502', nodo: '46818', protocolo: 'iax', callsign: 'HC1LNM' },
+        { nodo_local: '59201', nodo: '46818', protocolo: 'iax', callsign: 'HC1LNM' }
+      ]);
+      fixture.detectChanges();
+      expect(component.tablaContraida('56502')).toBe(false);
+      expect(component.tablaContraida('59201')).toBe(true);
+      expect(element.querySelector('.allstarlink-tabla-scroll')?.textContent).toContain('46818');
+      component.servidorSeleccionado.set('todos');
+      fixture.detectChanges();
+      expect(component.tablaContraida('59201')).toBe(false);
+      expect(component.tablaContraida('616262')).toBe(true);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
   it('saves confirmation suppression only when accepted and restores the prompt on reset', async () => {
     const { fixture, component, http } = await crearMonitor();
     try {

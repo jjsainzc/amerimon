@@ -71,6 +71,8 @@ Cualquier visitante puede pulsar **Cambiar ubicación**, junto a la localidad co
 
 Al pulsar el número de servidor en la cabecera de una tabla se selecciona ese nodo en el formulario de conexión. Cada tabla permite contraer o desplegar su contenido sin ocultar la cabecera. El botón **Contraer todas las tablas / Desplegar todas las tablas** aplica la acción a todos los servidores, incluso si hay un filtro activo, conservando siempre sus cabeceras.
 
+Al ejecutar una conexión se despliega automáticamente la tabla del servidor de destino. Al buscar conexiones se despliegan los servidores con resultados dentro del filtro seleccionado, incluso si los resultados llegan después de escribir la búsqueda. Las tablas sin coincidencias conservan su estado; borrar la búsqueda no las despliega.
+
 Al navegar a otra pantalla y volver, AllStarLink conserva en memoria las tablas contraídas, el filtro de servidor, la búsqueda, el campo y sentido de ordenación, el intervalo de actualización y si el panel administrativo estaba abierto. Estos ajustes se restablecen al recargar la aplicación. Las conexiones se consultan de nuevo; si el servidor filtrado ya no existe, se muestran todos. No se restauran diálogos ni se ejecutan operaciones al volver.
 
 ## Restablecer contraseña de administrador

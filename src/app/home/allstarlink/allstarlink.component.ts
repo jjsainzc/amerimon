@@ -227,6 +227,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         };
       }).filter(grupo => !termino || grupo.nodos.length > 0);
   });
+  private readonly desplegarResultadosBusqueda = effect(() => {
+    if (!this.filtroBusqueda().trim()) { return; }
+    const servidores = this.gruposFiltrados().map(grupo => grupo.nodoLocal);
+    untracked(() => this.desplegarTablas(servidores));
+  });
   /** Obtiene los nombres de servidor disponibles a partir de los grupos. */
   readonly servidoresDisponibles = computed(() => this.grupos().map(grupo => grupo.nodoLocal));
   /** Indica si hay más de un servidor para mostrar el selector. */
@@ -278,6 +283,15 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   /** Indica si la tabla del servidor está contraída. */
   tablaContraida(nodoLocal: string): boolean {
     return this.tablasContraidas().has(nodoLocal);
+  }
+
+  private desplegarTablas(servidores: readonly string[]): void {
+    this.tablasContraidas.update(tablas => {
+      if (!servidores.some(servidor => tablas.has(servidor))) { return tablas; }
+      const siguientes = new Set(tablas);
+      for (const servidor of servidores) { siguientes.delete(servidor); }
+      return siguientes;
+    });
   }
 
   /** Alterna la visibilidad de la tabla de un servidor sin ocultar su cabecera. */
@@ -537,6 +551,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private ejecutarConexion(request: SolicitudConexion, modoLabel: string): void {
     if (!this.validarServidorOperacion(request.local_node)) { return; }
     const { local_node: local, remote_node: remoto, permanent: permanente, timeout_seconds: timeoutSegundos } = request;
+    this.desplegarTablas([local]);
     this.conectando.set(true);
     this.desconectandoAntesConexion.set(!!request.disconnect_before_connect);
     this.resultadoConexion.set(null);
