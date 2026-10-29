@@ -73,6 +73,14 @@ nfpms:
           mode: 0755
       - src: packaging/listen-live-dialplan.awk
         dst: /usr/lib/amerimon/listen-live-dialplan.awk
+      - src: packaging/configure-pjsip.sh
+        dst: /usr/lib/amerimon/configure-pjsip.sh
+      - src: packaging/merge-pjsip-modules.awk
+        dst: /usr/lib/amerimon/merge-pjsip-modules.awk
+      - src: packaging/pjsip-modules-patch.conf
+        dst: /usr/share/amerimon/pjsip-modules-patch.conf
+      - src: packaging/pjsip-extensions-sip-phones-patch.conf
+        dst: /usr/share/amerimon/pjsip-extensions-sip-phones-patch.conf
       - src: scripts/limpiar_canales_listen_live.sh
         dst: /usr/local/bin/limpiar_canales_listen_live.sh
         file_info:

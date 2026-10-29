@@ -58,6 +58,14 @@ sequenceDiagram
 
 The active backend configuration is `ListenModeEAGI`. In this mode, the `audio_eagi.sh` script first sends the UUID (36 bytes), then the audio to the TCP listener. Each typical frame is 320 bytes: PCM SLIN16, 8 kHz, approximately 20 ms.
 
+## PJSIP and dialplan prerequisites
+
+To listen to an extension, it must exist as a PJSIP endpoint in `pjsip.conf`, and Asterisk must have the `res_pjsip` module available. Amerimon can manage endpoints from **Admin → PJSIP extensions**; new extensions default to the `sip-phones` context. Module settings and the phone dialplan context are installed additively from `pjsip-modules-patch.conf` and `pjsip-extensions-sip-phones-patch.conf`. See **PJSIP for SIP phones** in the [technical operations manual](manual-tecnico) for installation behavior, backups, and handling existing routes.
+
+The PJSIP patch routes calls from the phone through a Local channel to `rpt-internal` before entering `app_rpt`. It does not replace a custom `_X.` route: if one already exists in `[sip-phones]` or `[rpt-internal]`, post-install preserves it and logs a warning. In that case, verify that the route still sends the call through a Local channel and reaches `Rpt(${NODE},Pv)` in a way compatible with the installation.
+
+`modules.conf` settings take effect when Asterisk starts. Post-install does not restart Asterisk; if new modules were installed, schedule a reload or restart during a maintenance window. Listen Live also requires `[listen-live-spy]` and `[listen-live-eagi]`, which post-install adds if missing. Existing contexts are preserved.
+
 ## Disconnects and end of session
 
 ```mermaid

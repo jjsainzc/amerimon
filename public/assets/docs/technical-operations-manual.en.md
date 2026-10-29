@@ -177,9 +177,31 @@ On Debian installations, `postinstall.sh` attempts to read the first AMI user ot
 
 Amerimon does not create Asterisk users. The existing AMI user must have the permissions required for the operations in use, including command execution and `Originate` for Listen Live. `permit`/`deny` networks added from the web are additive and do not replace existing custom ACLs.
 
-If `/etc/asterisk` exists, the post-install script saves one copy of the previous `modules.conf` (`modules.conf.bak-listen-live`) and enables the modules present among `res_speech.so`, `res_agi.so`, `app_chanspy.so`, `app_mixmonitor.so`, `app_verbose.so`, `func_config.so`, `func_strings.so`, `func_logic.so`, and `func_cut.so`. `app_verbose.so` provides the context's `Verbose` and `Log` applications; if it is not loaded, Asterisk ends the call before reaching ChanSpy. The script converts a `noload` directive for these modules to `load`, or appends `load => ...`. If `extensions.conf` exists, it saves `extensions.conf.bak-listen-live` and adds the `[listen-live-spy]`, `[listen-live-eagi]`, and `[amerimon-listen-node]` contexts if missing. It migrates only recognized legacy Amerimon `nodo` blocks (SimpleUSB or Local/pseudo), replacing them with a single redirect to the new context; custom blocks are preserved and generate a warning. Before migration, it also saves `extensions.conf.bak-listen-live-rxchannel`.
+If `/etc/asterisk` exists, the Listen Live step saves the `modules.conf` state it finds as `modules.conf.bak-listen-live` and enables the modules present among `res_speech.so`, `res_agi.so`, `app_chanspy.so`, `app_mixmonitor.so`, `app_verbose.so`, `func_config.so`, `func_strings.so`, `func_logic.so`, and `func_cut.so`. If the PJSIP step has already modified the file, this intermediate backup includes the PJSIP changes; the original before those changes is in `modules.conf.bak-pjsip`. `app_verbose.so` provides the context's `Verbose` and `Log` applications; if it is not loaded, Asterisk ends the call before reaching ChanSpy. The script converts a `noload` directive for these modules to `load`, or appends `load => ...`. If `extensions.conf` exists, it saves the state before the Listen Live dialplan changes as `extensions.conf.bak-listen-live` and adds the `[listen-live-spy]`, `[listen-live-eagi]`, and `[amerimon-listen-node]` contexts if missing. It migrates only recognized legacy Amerimon `nodo` blocks (SimpleUSB or Local/pseudo), replacing them with a single redirect to the new context; custom blocks are preserved and generate a warning. Before migration, it also saves `extensions.conf.bak-listen-live-rxchannel`.
 
 If Asterisk is already running, the hook attempts to load these modules and run `dialplan reload`; it does not restart the Asterisk service. If a module does not exist in that distribution, a warning is logged and the Amerimon installation continues. The `.bak-listen-live` copies can be used to review or manually restore the previous state.
+
+### PJSIP for SIP phones
+
+The post-install script also merges `packaging/pjsip-modules-patch.conf` and `packaging/pjsip-extensions-sip-phones-patch.conf`. If either configuration file is missing, it creates `modules.conf` with `[modules]` and `autoload=yes`, or creates `extensions.conf`. For an existing `modules.conf`, it adds `load` directives only for installed PJSIP modules and includes the patch's `noload` directives; it does not replace existing directives, including a custom `noload`. Missing modules are skipped with a warning.
+
+The `[sip-phones]` context routes PJSIP calls through a Local channel before passing them to `app_rpt`, avoiding direct PJSIP dialplan handling that can cause Asterisk to fail:
+
+```ini
+[sip-phones]
+exten => _X.,1,Ringing()
+exten => _X.,2,Answer(3000)
+exten => _X.,3,Set(__NODE=${EXTEN})
+exten => _X.,4,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))
+exten => _X.,5,Hangup()
+
+[rpt-internal]
+exten => _X.,1,Rpt(${NODE},Pv)
+```
+
+If either context already exists without an `_X.` route, the installer adds the patch routes inside that context. If a context already has an `_X.` route, it leaves the route unchanged and does not add another priority; it logs a warning so the administrator can review the custom integration manually. Before changing existing files, it creates `modules.conf.bak-pjsip` and/or `extensions.conf.bak-pjsip` if those backups do not already exist. Newly created files are not backed up.
+
+Persistent `load`/`noload` module settings take effect when Asterisk starts; the post-install script does not restart that service. Schedule an Asterisk reload or restart during a maintenance window and verify that the required modules are installed. Dialplan directives are added during post-install; review any warnings when a custom route exists.
 
 ### Allmon node selection and syntax
 

@@ -177,9 +177,31 @@ En la instalación Debian, `postinstall.sh` intenta leer el primer usuario AMI q
 
 Amerimon no crea usuarios Asterisk. El usuario AMI existente debe tener los permisos necesarios para las acciones que se usan, incluida la ejecución de comandos y `Originate` para Listen Live. Las redes `permit`/`deny` agregadas desde la web son aditivas y no sustituyen ACL personalizadas existentes.
 
-Si existe `/etc/asterisk`, el postinstalador guarda una sola copia previa de `modules.conf` (`modules.conf.bak-listen-live`) y habilita los módulos presentes `res_speech.so`, `res_agi.so`, `app_chanspy.so`, `app_mixmonitor.so`, `app_verbose.so`, `func_config.so`, `func_strings.so`, `func_logic.so` y `func_cut.so`. `app_verbose.so` proporciona las aplicaciones `Verbose` y `Log` del contexto: si no está cargado, Asterisk termina la llamada antes de llegar a ChanSpy. Convierte una directiva `noload` de esos módulos en `load` o agrega `load => ...` al final. Si existe `extensions.conf`, guarda `extensions.conf.bak-listen-live` y agrega los contextos `[listen-live-spy]`, `[listen-live-eagi]` y `[amerimon-listen-node]` cuando faltan. Solo migra los bloques `nodo` antiguos reconocidos de Amerimon (SimpleUSB o Local/pseudo), sustituyéndolos por una única redirección al contexto nuevo; los bloques personalizados se conservan y generan un aviso. Antes de una migración se guarda también `extensions.conf.bak-listen-live-rxchannel`.
+Si existe `/etc/asterisk`, el bloque de Listen Live guarda el estado de `modules.conf` que encuentra como `modules.conf.bak-listen-live` y habilita los módulos presentes `res_speech.so`, `res_agi.so`, `app_chanspy.so`, `app_mixmonitor.so`, `app_verbose.so`, `func_config.so`, `func_strings.so`, `func_logic.so` y `func_cut.so`. Si el paso PJSIP ya modificó el archivo, ese respaldo intermedio incluye los cambios PJSIP; el original previo a esos cambios está en `modules.conf.bak-pjsip`. `app_verbose.so` proporciona las aplicaciones `Verbose` y `Log` del contexto: si no está cargado, Asterisk termina la llamada antes de llegar a ChanSpy. Convierte una directiva `noload` de esos módulos en `load` o agrega `load => ...` al final. Si existe `extensions.conf`, guarda el estado previo al dialplan de Listen Live en `extensions.conf.bak-listen-live` y agrega los contextos `[listen-live-spy]`, `[listen-live-eagi]` y `[amerimon-listen-node]` cuando faltan. Solo migra los bloques `nodo` antiguos reconocidos de Amerimon (SimpleUSB o Local/pseudo), sustituyéndolos por una única redirección al contexto nuevo; los bloques personalizados se conservan y generan un aviso. Antes de una migración se guarda también `extensions.conf.bak-listen-live-rxchannel`.
 
 Si Asterisk ya está activo, el hook intenta cargar esos módulos y ejecutar `dialplan reload`; no reinicia el servicio Asterisk. Si un módulo no existe en esa distribución, registra un aviso y continúa la instalación de Amerimon. Las copias `.bak-listen-live` permiten revisar o restaurar manualmente el estado previo.
+
+### PJSIP para teléfonos SIP
+
+El postinstalador también integra `packaging/pjsip-modules-patch.conf` y `packaging/pjsip-extensions-sip-phones-patch.conf`. Si falta alguno de los archivos, crea `modules.conf` con `[modules]` y `autoload=yes`, o crea `extensions.conf`. En un `modules.conf` existente añade las directivas `load` solo para módulos PJSIP instalados e incluye las directivas `noload` del parche; no reemplaza ninguna directiva existente, incluido un `noload` personalizado. Los módulos que no existen en el sistema generan un aviso y se omiten.
+
+La sección `[sip-phones]` enruta las llamadas PJSIP por un canal Local antes de entregarlas a `app_rpt`, para evitar el enrutamiento PJSIP directo que puede hacer que Asterisk falle:
+
+```ini
+[sip-phones]
+exten => _X.,1,Ringing()
+exten => _X.,2,Answer(3000)
+exten => _X.,3,Set(__NODE=${EXTEN})
+exten => _X.,4,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))
+exten => _X.,5,Hangup()
+
+[rpt-internal]
+exten => _X.,1,Rpt(${NODE},Pv)
+```
+
+Si esos contextos ya existen sin una ruta `_X.`, el instalador agrega las rutas del parche dentro de la sección existente. Si ya hay una ruta `_X.` en un contexto, no la modifica ni agrega otra prioridad: la conserva y registra un aviso para que el administrador revise la integración manualmente. Antes de cambiar archivos existentes, crea `modules.conf.bak-pjsip` y/o `extensions.conf.bak-pjsip` si esos respaldos todavía no existen. Los archivos recién creados no se respaldan.
+
+La configuración persistente de módulos `load`/`noload` se aplica al iniciar Asterisk; el postinstalador no reinicia ese servicio. Planifica una recarga o reinicio de Asterisk en una ventana de mantenimiento y confirma que los módulos requeridos están instalados. Las directivas de dialplan se incorporan durante el postinstall; revisa sus avisos si existe una ruta personalizada.
 
 ### Selección y sintaxis de nodos Allmon
 

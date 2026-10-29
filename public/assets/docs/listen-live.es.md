@@ -58,6 +58,14 @@ sequenceDiagram
 
 La configuración activa en el backend es `ListenModeEAGI`. En este modo, el script `audio_eagi.sh` envía primero el UUID (36 bytes) y luego el audio al listener TCP. Cada trama habitual tiene 320 bytes: PCM SLIN16, 8 kHz, aproximadamente 20 ms.
 
+## Requisitos PJSIP y dialplan
+
+Para escuchar una extensión, esta debe existir como endpoint PJSIP en `pjsip.conf` y el módulo `res_pjsip` debe estar disponible en Asterisk. Amerimon puede administrar endpoints desde **Admin → Extensiones PJSIP**; las extensiones nuevas usan por defecto el contexto `sip-phones`. La configuración de módulo y el contexto de teléfonos se instalan de forma aditiva mediante `pjsip-modules-patch.conf` y `pjsip-extensions-sip-phones-patch.conf`. Consulta la sección **PJSIP para teléfonos SIP** del [manual técnico](manual-tecnico) para el flujo de instalación, respaldos y resolución de conflictos con rutas existentes.
+
+El parche PJSIP enruta las llamadas del teléfono por un canal Local hasta `rpt-internal` antes de entrar a `app_rpt`. No reemplaza una ruta `_X.` personalizada: si ya existe en `[sip-phones]` o `[rpt-internal]`, el postinstall la conserva y muestra un aviso. En ese caso hay que verificar que la ruta mantenga el encaminamiento por canal Local y llegue a `Rpt(${NODE},Pv)` de forma compatible con la instalación.
+
+La configuración en `modules.conf` se activa al iniciar Asterisk. El postinstall no reinicia Asterisk; si se instalaron módulos nuevos, planifica su recarga o reinicio en una ventana de mantenimiento. El dialplan de Listen Live requiere además los contextos `[listen-live-spy]` y `[listen-live-eagi]`, que el postinstall agrega si faltan. Los contextos existentes se conservan.
+
 ## Desconexiones y fin de sesión
 
 ```mermaid
@@ -101,5 +109,3 @@ Cuando EAGI detecta que ya no quedan oyentes, cierra su conexión TCP; al termin
 El cierre del WebSocket **no actualiza directamente MariaDB** en el backend actual. El frontend debe conservar el `listenliveid` devuelto al crear la sesión y llamar a `PATCH /api/listen-live/sessions/{id}` con una fecha RFC3339 al detener o finalizar la reproducción. La ruta verifica que un usuario normal solo cierre su propia sesión.
 
 Esto funciona para cierres que el navegador puede procesar. Si el proceso del navegador termina o la red desaparece abruptamente, el PATCH podría no llegar; el heartbeat detecta la conexión muerta y detiene el flujo de audio, pero no cierra por sí solo la fila de la tabla.
-
-
