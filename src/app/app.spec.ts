@@ -2,8 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { By } from '@angular/platform-browser';
+import { vi } from 'vitest';
 import { App } from './app';
 import { environment } from './core/environment';
+import { WeatherComponent } from './shared/weather/weather.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -28,6 +31,25 @@ describe('App', () => {
   it('should create the app', () => {
     const fixture = TestBed.createComponent(App);
     expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it.each([undefined, '', ' Quito '])('loads weather after header settings arrive with location %s', async (location) => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    const weather: WeatherComponent = fixture.debugElement.query(By.directive(WeatherComponent)).componentInstance;
+    const browserLocation = vi.spyOn(weather, 'getWeatherForBrowserLocation')
+      .mockImplementation(() => weather.fetchWeather(''));
+    http.expectNone(req => req.url === `${environment.apiUrl}/weather`);
+    http.expectOne(`${environment.apiUrl}/site-settings`)
+      .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '', weather_location: location });
+    await fixture.whenStable();
+
+    const request = http.expectOne(req => req.url === `${environment.apiUrl}/weather`);
+    expect(request.request.params.get('location')).toBe(location?.trim() || null);
+    expect(browserLocation).toHaveBeenCalledTimes(location?.trim() ? 0 : 1);
+    request.flush('Quito: 60°F');
+    expect(weather.weatherReport()).toBe('Quito: 60°F');
   });
 
   it('shows the admin login button when not authenticated', async () => {

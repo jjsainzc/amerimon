@@ -32,8 +32,11 @@ export class App implements OnInit {
   protected readonly headerOculto = signal(false);
   protected readonly anioActual = new Date().getFullYear();
   protected readonly ajustesCabecera = this.siteSettingsService.settings;
-  /** Devuelve el título configurado o el nombre predeterminado del sitio. */
-  protected readonly ubicacionClima = computed(() => this.siteSettingsService.settings().weather_location?.trim() || undefined);
+  protected readonly ajustesCabeceraCargados = signal(false);
+  /** Espera los ajustes antes de elegir entre ubicación configurada y automática. */
+  protected readonly ubicacionClima = computed(() => this.ajustesCabeceraCargados()
+    ? this.siteSettingsService.settings().weather_location?.trim() ?? ''
+    : undefined);
   protected readonly tituloAplicacion = computed(() => this.siteSettingsService.settings().title.trim() || 'Amerimon');
   /** Combina el subtítulo y la versión de Asterisk, con texto alternativo si faltan. */
   protected readonly subtituloAplicacion = computed(() => {
@@ -238,7 +241,11 @@ export class App implements OnInit {
   /** Recupera los ajustes de cabecera; conserva los valores actuales si falla. */
   private cargarAjustesCabecera(): void {
     this.siteSettingsService.obtener().subscribe({
-      error: error => console.error('No se pudieron cargar los ajustes de cabecera.', error),
+      next: () => this.ajustesCabeceraCargados.set(true),
+      error: error => {
+        this.ajustesCabeceraCargados.set(true);
+        console.error('No se pudieron cargar los ajustes de cabecera.', error);
+      },
     });
   }
 }

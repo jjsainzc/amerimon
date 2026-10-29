@@ -333,16 +333,16 @@ Open **Admin → More options → IAX users / PJSIP extensions**, at `/admin/iax
 1. Click **New IAX user** or **New PJSIP extension**, or select a list entry to edit it.
 2. IAX exposes **Name (section)**, **Context**, **Secret (password)**, and **Authentication**. PJSIP exposes **Extension number (ID)**, **Context**, **Password**, **Caller ID**, and **Maximum contacts**.
 3. The name or ID is locked while editing; renaming is not supported by these forms. Context and secret or password are required; maximum contacts must be a positive integer. Identifiers accept 1 to 80 ASCII letters, numbers, periods, hyphens, and underscores; IAX reserves `general`. The backend rejects newlines, null characters, and the `;` and `#` comment delimiters in submitted values.
-4. **Save** applies changes and reloads the list. If the IAX name or PJSIP ID does not match the recognized amateur radio callsign format, a confirmation is requested because the section may belong to system configuration. Recognized callsigns are saved directly. **Cancel** closes the editor without saving. **Delete** is available while editing and requests confirmation containing the entry's identifier.
-5. The save confirmation for sections that do not look like callsigns is shared by IAX and PJSIP. You can select **Do not show this type of notice again**; the preference is stored in this browser and future saves of this type proceed without asking. It can also be reset from **Admin → Customize Header → Reset warnings and confirmations**.
-6. If an operation fails, the error is displayed and the edited data is retained for correction or retry. **Reload list** retries the query without saving the form. Saving and deleting are disabled while another modification is in progress.
+4. **Save** applies changes and reloads the list. If the IAX name does not match the recognized amateur radio callsign format, a confirmation is requested because the section may belong to system configuration. Recognized callsigns and PJSIP extensions are saved directly, without this warning. **Cancel** closes the editor without saving. **Delete** is available while editing and requests confirmation containing the entry's identifier.
+5. The save confirmation for sections that do not look like callsigns only applies to IAX. You can select **Do not show this type of notice again**; the preference is stored in this browser and future saves of this type proceed without asking. It can also be reset from **Admin → Customize Header → Reset warnings and confirmations**.
+6. If an operation fails, the error is displayed and the edited data is retained for correction or retry. **Reload list** retries the query without saving the form. In PJSIP, **Cancel** discards edits and refreshes the list; a successful save also returns to the refreshed list, both when creating and editing. Saving and deleting are disabled while another modification is in progress.
 
 #### Files and reloads
 
 | Module | File | AMI reload |
 | --- | --- | --- |
 | IAX | `iax.conf` in the directory containing `ami.rpt_config_path`; defaults to `/etc/asterisk/iax.conf` | `iax2 reload` |
-| PJSIP | `ami.pjsip_config_path`; defaults to `/etc/asterisk/pjsip.conf`. If empty, it is located alongside `ami.rpt_config_path` | `pjsip reload` |
+| PJSIP | `ami.pjsip_config_path`; defaults to `/etc/asterisk/pjsip.conf`. If empty, it is located alongside `ami.rpt_config_path` | `module reload res_pjsip.so` when creating, editing, or deleting extensions |
 
 The service user needs to read and write the files and create files in their directory. Before saving, an `<file>.amerimon.bak` backup is created or replaced with mode `0600`; configuration replacement is atomic, resolves symbolic links, and preserves owner, group, and permissions. If backup creation fails, the configuration is not changed. Include these files and backups, which contain passwords, in a restricted-access and backup policy; they are independent of SQLite.
 
