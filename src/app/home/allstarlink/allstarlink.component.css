@@ -233,6 +233,36 @@
 .allstarlink-grupo h4 small { margin-left: auto; font-size: 0.75rem; font-weight: 500; }
 .allstarlink-grupo-titulo { min-width: 0; overflow-wrap: anywhere; }
 .allstarlink-grupo-detalle { font-weight: 400; }
+.allstarlink-servidor-enlace {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+.allstarlink-servidor-enlace:focus-visible,
+.allstarlink-tabla-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.allstarlink-tabla-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid #5ed3df;
+  border-radius: 4px;
+  background: #14202a;
+  color: #5ed3df;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.allstarlink-tabla-toggle:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .allstarlink-tabla-scroll {
   overflow-x: auto;

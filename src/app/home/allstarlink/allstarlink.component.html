@@ -157,10 +157,20 @@
     <p class="allstarlink-estado">{{ 'NO_HAY_SERVIDORES_CONFIGURADOS_PARA_MONITOREAR' | translate }}</p>
   } @else {
     <div class="allstarlink-filtros">
+      <button type="button" class="allstarlink-tabla-toggle allstarlink-tablas-global"
+        (click)="alternarTodasLasTablas()" [disabled]="grupos().length === 0"
+        [attr.aria-label]="(todasLasTablasContraidas() ? 'ALLSTAR_EXPAND_ALL_TABLES' : 'ALLSTAR_COLLAPSE_ALL_TABLES') | translate"
+        [title]="(todasLasTablasContraidas() ? 'ALLSTAR_EXPAND_ALL_TABLES' : 'ALLSTAR_COLLAPSE_ALL_TABLES') | translate">
+        @if (todasLasTablasContraidas()) {
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        } @else {
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        }
+      </button>
       @if (mostrarSelectorServidor()) {
         <label class="allstarlink-filtro-servidor">
           <span>{{ 'MOSTRAR_SERVIDOR' | translate }}</span>
-          <span class="clipboard-field" [appCopy]="servidorSeleccionado() === 'todos' ? '' : servidorSeleccionado()"><select [attr.aria-label]="'MOSTRAR_SERVIDOR' | translate" [value]="servidorSeleccionado()" (change)="servidorSeleccionado.set($any($event.target).value)">
+          <span class="clipboard-field" [appCopy]="servidorSeleccionado() === 'todos' ? '' : servidorSeleccionado()"><select [attr.aria-label]="'MOSTRAR_SERVIDOR' | translate" [ngModel]="servidorSeleccionado()" (ngModelChange)="servidorSeleccionado.set($event)">
             <option value="todos">{{ 'TODOS' | translate }}</option>
             @for (servidor of servidoresDisponibles(); track servidor) {
               <option [value]="servidor">{{ servidor }}</option>
@@ -210,12 +220,27 @@
     @for (grupo of gruposFiltrados(); track grupo.nodoLocal) {
       <section class="allstarlink-grupo" [class.allstarlink-grupo-principal]="grupo.nodoLocal === nodoPrincipal()" [attr.aria-label]="(grupo.nodoLocal === nodoPrincipal() ? 'ALLSTAR_PRIMARY_NODE_CONNECTIONS' : 'ALLSTAR_REMOTE_NODE_CONNECTIONS') | translate:{node: grupo.nodoLocal}">
         <h4>
-          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><strong>{{ grupo.nodoLocal }}</strong></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} {{ 'CONECTADOS' | translate }}</small>
+          <button type="button" class="allstarlink-tabla-toggle"
+            (click)="alternarTabla(grupo.nodoLocal)"
+            [attr.aria-expanded]="!tablaContraida(grupo.nodoLocal)"
+            [attr.aria-controls]="'allstarlink-tabla-' + grupo.nodoLocal"
+            [attr.aria-label]="(tablaContraida(grupo.nodoLocal) ? 'ALLSTAR_EXPAND_TABLE' : 'ALLSTAR_COLLAPSE_TABLE') | translate"
+            [title]="(tablaContraida(grupo.nodoLocal) ? 'ALLSTAR_EXPAND_TABLE' : 'ALLSTAR_COLLAPSE_TABLE') | translate">
+            @if (tablaContraida(grupo.nodoLocal)) {
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+            } @else {
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            }
+          </button>
+          <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><button type="button"
+            class="allstarlink-servidor-enlace" (click)="seleccionarServidorConexion(grupo.nodoLocal)"
+            [attr.aria-label]="'ALLSTAR_SELECT_SERVER_FOR_CONNECTION' | translate:{node: grupo.nodoLocal}"><strong>{{ grupo.nodoLocal }}</strong></button></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} {{ 'CONECTADOS' | translate }}</small>
           @if (grupo.nodoLocal === nodoPrincipal()) {
             <span class="allstarlink-modo modo-duplex">{{ 'NODO_PRINCIPAL' | translate }}</span>
           }
         </h4>
-        <div class="allstarlink-tabla-scroll">
+        @if (!tablaContraida(grupo.nodoLocal)) {
+        <div class="allstarlink-tabla-scroll" [id]="'allstarlink-tabla-' + grupo.nodoLocal">
           <table class="allstarlink-tabla-base allstarlink-tabla">
             <thead>
               <tr>
@@ -318,6 +343,7 @@
             </tbody>
           </table>
         </div>
+        }
       </section>
     }
     }

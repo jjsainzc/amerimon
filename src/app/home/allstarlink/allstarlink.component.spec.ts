@@ -32,10 +32,10 @@ describe('Allstarlink connection target safety', () => {
     await translation.loadLanguage('es');
   });
 
-  async function crearMonitor() {
+  async function crearMonitor(intervaloMs: number | null = 0) {
     const fixture = TestBed.createComponent(AllstarlinkComponent);
     const component = fixture.componentInstance;
-    component.intervaloMs.set(0);
+    if (intervaloMs !== null) { component.intervaloMs.set(intervaloMs); }
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({
@@ -259,6 +259,67 @@ describe('Allstarlink connection target safety', () => {
       expect(element.querySelector<HTMLInputElement>('.allstarlink-desconectar-antes input')!.checked).toBe(true);
       expect(component.conectando()).toBe(false);
       expect(component.confirmacionPendiente()).toBeNull();
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('preserves screen preferences when navigating away and returning without restoring dialogs', async () => {
+    const primera = await crearMonitor();
+    primera.component.filtroBusqueda.set('46818');
+    primera.component.servidorSeleccionado.set('56502');
+    primera.component.ordenarPor('nodo');
+    primera.component.alternarDireccionOrden();
+    primera.component.intervaloMs.set(30_000);
+    primera.component.panelAdminAbierto.set(true);
+    primera.component.alternarTabla('56502');
+    primera.component.lsnodesAbierto.set(true);
+    primera.component.favoritosAbierto.set(true);
+    primera.fixture.destroy();
+
+    const { fixture, component, http, element } = await crearMonitor(null);
+    try {
+      expect(component.filtroBusqueda()).toBe('46818');
+      expect(component.servidorSeleccionado()).toBe('56502');
+      expect(component.campoOrden()).toBe('nodo');
+      expect(component.direccionOrden()).toBe('desc');
+      expect(component.intervaloMs()).toBe(30_000);
+      expect(component.panelAdminAbierto()).toBe(true);
+      expect(component.tablaContraida('56502')).toBe(true);
+      expect(component.tablaContraida('59201')).toBe(false);
+      expect(element.querySelector<HTMLInputElement>('input[type="search"]')?.value).toBe('46818');
+      expect(element.querySelector<HTMLSelectElement>('.allstarlink-filtro-servidor select')?.value).toBe('56502');
+      expect(component.lsnodesAbierto()).toBe(false);
+      expect(component.favoritosAbierto()).toBe(false);
+      expect(component.confirmacionPendiente()).toBeNull();
+
+      component.filtroBusqueda.set('');
+      fixture.detectChanges();
+      const grupo = element.querySelector('.allstarlink-grupo')!;
+      expect(grupo.querySelector('.allstarlink-servidor-enlace')?.textContent).toBe('56502');
+      expect(grupo.querySelector('.allstarlink-tabla-scroll')).toBeNull();
+      grupo.querySelector<HTMLButtonElement>('.allstarlink-tabla-toggle')!.click();
+      fixture.detectChanges();
+      expect(grupo.querySelector('.allstarlink-tabla-scroll')).not.toBeNull();
+      http.expectNone(request => request.method === 'POST');
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('falls back to all servers if the remembered screen filter no longer exists', async () => {
+    const primera = await crearMonitor();
+    primera.component.servidorSeleccionado.set('999999');
+    primera.component.filtroBusqueda.set('46818');
+    primera.fixture.destroy();
+
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      expect(component.servidorSeleccionado()).toBe('todos');
+      expect(component.filtroBusqueda()).toBe('46818');
       http.expectNone(request => request.method === 'POST');
       http.verify();
     } finally {
@@ -792,6 +853,89 @@ describe('Allstarlink server selection', () => {
     expect(element.querySelectorAll('.allstarlink-grupo')).toHaveLength(1);
     expect(element.querySelector('.allstarlink-grupo')?.getAttribute('aria-label'))
       .toBe('Conexiones del nodo remoto 700001');
+    http.verify();
+    fixture.destroy();
+  });
+
+  it('selects a connection server from its header and toggles individual and all tables', async () => {
+    localStorage.setItem('amerimon.admin.token', 'e30.eyJyb2xlIjoiQSJ9.signature');
+    const fixture = TestBed.createComponent(AllstarlinkComponent);
+    fixture.componentInstance.intervaloMs.set(0);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({ status: 'success', data: [] });
+    descubrirServidores(http);
+    http.expectOne(`${nodesUrl}?local_node=616265`).flush(respuestaServidor('616265'));
+    http.expectOne(`${nodesUrl}?local_node=700001`).flush(respuestaServidor('700001'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const grupoRemoto = element.querySelector<HTMLElement>(
+      '[aria-label="Conexiones del nodo remoto 700001"]'
+    )!;
+    const servidor = grupoRemoto.querySelector<HTMLButtonElement>('.allstarlink-servidor-enlace')!;
+    servidor.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.nodoLocal()).toBe('700001');
+    expect(element.querySelector<HTMLSelectElement>('.allstarlink-conexion select')?.value).toBe('700001');
+    expect(servidor.getAttribute('aria-label')).toBe('Seleccionar servidor 700001 para la conexión');
+
+    const toggleTable = grupoRemoto.querySelector<HTMLButtonElement>('.allstarlink-tabla-toggle')!;
+    expect(grupoRemoto.querySelector('h4')?.firstElementChild).toBe(toggleTable);
+    expect(toggleTable.getAttribute('aria-label')).toBe('Contraer tabla');
+    expect(toggleTable.querySelector('.fa-chevron-down')).not.toBeNull();
+    toggleTable.click();
+    fixture.detectChanges();
+    expect(grupoRemoto.querySelector('h4')).not.toBeNull();
+    expect(grupoRemoto.querySelector('.allstarlink-tabla-scroll')).toBeNull();
+    expect(toggleTable.getAttribute('aria-label')).toBe('Desplegar tabla');
+    expect(toggleTable.querySelector('.fa-chevron-right')).not.toBeNull();
+
+    const toggleAll = element.querySelector<HTMLButtonElement>('.allstarlink-tablas-global')!;
+    expect(element.querySelector('.allstarlink-filtros')?.firstElementChild).toBe(toggleAll);
+    expect(toggleAll.nextElementSibling?.classList.contains('allstarlink-filtro-servidor')).toBe(true);
+    expect(toggleAll.getAttribute('aria-label')).toBe('Contraer todas las tablas');
+    expect(toggleAll.title).toBe('Contraer todas las tablas');
+    expect(toggleAll.querySelector('.fa-chevron-down')).not.toBeNull();
+    toggleAll.click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(0);
+    expect(element.querySelectorAll('.allstarlink-grupo h4')).toHaveLength(2);
+    expect(toggleAll.getAttribute('aria-label')).toBe('Desplegar todas las tablas');
+    expect(toggleAll.title).toBe('Desplegar todas las tablas');
+    expect(toggleAll.querySelector('.fa-chevron-right')).not.toBeNull();
+    for (const toggle of element.querySelectorAll('.allstarlink-grupo .allstarlink-tabla-toggle')) {
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    }
+
+    toggleAll.click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(2);
+    expect(toggleAll.getAttribute('aria-label')).toBe('Contraer todas las tablas');
+    expect(toggleAll.querySelector('.fa-chevron-down')).not.toBeNull();
+    for (const toggle of element.querySelectorAll('.allstarlink-grupo .allstarlink-tabla-toggle')) {
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    }
+
+    const filtro = element.querySelector<HTMLSelectElement>('select[aria-label="Mostrar servidor"]')!;
+    filtro.value = '700001';
+    filtro.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    toggleAll.click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.allstarlink-grupo h4')).toHaveLength(1);
+    expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(0);
+
+    filtro.value = 'todos';
+    filtro.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.allstarlink-grupo h4')).toHaveLength(2);
+    expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(0);
+    toggleAll.click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.allstarlink-tabla-scroll')).toHaveLength(2);
     http.verify();
     fixture.destroy();
   });

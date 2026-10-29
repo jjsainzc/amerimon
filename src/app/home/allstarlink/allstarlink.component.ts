@@ -17,6 +17,7 @@ import {
 } from '../../core/models/allstarlink.model';
 import { AllstarlinkService } from '../../core/services/allstarlink.service';
 import { AllstarlinkConnectionStateService } from '../../core/services/allstarlink-connection-state.service';
+import { AllstarlinkViewStateService, CampoOrden } from '../../core/services/allstarlink-view-state.service';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../core/environment';
 import { indicativoQrz } from '../../core/validators/callsign.validator';
@@ -27,7 +28,6 @@ import { TranslationService } from '../../core/services/translation.service';
 import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
 import { NoticePreferenceComponent } from '../../shared/notice-preference/notice-preference.component';
 
-type CampoOrden = 'protocolo' | 'nodo' | 'callsign' | 'informacion' | 'ubicacion' | 'enlace' | 'direccion' | 'actividad' | 'conectado' | 'modo';
 type SolicitudConexion = Readonly<SupermonCommandRequest & {
   remote_node: string;
   timeout_seconds: number;
@@ -43,6 +43,7 @@ type SolicitudConexion = Readonly<SupermonCommandRequest & {
 export class AllstarlinkComponent implements OnInit, OnDestroy {
   private readonly service = inject(AllstarlinkService);
   private readonly estadoConexion = inject(AllstarlinkConnectionStateService);
+  private readonly estadoVista = inject(AllstarlinkViewStateService);
   private readonly auth = inject(AuthService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
@@ -55,10 +56,10 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly nodos = signal<AllstarlinkNode[]>([]);
   readonly actividades = signal<AllstarlinkActivity[]>([]);
   readonly conexionesPendientes = signal<AllstarlinkNode[]>([]);
-  readonly filtroBusqueda = signal('');
-  readonly servidorSeleccionado = signal('todos');
-  readonly campoOrden = signal<CampoOrden>('actividad');
-  readonly direccionOrden = signal<'asc' | 'desc'>('desc');
+  readonly filtroBusqueda = this.estadoVista.filtroBusqueda;
+  readonly servidorSeleccionado = this.estadoVista.servidorSeleccionado;
+  readonly campoOrden = this.estadoVista.campoOrden;
+  readonly direccionOrden = this.estadoVista.direccionOrden;
   readonly nodoPrincipal = signal('');
   /** Construye la URL segura del panel lsnodes o usa una página vacía sin nodo. */
   readonly lsnodesUrl = computed<SafeResourceUrl>(() => {
@@ -73,9 +74,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly consultado = signal(false);
   readonly error = signal('');
   readonly erroresServidor = signal<Record<string, string>>({});
-  readonly intervaloMs = signal(15_000);
+  readonly intervaloMs = this.estadoVista.intervaloMs;
   readonly esAdmin = this.auth.esAdmin;
-  readonly panelAdminAbierto = signal(false);
+  readonly panelAdminAbierto = this.estadoVista.panelAdminAbierto;
   readonly comandos = signal<SupermonCommand[]>([]);
   readonly cargandoComandos = signal(false);
   readonly errorComandos = signal('');
@@ -106,6 +107,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly desconexionEnCurso = signal<string | null>(null);
   readonly audioEnCurso = signal<string | null>(null);
   readonly resultadoDesconexion = signal<{ clave: string; texto: string; error: boolean } | null>(null);
+  readonly tablasContraidas = this.estadoVista.tablasContraidas;
   private temporizador?: ReturnType<typeof setInterval>;
   private temporizadorRecargaDesconexion?: ReturnType<typeof setTimeout>;
   private recargaPendiente = false;
@@ -229,6 +231,10 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly servidoresDisponibles = computed(() => this.grupos().map(grupo => grupo.nodoLocal));
   /** Indica si hay más de un servidor para mostrar el selector. */
   readonly mostrarSelectorServidor = computed(() => this.servidoresDisponibles().length > 1);
+  /** Indica si todos los servidores tienen la tabla contraída. */
+  readonly todasLasTablasContraidas = computed(() =>
+    this.grupos().length > 0 && this.grupos().every(grupo => this.tablaContraida(grupo.nodoLocal))
+  );
   /** Reúne y ordena los nodos locales numéricos conocidos por las tablas y conexiones. */
   readonly nodosLocales = computed(() => Array.from(new Set(
     [
@@ -262,6 +268,47 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const intervalo = Number(valor);
     this.intervaloMs.set(Number.isFinite(intervalo) ? intervalo : 0);
     this.programarActualizacion();
+  }
+
+  /** Selecciona desde la cabecera el servidor que usará el formulario de conexión. */
+  seleccionarServidorConexion(nodoLocal: string): void {
+    this.nodoLocal.set(nodoLocal);
+  }
+
+  /** Indica si la tabla del servidor está contraída. */
+  tablaContraida(nodoLocal: string): boolean {
+    return this.tablasContraidas().has(nodoLocal);
+  }
+
+  /** Alterna la visibilidad de la tabla de un servidor sin ocultar su cabecera. */
+  alternarTabla(nodoLocal: string): void {
+    this.tablasContraidas.update(tablas => {
+      const siguientes = new Set(tablas);
+      if (siguientes.has(nodoLocal)) {
+        siguientes.delete(nodoLocal);
+      } else {
+        siguientes.add(nodoLocal);
+      }
+      return siguientes;
+    });
+  }
+
+  /** Contrae o expande todas las tablas sin afectar sus cabeceras. */
+  alternarTodasLasTablas(): void {
+    const grupos = this.grupos();
+    if (grupos.length === 0) { return; }
+    const contraer = !grupos.every(grupo => this.tablaContraida(grupo.nodoLocal));
+    this.tablasContraidas.update(tablas => {
+      const siguientes = new Set(tablas);
+      for (const grupo of grupos) {
+        if (contraer) {
+          siguientes.add(grupo.nodoLocal);
+        } else {
+          siguientes.delete(grupo.nodoLocal);
+        }
+      }
+      return siguientes;
+    });
   }
 
   /** Quita diacríticos y normaliza el texto para búsquedas sin distinción de acentos. */
