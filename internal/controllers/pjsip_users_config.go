@@ -177,7 +177,7 @@ func (p sipUsersControl) savePJSIP(c echo.Context) error {
 			output = strings.TrimRight(output, "\r\n") + "\n\n[" + ext.ID + "]\ntype=" + kind + "\n" + renderSIPOptions(options[kind])
 		}
 	}
-	return p.persist(c, p.pjsipPath, string(data), output, "pjsip reload")
+	return p.persist(c, p.pjsipPath, string(data), output, "module reload res_pjsip.so")
 }
 
 func (p sipUsersControl) deletePJSIP(c echo.Context) error {
@@ -202,5 +202,5 @@ func (p sipUsersControl) deletePJSIP(c echo.Context) error {
 	for _, i := range found {
 		deleted[i] = true
 	}
-	return p.persist(c, p.pjsipPath, string(data), rewriteSIPSections(string(data), nil, deleted), "pjsip reload")
+	return p.persist(c, p.pjsipPath, string(data), rewriteSIPSections(string(data), nil, deleted), "module reload res_pjsip.so")
 }

@@ -51,7 +51,7 @@
           </label>
 
           <div class="sip-users-acciones">
-            <button type="button" (click)="editando.set(false)" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
+            <button type="button" (click)="cancelarEdicion()" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
             <button type="submit" [disabled]="formulario.invalid || guardando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
             @if (esEdicion()) {
               <button type="button" class="sip-users-eliminar" (click)="eliminarExtension(extActual().id)" [disabled]="guardando()">
@@ -75,13 +75,3 @@
   [busy]="guardando()"
   (confirmed)="confirmarEliminacion()"
   (cancelled)="cancelarEliminacion()" />
-
-<app-confirmacion-dialog
-  noticeKey="confirm.sip-user.system-save"
-  [open]="confirmacionGuardadoPendiente()"
-  [title]="'CONFIRMAR_ACCION' | translate"
-  [message]="'SIP_USERS_SYSTEM_SAVE_CONFIRM' | translate:{name: extActual().id}"
-  [confirmLabel]="'GUARDAR' | translate"
-  [busy]="guardando()"
-  (confirmed)="confirmarGuardado()"
-  (cancelled)="cancelarGuardado()" />

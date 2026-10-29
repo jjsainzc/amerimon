@@ -21,7 +21,7 @@ func sipTestControl(t *testing.T, iax, pjsip string) sipUsersControl {
 	p := sipUsersControl{
 		iaxPath: filepath.Join(dir, "iax.conf"), pjsipPath: filepath.Join(dir, "pjsip.conf"),
 		reload: func(command string) (string, error) {
-			if command != "iax2 reload" && command != "pjsip reload" {
+			if command != "iax2 reload" && command != "module reload res_pjsip.so" {
 				t.Fatalf("unexpected reload %q", command)
 			}
 			return "Module reloaded", nil
@@ -177,10 +177,21 @@ func TestSIPUsersPJSIPSeparateReferencesCRUD(t *testing.T) {
 
 func TestSIPUsersPJSIPCreateRoundTrip(t *testing.T) {
 	p := sipTestControl(t, "", "[udp]\ntype=transport\nprotocol=udp\n")
+	reloads := 0
+	p.reload = func(command string) (string, error) {
+		if command != "module reload res_pjsip.so" {
+			t.Fatalf("unexpected PJSIP reload %q", command)
+		}
+		reloads++
+		return "Module res_pjsip.so reloaded successfully.", nil
+	}
 	body := `{"id":"2001","context":"phones","password":"new-secret","max_contacts":"4"}`
 	rec := sipTestRequest(t, p.savePJSIP, http.MethodPost, body, "")
 	if rec.Code != 200 {
 		t.Fatalf("create: %s", rec.Body.String())
+	}
+	if reloads != 1 {
+		t.Fatalf("expected one reload after creation, got %d", reloads)
 	}
 	rec = sipTestRequest(t, p.getPJSIP, http.MethodGet, "", "")
 	var list []PJSIPExtension
@@ -194,9 +205,15 @@ func TestSIPUsersPJSIPCreateRoundTrip(t *testing.T) {
 	if rec.Code != 200 {
 		t.Fatalf("update same-named objects: %s", rec.Body.String())
 	}
+	if reloads != 2 {
+		t.Fatalf("expected two reloads after update, got %d", reloads)
+	}
 	rec = sipTestRequest(t, p.deletePJSIP, http.MethodDelete, "", "2001")
 	if rec.Code != 200 {
 		t.Fatalf("delete same-named objects: %s", rec.Body.String())
+	}
+	if reloads != 3 {
+		t.Fatalf("expected three reloads after deletion, got %d", reloads)
 	}
 }
 
@@ -242,7 +259,7 @@ func TestSIPUsersRejectSharedPJSIPObjects(t *testing.T) {
 func TestSIPUsersReloadErrorsAreNotSuccess(t *testing.T) {
 	for _, fail := range []func(string) (string, error){
 		func(string) (string, error) { return "", errors.New("AMI unavailable") },
-		func(string) (string, error) { return "No such command 'pjsip reload'", nil },
+		func(string) (string, error) { return "No such module 'res_pjsip.so'", nil },
 	} {
 		p := sipTestControl(t, "", sipSeparateObjects)
 		p.reload = fail
