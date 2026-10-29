@@ -20,6 +20,10 @@ func TestLocalInstallerAppliesListenLiveMigration(t *testing.T) {
 	}
 	for _, resource := range []string{
 		"packaging/listen-live-dialplan.awk",
+		"packaging/configure-pjsip.sh",
+		"packaging/merge-pjsip-modules.awk",
+		"packaging/pjsip-modules-patch.conf",
+		"packaging/pjsip-extensions-sip-phones-patch.conf",
 		"packaging/audio_eagi.sh",
 		"packaging/astdb.sh",
 		"scripts/limpiar_canales_listen_live.sh",
