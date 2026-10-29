@@ -1,6 +1,15 @@
 :host { display: flex; flex-direction: column; min-height: 99vh; }
 
 .main-content { flex: 1; }
+.navegacion-cargando {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
 .pie {
   display: flex;
   align-items: center;

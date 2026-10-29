@@ -72,7 +72,7 @@
               <a  routerLink="/admin/pjsip-users" routerLinkActive="activo" (click)="cerrarMenu()" >{{ 'EXTENSIONES_PJSIP' | translate }}</a>
               
 
-              <a routerLink="/admin/cabecera" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'PERSONALIZAR_CABECERA' | translate }}</a>
+              <a routerLink="/admin/perfil" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'PERFIL_ADMINISTRADOR' | translate }}</a>
               <a routerLink="/admin/cambiar-contrasena" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'CAMBIAR_CONTRASENA' | translate }}</a>
               <a routerLink="/manual-tecnico" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'MANUAL_TECNICO' | translate }}</a>
             </nav>
@@ -97,6 +97,12 @@
   }
   <router-outlet />
 </main>
+
+@if (navegacionCargando()) {
+  <div class="navegacion-cargando">
+    <app-loading-indicator [message]="'CARGANDO' | translate" layout="centered" />
+  </div>
+}
 
 <footer class="pie">
   <p>&copy; {{ anioActual }} Amerimon <span class="pie-version">· Versión {{ ajustesCabecera().app_version || 'no disponible' }}</span></p>

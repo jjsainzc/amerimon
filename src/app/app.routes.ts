@@ -47,10 +47,11 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/favoritos-admin/favoritos-admin.component').then((m) => m.FavoritosAdminComponent),
   },
   {
-    path: 'admin/cabecera',
+    path: 'admin/perfil',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/cabecera-admin/cabecera-admin.component').then((m) => m.CabeceraAdminComponent),
   },
+  { path: 'admin/cabecera', pathMatch: 'full', redirectTo: 'admin/perfil' },
   {
     path: 'admin/cambiar-contrasena',
     canActivate: [adminGuard],

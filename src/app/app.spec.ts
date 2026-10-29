@@ -186,7 +186,8 @@ describe('App', () => {
     await fixture.whenStable();
     expect(element.querySelector('.menu')?.classList.contains('abierto')).toBe(true);
     expect(element.querySelector('.admin-desplegable-panel a[href="/admin/allmon"]')).not.toBeNull();
-    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/cabecera"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/perfil"]')).not.toBeNull();
+    expect(element.querySelector('.admin-desplegable-panel a[href="/admin/cabecera"]')).toBeNull();
     expect(element.querySelector('.admin-desplegable-panel a[href="/admin/cambiar-contrasena"]')).not.toBeNull();
     expect(element.querySelector('.admin-desplegable-panel a[href="/manual-tecnico"]')).not.toBeNull();
     hamburger.click();

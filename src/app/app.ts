@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { SiteSettingsService } from './core/services/site-settings.service';
 import { SystemInfoDialogComponent } from './shared/system-info-dialog/system-info-dialog.component';
@@ -12,12 +13,13 @@ import { AboutModalComponent } from './shared/about-modal/about-modal.component'
 import { TranslationService } from './core/services/translation.service';
 import { TranslatePipe } from './core/pipes/translate.pipe';
 import { NoticePreferencesService } from './core/services/notice-preferences.service';
+import { LoadingIndicatorComponent } from './shared/loading-indicator/loading-indicator.component';
 
 type Modo = 'login' | 'crear';
 type ErrorHttp = { error?: { message?: string } };
 
 @Component({
-  imports: [ TranslatePipe, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent],
+  imports: [ TranslatePipe, AboutModalComponent, RouterOutlet, RouterLink, RouterLinkActive, FormsModule, PasswordFieldComponent, SystemInfoDialogComponent, WeatherComponent, LoadingIndicatorComponent],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -27,9 +29,11 @@ export class App implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly siteSettingsService = inject(SiteSettingsService);
   private readonly enlacesService = inject(EnlacesExternosService);
+  private readonly router = inject(Router);
 
   protected readonly esAdmin = this.auth.esAdmin;
   protected readonly headerOculto = signal(false);
+  protected readonly navegacionCargando = signal(false);
   protected readonly anioActual = new Date().getFullYear();
   protected readonly ajustesCabecera = this.siteSettingsService.settings;
   protected readonly ajustesCabeceraCargados = signal(false);
@@ -71,7 +75,15 @@ export class App implements OnInit {
   protected repetir = '';
   private ultimaPosicionScroll = 0;
 
-  constructor(translationService: TranslationService) {}
+  constructor() {
+    this.router.events.pipe(takeUntilDestroyed()).subscribe(event => {
+      if (event instanceof NavigationStart) {
+        this.navegacionCargando.set(true);
+      } else if (event instanceof NavigationEnd || event instanceof NavigationCancel || event instanceof NavigationError) {
+        this.navegacionCargando.set(false);
+      }
+    });
+  }
 
   /** Carga al iniciar la aplicación la configuración visible de la cabecera. */
   ngOnInit(): void {
