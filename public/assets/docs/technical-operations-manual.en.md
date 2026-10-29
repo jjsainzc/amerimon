@@ -201,7 +201,7 @@ exten => _X.,1,Rpt(${NODE},Pv)
 
 If either context already exists without an `_X.` route, the installer adds the patch routes inside that context. If a context already has an `_X.` route, it leaves the route unchanged and does not add another priority; it logs a warning so the administrator can review the custom integration manually. Before changing existing files, it creates `modules.conf.bak-pjsip` and/or `extensions.conf.bak-pjsip` if those backups do not already exist. Newly created files are not backed up.
 
-If Asterisk is running, post-install loads the enabled PJSIP modules using `module load`, skips modules already loaded, and retries pending modules after loading dependencies. It verifies loading with `module show like` and warns if loading is not confirmed. It does not restart Asterisk; if Asterisk is stopped, persistent directives take effect at the next start. Dialplan directives are added during post-install; review any warnings when a custom route exists.
+If Asterisk is running, post-install loads Sorcery, PJPROJECT, and RTP first, followed by base PJSIP resources and finally the channel driver. Only modules with status `Running`, not `Not Running`, count as active. It automatically retries pending modules while other loads resolve dependencies, without a two-pass limit. If progress stops, it exits with an error and displays Asterisk's response; it does not report successful activation or remove configuration or backups. It does not restart Asterisk; if Asterisk is stopped, persistent directives take effect at the next start. Dialplan directives are added during post-install; review any warnings when a custom route exists.
 
 ### Allmon node selection and syntax
 

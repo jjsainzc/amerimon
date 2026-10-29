@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -217,13 +218,28 @@ case "$2" in
     'core show version') printf 'Asterisk test\n' ;;
     'module show like '*)
         module=${2#module show like }
+        printf 'Module                         Description                              Use Count  Status      Support Level\n'
         if [ -f "$PJSIP_TEST_STATE/$module" ]; then
-            printf '%s Running\n' "$module"
+            printf '%s PJSIP resource 0 Running core\n' "$module"
+        else
+            printf '%s PJSIP resource 0 Not Running core\n' "$module"
         fi
         ;;
     'module load '*)
         module=${2#module load }
         printf '%s\n' "$module" >> "$PJSIP_TEST_LOG"
+        if [ "$PJSIP_TEST_CHAIN" = yes ]; then
+            dependency=
+            case "$module" in
+                res_pjsip_caller_id.so) dependency=res_pjsip_dialog_info_body_generator.so ;;
+                res_pjsip_dialog_info_body_generator.so) dependency=res_pjsip_diversion.so ;;
+                res_pjsip_diversion.so) dependency=res_pjsip_dtmf_info.so ;;
+            esac
+            if [ -n "$dependency" ] && [ ! -f "$PJSIP_TEST_STATE/$dependency" ]; then
+                printf 'Dependency not running: %s\n' "$dependency"
+                exit 0
+            fi
+        fi
         if [ "$module" = "$PJSIP_TEST_FAIL" ]; then
             printf 'Dependency unavailable\n'
             exit 0
@@ -247,11 +263,52 @@ esac
 	)
 	command.Env = append(command.Env, extraEnv...)
 	output, err := command.CombinedOutput()
+	if slices.Contains(extraEnv, "PJSIP_TEST_FAIL=chan_pjsip.so") {
+		if err == nil {
+			t.Fatal("installation must fail explicitly when a required module cannot run")
+		}
+		return output
+	}
 	if err != nil {
 		t.Fatalf("PJSIP configuration failed: %v\n%s", err, output)
 	}
 
 	return output
+}
+
+func TestPJSIPLoadsDependenciesUntilAllModulesAreRunning(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, "state")
+	if err := os.Mkdir(stateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(dir, "loaded.log")
+	output := runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_LOG="+logPath, "PJSIP_TEST_STATE="+stateDir, "PJSIP_TEST_CHAIN=yes")
+	if strings.Contains(string(output), "no confirmó la carga") ||
+		!strings.Contains(string(output), "todos los módulos requeridos están en estado Running") {
+		t.Fatalf("dependency retries must complete without false warnings: %s", output)
+	}
+	loads, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(loads)), "\n")
+	position := func(module string) int { return slices.Index(lines, module) }
+	if position("res_sorcery_config.so") >= position("res_pjsip.so") ||
+		position("res_pjsip.so") >= position("res_pjsip_session.so") ||
+		position("res_pjsip_session.so") >= position("chan_pjsip.so") {
+		t.Fatalf("infrastructure must load before SIP resources and the channel driver:\n%s", loads)
+	}
+	if strings.Count(string(loads), "res_pjsip_caller_id.so\n") != 4 {
+		t.Fatalf("must resolve chains requiring more than two loading passes:\n%s", loads)
+	}
+	runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_LOG="+logPath, "PJSIP_TEST_STATE="+stateDir, "PJSIP_TEST_CHAIN=yes")
+	repeatedLoads, err := os.ReadFile(logPath)
+	if err != nil || string(repeatedLoads) != string(loads) {
+		t.Fatalf("running modules must not be loaded again: %v", err)
+	}
 }
 
 func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
@@ -266,6 +323,7 @@ func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
 				if err := os.MkdirAll(path, 0o755); err != nil {
 					t.Fatal(err)
 				}
+
 			}
 			for path, content := range map[string]string{
 				filepath.Join(multiarchDir, "chan_pjsip.so"): "",
@@ -290,6 +348,12 @@ func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
 				if failedModule != "" && !strings.Contains(string(output), "no confirmó la carga de "+failedModule) {
 					t.Fatalf("failed runtime load was not reported: %s", output)
 				}
+				if failedModule != "" && !strings.Contains(string(output), "Respuesta de Asterisk: Dependency unavailable") {
+					t.Fatalf("Asterisk error text must be reported even when the CLI exits successfully: %s", output)
+				}
+				if failedModule == "" && strings.Contains(string(output), "no confirmó la carga") {
+					t.Fatalf("running modules must not generate load warnings: %s", output)
+				}
 			}
 			modules, err := os.ReadFile(filepath.Join(astDir, "modules.conf"))
 			if err != nil {
@@ -309,7 +373,7 @@ func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
 			}
 			expectedLoads := 1
 			if failedModule != "" {
-				expectedLoads = 4
+				expectedLoads = 3
 			}
 			if strings.Count(string(loads), "chan_pjsip.so\n") != expectedLoads {
 				t.Fatalf("unexpected module load attempts: %s", loads)

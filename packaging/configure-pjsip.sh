@@ -24,7 +24,8 @@ if [ ! -e "$MODULES_CONF" ]; then
 fi
 
 merged_modules=$(mktemp "${MODULES_CONF}.pjsip-merged.XXXXXX")
-trap 'rm -f "$merged_modules"' EXIT HUP INT TERM
+load_errors=$(mktemp "${MODULES_CONF}.pjsip-errors.XXXXXX")
+trap 'rm -f "$merged_modules" "$load_errors"' EXIT HUP INT TERM
 AVAILABLE_MODULES=
 
 while IFS= read -r line || [ -n "$line" ]; do
@@ -169,23 +170,58 @@ for context in sip-phones rpt-internal; do
     fi
 done
 
+module_running() {
+    asterisk -rx "module show like $1" 2>/dev/null |
+        awk -v module="$1" '
+            $1 == module &&
+            /[[:space:]]Running([[:space:]]|$)/ &&
+            !/Not[[:space:]]+Running/ { found = 1 }
+            END { exit !found }
+        '
+}
+
 if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev/null 2>&1; then
-    # Retry after dependencies have had a chance to load.
-    for pass in 1 2; do
-        for module in $AVAILABLE_MODULES; do
-            if asterisk -rx "module show like $module" 2>/dev/null |
-                awk -v module="$module" '$1 == module { found = 1 } END { exit !found }'; then
+    # Load infrastructure before SIP resources and the channel driver.
+    pending_modules=$(printf '%s\n' "$AVAILABLE_MODULES" | awk '
+        {
+            for (i = 1; i <= NF; i++) {
+                module = $i
+                priority = 4
+                if (module ~ /^res_sorcery_/ || module == "res_pjproject.so" || module == "res_rtp_asterisk.so") priority = 1
+                else if (module == "res_pjsip.so") priority = 2
+                else if (module == "res_pjsip_session.so" || module == "res_pjsip_pubsub.so") priority = 3
+                else if (module == "chan_pjsip.so") priority = 5
+                print priority, i, module
+            }
+        }
+    ' | sort -n -k1,1 -k2,2 | awk '{ print $3 }')
+    while [ -n "$pending_modules" ]; do
+        next_pending=
+        progress=0
+        : > "$load_errors"
+        for module in $pending_modules; do
+            if module_running "$module"; then
                 continue
             fi
-            load_output=$(asterisk -rx "module load $module" 2>&1) || {
-                if [ "$pass" -eq 2 ]; then
-                    echo "Aviso: falló la carga PJSIP de $module: $load_output" >&2
-                fi
-            }
-            if [ "$pass" -eq 2 ] && ! asterisk -rx "module show like $module" 2>/dev/null |
-                awk -v module="$module" '$1 == module { found = 1 } END { exit !found }'; then
-                echo "Aviso: Asterisk no confirmó la carga de $module. Revisa sus dependencias y el registro de Asterisk." >&2
+            if load_output=$(asterisk -rx "module load $module" 2>&1); then
+                load_status=0
+            else
+                load_status=$?
+            fi
+            if module_running "$module"; then
+                progress=1
+            else
+                next_pending="$next_pending $module"
+                printf 'Error: Asterisk no confirmó la carga de %s en estado Running (código CLI %s).\nRespuesta de Asterisk: %s\n' \
+                    "$module" "$load_status" "$load_output" >> "$load_errors"
             fi
         done
+        if [ -n "$next_pending" ] && [ "$progress" -eq 0 ]; then
+            cat "$load_errors" >&2
+            echo "Error: no se pudo activar PJSIP. La configuración y sus respaldos se conservaron; no se reinició Asterisk." >&2
+            exit 1
+        fi
+        pending_modules=$next_pending
     done
+    echo "PJSIP: todos los módulos requeridos están en estado Running."
 fi

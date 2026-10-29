@@ -201,7 +201,7 @@ exten => _X.,1,Rpt(${NODE},Pv)
 
 Si esos contextos ya existen sin una ruta `_X.`, el instalador agrega las rutas del parche dentro de la sección existente. Si ya hay una ruta `_X.` en un contexto, no la modifica ni agrega otra prioridad: la conserva y registra un aviso para que el administrador revise la integración manualmente. Antes de cambiar archivos existentes, crea `modules.conf.bak-pjsip` y/o `extensions.conf.bak-pjsip` si esos respaldos todavía no existen. Los archivos recién creados no se respaldan.
 
-Si Asterisk está activo, el postinstalador carga los módulos PJSIP habilitados mediante `module load`, omite los ya cargados y reintenta los pendientes después de cargar sus dependencias. Verifica la carga con `module show like` y muestra un aviso si no se confirma. No reinicia Asterisk; si está detenido, las directivas persistentes se aplicarán al próximo inicio. Las directivas de dialplan se incorporan durante el postinstall; revisa sus avisos si existe una ruta personalizada.
+Si Asterisk está activo, el postinstalador carga primero Sorcery, PJPROJECT y RTP, después los recursos base de PJSIP y finalmente el controlador de canal. Solo considera activos los módulos en estado `Running`, no `Not Running`. Reintenta automáticamente los pendientes mientras otras cargas resuelvan dependencias, sin limitarse a dos pasadas. Si deja de avanzar, termina con error y muestra la respuesta de Asterisk; no declara completada la activación ni elimina la configuración o sus respaldos. No reinicia Asterisk; si está detenido, las directivas persistentes se aplicarán al próximo inicio. Las directivas de dialplan se incorporan durante el postinstall; revisa sus avisos si existe una ruta personalizada.
 
 ### Selección y sintaxis de nodos Allmon
 
