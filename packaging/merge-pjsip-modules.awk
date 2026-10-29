@@ -1,17 +1,16 @@
-function module_name(line, fields, count) {
+function module_name(line) {
     sub(/;.*/, "", line)
     sub(/^[[:space:]]+/, "", line)
-    sub(/[[:space:]]+$/, "", line)
-    count = split(line, fields, /[[:space:]]+/)
-    if (count >= 3 && fields[1] ~ /^(load|noload)$/ && fields[2] ~ /^(=>|=)$/) {
-        return fields[3]
+    if (line ~ /^(load|noload)[[:space:]]*=>?/) {
+        sub(/^(load|noload)[[:space:]]*=>?[[:space:]]*/, "", line)
+        sub(/[[:space:]]+$/, "", line)
+        return line
     }
     return ""
 }
 
 BEGIN {
     while ((getline line < config) > 0) {
-        config_lines[++config_count] = line
         name = module_name(line)
         if (name != "") {
             configured[name] = 1
@@ -21,6 +20,9 @@ BEGIN {
 
     while ((getline line < patch) > 0) {
         name = module_name(line)
+        if (name != "" && line ~ /^[[:space:]]*load[[:space:]]*=/) {
+            enable[name] = 1
+        }
         if (name != "" && !configured[name]) {
             configured[name] = 1
             additions[++addition_count] = line
@@ -40,6 +42,13 @@ function add_missing_modules() {
 }
 
 {
+    name = module_name($0)
+    if (name in enable) {
+        if (enabled[name]++) {
+            next
+        }
+        sub(/noload/, "load")
+    }
     if ($0 ~ /^[[:space:]]*\[modules\][[:space:]]*(;.*)?$/) {
         found_modules = 1
         in_modules = 1

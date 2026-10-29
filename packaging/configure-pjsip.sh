@@ -5,7 +5,6 @@ AST_DIR=${AST_DIR:-/etc/asterisk}
 PJSIP_MODULES_PATCH=${PJSIP_MODULES_PATCH:-/usr/share/amerimon/pjsip-modules-patch.conf}
 PJSIP_EXTENSIONS_PATCH=${PJSIP_EXTENSIONS_PATCH:-/usr/share/amerimon/pjsip-extensions-sip-phones-patch.conf}
 PJSIP_MODULES_MERGER=${PJSIP_MODULES_MERGER:-/usr/lib/amerimon/merge-pjsip-modules.awk}
-ASTERISK_MODULE_DIRS=${ASTERISK_MODULE_DIRS:-"/usr/lib/*/asterisk/modules /usr/lib/asterisk/modules"}
 
 [ -d "$AST_DIR" ] || exit 0
 
@@ -24,36 +23,18 @@ if [ ! -e "$MODULES_CONF" ]; then
     modules_created=1
 fi
 
-available_patch=$(mktemp "${MODULES_CONF}.pjsip-patch.XXXXXX")
 merged_modules=$(mktemp "${MODULES_CONF}.pjsip-merged.XXXXXX")
-trap 'rm -f "$available_patch" "$merged_modules"' EXIT HUP INT TERM
+trap 'rm -f "$merged_modules"' EXIT HUP INT TERM
+AVAILABLE_MODULES=
 
 while IFS= read -r line || [ -n "$line" ]; do
     module=$(printf '%s\n' "$line" | sed -nE 's/^[[:space:]]*load[[:space:]]*(=>|=)[[:space:]]*([^[:space:];]+).*/\2/p')
-    if [ -z "$module" ]; then
-        case "$line" in
-            *noload*)
-                printf '%s\n' "$line" >> "$available_patch"
-                ;;
-        esac
-        continue
-    fi
-
-    module_found=0
-    for module_file in $ASTERISK_MODULE_DIRS/"$module"; do
-        if [ -f "$module_file" ]; then
-            module_found=1
-            break
-        fi
-    done
-    if [ "$module_found" -eq 1 ]; then
-        printf '%s\n' "$line" >> "$available_patch"
-    else
-        echo "Aviso: módulo PJSIP no instalado: $module; se conserva modules.conf sin esa directiva." >&2
+    if [ -n "$module" ]; then
+        AVAILABLE_MODULES="$AVAILABLE_MODULES $module"
     fi
 done < "$PJSIP_MODULES_PATCH"
 
-if awk -v config="$MODULES_CONF" -v patch="$available_patch" -f "$PJSIP_MODULES_MERGER" "$MODULES_CONF" > "$merged_modules"; then
+if awk -v config="$MODULES_CONF" -v patch="$PJSIP_MODULES_PATCH" -f "$PJSIP_MODULES_MERGER" "$MODULES_CONF" > "$merged_modules"; then
     if ! cmp -s "$MODULES_CONF" "$merged_modules"; then
         if [ "$modules_created" -eq 0 ] && [ ! -e "$MODULES_CONF.bak-pjsip" ]; then
             cp -a "$MODULES_CONF" "$MODULES_CONF.bak-pjsip"
@@ -187,3 +168,24 @@ for context in sip-phones rpt-internal; do
         rm -f "$context_patch"
     fi
 done
+
+if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev/null 2>&1; then
+    # Retry after dependencies have had a chance to load.
+    for pass in 1 2; do
+        for module in $AVAILABLE_MODULES; do
+            if asterisk -rx "module show like $module" 2>/dev/null |
+                awk -v module="$module" '$1 == module { found = 1 } END { exit !found }'; then
+                continue
+            fi
+            load_output=$(asterisk -rx "module load $module" 2>&1) || {
+                if [ "$pass" -eq 2 ]; then
+                    echo "Aviso: falló la carga PJSIP de $module: $load_output" >&2
+                fi
+            }
+            if [ "$pass" -eq 2 ] && ! asterisk -rx "module show like $module" 2>/dev/null |
+                awk -v module="$module" '$1 == module { found = 1 } END { exit !found }'; then
+                echo "Aviso: Asterisk no confirmó la carga de $module. Revisa sus dependencias y el registro de Asterisk." >&2
+            fi
+        done
+    done
+fi

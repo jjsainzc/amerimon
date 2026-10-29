@@ -64,7 +64,7 @@ Para escuchar una extensión, esta debe existir como endpoint PJSIP en `pjsip.co
 
 El parche PJSIP enruta las llamadas del teléfono por un canal Local hasta `rpt-internal` antes de entrar a `app_rpt`. No reemplaza una ruta `_X.` personalizada: si ya existe en `[sip-phones]` o `[rpt-internal]`, el postinstall la conserva y muestra un aviso. En ese caso hay que verificar que la ruta mantenga el encaminamiento por canal Local y llegue a `Rpt(${NODE},Pv)` de forma compatible con la instalación.
 
-La configuración en `modules.conf` se activa al iniciar Asterisk. El postinstall no reinicia Asterisk; si se instalaron módulos nuevos, planifica su recarga o reinicio en una ventana de mantenimiento. El dialplan de Listen Live requiere además los contextos `[listen-live-spy]` y `[listen-live-eagi]`, que el postinstall agrega si faltan. Los contextos existentes se conservan.
+El postinstall agrega las directivas PJSIP que faltan en `modules.conf` aunque no encuentre los archivos `.so`, convierte `noload` en `load` para los módulos que el parche habilita e intenta cargarlos si Asterisk está activo. Verifica la carga, reintenta los pendientes y avisa si falla sin retirar la configuración. No reinicia Asterisk; si está detenido, la configuración se aplica al próximo inicio. El dialplan de Listen Live requiere además los contextos `[listen-live-spy]` y `[listen-live-eagi]`, que el postinstall agrega si faltan. Los contextos existentes se conservan.
 
 ## Desconexiones y fin de sesión
 

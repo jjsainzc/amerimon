@@ -183,7 +183,7 @@ Si Asterisk ya está activo, el hook intenta cargar esos módulos y ejecutar `di
 
 ### PJSIP para teléfonos SIP
 
-El postinstalador también integra `packaging/pjsip-modules-patch.conf` y `packaging/pjsip-extensions-sip-phones-patch.conf`. Si falta alguno de los archivos, crea `modules.conf` con `[modules]` y `autoload=yes`, o crea `extensions.conf`. En un `modules.conf` existente añade las directivas `load` solo para módulos PJSIP instalados e incluye las directivas `noload` del parche; no reemplaza ninguna directiva existente, incluido un `noload` personalizado. Los módulos que no existen en el sistema generan un aviso y se omiten.
+El postinstalador también integra `packaging/pjsip-modules-patch.conf` y `packaging/pjsip-extensions-sip-phones-patch.conf`. Si falta alguno de los archivos, crea `modules.conf` con `[modules]` y `autoload=yes`, o crea `extensions.conf`. Agrega todas las directivas de módulos que faltan, sin condicionar su incorporación a la presencia del archivo `.so`. Para los módulos que el parche habilita, convierte `noload` en `load` y elimina duplicados. Conserva los demás módulos y ajustes personalizados e incluye las directivas `noload` del parche cuando no hay una directiva existente para esos módulos. Intenta cargar los módulos habilitados si Asterisk está activo y avisa si la carga falla, sin retirar las líneas agregadas. Este paso no descarga paquetes Asterisk.
 
 La sección `[sip-phones]` enruta las llamadas PJSIP por un canal Local antes de entregarlas a `app_rpt`, para evitar el enrutamiento PJSIP directo que puede hacer que Asterisk falle:
 
@@ -201,7 +201,7 @@ exten => _X.,1,Rpt(${NODE},Pv)
 
 Si esos contextos ya existen sin una ruta `_X.`, el instalador agrega las rutas del parche dentro de la sección existente. Si ya hay una ruta `_X.` en un contexto, no la modifica ni agrega otra prioridad: la conserva y registra un aviso para que el administrador revise la integración manualmente. Antes de cambiar archivos existentes, crea `modules.conf.bak-pjsip` y/o `extensions.conf.bak-pjsip` si esos respaldos todavía no existen. Los archivos recién creados no se respaldan.
 
-La configuración persistente de módulos `load`/`noload` se aplica al iniciar Asterisk; el postinstalador no reinicia ese servicio. Planifica una recarga o reinicio de Asterisk en una ventana de mantenimiento y confirma que los módulos requeridos están instalados. Las directivas de dialplan se incorporan durante el postinstall; revisa sus avisos si existe una ruta personalizada.
+Si Asterisk está activo, el postinstalador carga los módulos PJSIP habilitados mediante `module load`, omite los ya cargados y reintenta los pendientes después de cargar sus dependencias. Verifica la carga con `module show like` y muestra un aviso si no se confirma. No reinicia Asterisk; si está detenido, las directivas persistentes se aplicarán al próximo inicio. Las directivas de dialplan se incorporan durante el postinstall; revisa sus avisos si existe una ruta personalizada.
 
 ### Selección y sintaxis de nodos Allmon
 

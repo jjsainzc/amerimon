@@ -183,7 +183,7 @@ If Asterisk is already running, the hook attempts to load these modules and run 
 
 ### PJSIP for SIP phones
 
-The post-install script also merges `packaging/pjsip-modules-patch.conf` and `packaging/pjsip-extensions-sip-phones-patch.conf`. If either configuration file is missing, it creates `modules.conf` with `[modules]` and `autoload=yes`, or creates `extensions.conf`. For an existing `modules.conf`, it adds `load` directives only for installed PJSIP modules and includes the patch's `noload` directives; it does not replace existing directives, including a custom `noload`. Missing modules are skipped with a warning.
+The post-install script also merges `packaging/pjsip-modules-patch.conf` and `packaging/pjsip-extensions-sip-phones-patch.conf`. If either configuration file is missing, it creates `modules.conf` with `[modules]` and `autoload=yes`, or creates `extensions.conf`. It adds every missing module directive regardless of whether the `.so` file is present. For modules enabled by the patch, it converts `noload` to `load` and removes duplicates. Other modules and custom settings are preserved, and the patch's `noload` directives are added when no directive already exists for those modules. It attempts to load enabled modules if Asterisk is running and warns on loading failures without removing the added lines. This step does not download Asterisk packages.
 
 The `[sip-phones]` context routes PJSIP calls through a Local channel before passing them to `app_rpt`, avoiding direct PJSIP dialplan handling that can cause Asterisk to fail:
 
@@ -201,7 +201,7 @@ exten => _X.,1,Rpt(${NODE},Pv)
 
 If either context already exists without an `_X.` route, the installer adds the patch routes inside that context. If a context already has an `_X.` route, it leaves the route unchanged and does not add another priority; it logs a warning so the administrator can review the custom integration manually. Before changing existing files, it creates `modules.conf.bak-pjsip` and/or `extensions.conf.bak-pjsip` if those backups do not already exist. Newly created files are not backed up.
 
-Persistent `load`/`noload` module settings take effect when Asterisk starts; the post-install script does not restart that service. Schedule an Asterisk reload or restart during a maintenance window and verify that the required modules are installed. Dialplan directives are added during post-install; review any warnings when a custom route exists.
+If Asterisk is running, post-install loads the enabled PJSIP modules using `module load`, skips modules already loaded, and retries pending modules after loading dependencies. It verifies loading with `module show like` and warns if loading is not confirmed. It does not restart Asterisk; if Asterisk is stopped, persistent directives take effect at the next start. Dialplan directives are added during post-install; review any warnings when a custom route exists.
 
 ### Allmon node selection and syntax
 

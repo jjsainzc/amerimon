@@ -46,7 +46,7 @@ func TestPJSIPConfigurationPreservesExistingSettings(t *testing.T) {
 		}
 		moduleText := string(modules)
 		for _, required := range []string{
-			"noload => chan_pjsip.so ; intentionally disabled",
+			"load => chan_pjsip.so ; intentionally disabled",
 			"load => app_rpt.so",
 			"load   = res_pjsip.so",
 			"load   = func_pjsip_endpoint.so",
@@ -56,7 +56,7 @@ func TestPJSIPConfigurationPreservesExistingSettings(t *testing.T) {
 				t.Fatalf("missing or changed module configuration %q:\n%s", required, moduleText)
 			}
 		}
-		if strings.Contains(moduleText, "load   = chan_pjsip.so") ||
+		if strings.Contains(moduleText, "noload => chan_pjsip.so") ||
 			strings.Count(moduleText, "load   = res_pjsip.so") != 1 {
 			t.Fatalf("existing module policy was overwritten or duplicated:\n%s", moduleText)
 		}
@@ -158,6 +158,18 @@ func TestPJSIPConfigurationCreatesMissingFilesAndIsIdempotent(t *testing.T) {
 			t.Fatalf("new modules.conf is missing %q:\n%s", required, firstModules)
 		}
 	}
+	patch, err := os.ReadFile("pjsip-modules-patch.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(patch), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "load ") || strings.HasPrefix(line, "noload ") {
+			if strings.Count(string(firstModules), line) != 1 {
+				t.Fatalf("every patch directive must be added once even without its .so file: %q", line)
+			}
+		}
+	}
 	for _, required := range []string{"[sip-phones]", "[rpt-internal]", "Local/${NODE}@rpt-internal"} {
 		if !strings.Contains(string(firstExtensions), required) {
 			t.Fatalf("new extensions.conf is missing %q:\n%s", required, firstExtensions)
@@ -184,7 +196,7 @@ func TestPJSIPConfigurationCreatesMissingFilesAndIsIdempotent(t *testing.T) {
 	}
 }
 
-func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string) []byte {
+func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string, extraEnv ...string) []byte {
 	t.Helper()
 	modulePatch, err := filepath.Abs("pjsip-modules-patch.conf")
 	if err != nil {
@@ -198,6 +210,32 @@ func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+	binDir := t.TempDir()
+	mock := `#!/bin/sh
+[ -n "$PJSIP_TEST_LOG" ] || exit 1
+case "$2" in
+    'core show version') printf 'Asterisk test\n' ;;
+    'module show like '*)
+        module=${2#module show like }
+        if [ -f "$PJSIP_TEST_STATE/$module" ]; then
+            printf '%s Running\n' "$module"
+        fi
+        ;;
+    'module load '*)
+        module=${2#module load }
+        printf '%s\n' "$module" >> "$PJSIP_TEST_LOG"
+        if [ "$module" = "$PJSIP_TEST_FAIL" ]; then
+            printf 'Dependency unavailable\n'
+            exit 0
+        fi
+        : > "$PJSIP_TEST_STATE/$module"
+        ;;
+    *) exit 1 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(binDir, "asterisk"), []byte(mock), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	command := exec.Command("sh", "configure-pjsip.sh")
 	command.Env = append(os.Environ(),
 		"AST_DIR="+astDir,
@@ -205,10 +243,77 @@ func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string) []byte {
 		"PJSIP_MODULES_PATCH="+modulePatch,
 		"PJSIP_EXTENSIONS_PATCH="+extensionsPatch,
 		"PJSIP_MODULES_MERGER="+merger,
+		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 	)
+	command.Env = append(command.Env, extraEnv...)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("PJSIP configuration failed: %v\n%s", err, output)
 	}
+
 	return output
+}
+
+func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
+	for _, failedModule := range []string{"", "chan_pjsip.so"} {
+		t.Run("failed-module="+failedModule, func(t *testing.T) {
+			dir := t.TempDir()
+			astDir := filepath.Join(dir, "asterisk")
+			multiarchDir := filepath.Join(dir, "lib", "aarch64-linux-gnu", "asterisk", "modules")
+			standardDir := filepath.Join(dir, "lib", "asterisk", "modules")
+			stateDir := filepath.Join(dir, "state")
+			for _, path := range []string{astDir, multiarchDir, standardDir, stateDir} {
+				if err := os.MkdirAll(path, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for path, content := range map[string]string{
+				filepath.Join(multiarchDir, "chan_pjsip.so"): "",
+				filepath.Join(standardDir, "res_pjsip.so"):   "",
+				filepath.Join(astDir, "modules.conf"): "[modules]\nautoload=no\n" +
+					"noload=chan_pjsip.so\nload => chan_pjsip.so\nnoload => customer.so\n",
+			} {
+				if err := os.WriteFile(path, []byte(content), 0o640); err != nil {
+					t.Fatal(err)
+				}
+			}
+			logPath := filepath.Join(dir, "loaded.log")
+			dirs := filepath.Join(dir, "lib", "*", "asterisk", "modules") + " " + standardDir
+			for run := 0; run < 2; run++ {
+				output := runPJSIPConfiguration(t, astDir, dirs,
+					"PJSIP_TEST_LOG="+logPath, "PJSIP_TEST_STATE="+stateDir, "PJSIP_TEST_FAIL="+failedModule)
+				for _, module := range []string{"chan_pjsip.so", "res_pjsip.so"} {
+					if strings.Contains(string(output), "no instalado: "+module+";") {
+						t.Fatalf("installed module was not discovered: %s", output)
+					}
+				}
+				if failedModule != "" && !strings.Contains(string(output), "no confirmó la carga de "+failedModule) {
+					t.Fatalf("failed runtime load was not reported: %s", output)
+				}
+			}
+			modules, err := os.ReadFile(filepath.Join(astDir, "modules.conf"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(modules), "noload=chan_pjsip.so") ||
+				strings.Count(string(modules), "chan_pjsip.so") != 1 ||
+				!strings.Contains(string(modules), "noload => customer.so") {
+				t.Fatalf("required modules must be enabled once without changing other modules:\n%s", modules)
+			}
+			loads, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Count(string(loads), "res_pjsip.so\n") != 1 {
+				t.Fatalf("module must be loaded once and skipped when already loaded: %s", loads)
+			}
+			expectedLoads := 1
+			if failedModule != "" {
+				expectedLoads = 4
+			}
+			if strings.Count(string(loads), "chan_pjsip.so\n") != expectedLoads {
+				t.Fatalf("unexpected module load attempts: %s", loads)
+			}
+		})
+	}
 }
