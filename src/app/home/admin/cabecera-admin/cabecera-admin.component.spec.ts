@@ -8,7 +8,7 @@ import { TranslationService } from '../../../core/services/translation.service';
 import { environment } from '../../../core/environment';
 import { CabeceraAdminComponent } from './cabecera-admin.component';
 
-describe('Header notice preferences reset', () => {
+describe('Admin profile settings', () => {
   beforeEach(() => {
     localStorage.clear();
     TestBed.configureTestingModule({

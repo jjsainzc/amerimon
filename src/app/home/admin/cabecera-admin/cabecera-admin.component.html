@@ -1,6 +1,7 @@
 <section class="admin-page">
   <form class="admin-page-form" (ngSubmit)="guardar()">
-    <h2>{{ 'PERSONALIZAR_CABECERA' | translate }}</h2>
+    <h1>{{ 'PERFIL_ADMINISTRADOR' | translate }}</h1>
+    <h2>{{ 'CONFIGURACION_GENERAL' | translate }}</h2>
     @if (cargando()) {
       <p role="status">{{ 'CARGANDO' | translate }}</p>
     } @else {
