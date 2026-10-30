@@ -30,6 +30,7 @@ type Config struct {
 	Version string `yaml:"-"`
 	Path    string `yaml:"-"`
 	EnvPath string `yaml:"-"`
+	DBPath  string `yaml:"-"`
 	DB      *sql.DB
 	UseDB   bool
 	Sources SourcesConfig `yaml:"sources"`

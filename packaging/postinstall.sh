@@ -37,6 +37,12 @@ chmod 600 "$OWN_INI"
 mkdir -p /var/lib/amerimon
 chown -R root:root /var/lib/amerimon
 chmod 750 /var/lib/amerimon
+if [ ! -s /var/lib/amerimon/terminal-credentials.key ]; then
+    umask 077
+    head -c 32 /dev/urandom > /var/lib/amerimon/terminal-credentials.key
+fi
+chown root:root /var/lib/amerimon/terminal-credentials.key
+chmod 600 /var/lib/amerimon/terminal-credentials.key
 
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
@@ -52,9 +58,40 @@ if [ -d /run/systemd/system ]; then
     elif command -v a2enmod >/dev/null 2>&1 && [ -f /usr/share/amerimon/apache-amerimon.conf.example ]; then
         APACHE_CONF=/etc/apache2/conf-available/amerimon.conf
         APACHE_WAS_ENABLED=0
+        APACHE_PATCH_BACKUP=
+        APACHE_PATCH_TMP=
+        APACHE_PATCHED=0
         [ -e /etc/apache2/conf-enabled/amerimon.conf ] && APACHE_WAS_ENABLED=1
         if [ ! -e "$APACHE_CONF" ]; then
             install -D -m 0644 /usr/share/amerimon/apache-amerimon.conf.example "$APACHE_CONF"
+        fi
+        APACHE_NEED_PROXY=1
+        APACHE_NEED_PROXY_REVERSE=1
+        grep -Eq '^[[:space:]]*ProxyPass[[:space:]]+/amerimon/mon/terminal[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_PROXY=0
+        grep -Eq '^[[:space:]]*ProxyPassReverse[[:space:]]+/amerimon/mon/terminal[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_PROXY_REVERSE=0
+        if [ "$APACHE_NEED_PROXY" -eq 1 ] || [ "$APACHE_NEED_PROXY_REVERSE" -eq 1 ]; then
+            APACHE_PATCH_BACKUP=$(mktemp)
+            cp -p "$APACHE_CONF" "$APACHE_PATCH_BACKUP"
+            APACHE_PATCH_TMP=$(mktemp "${APACHE_CONF}.amerimon.XXXXXX")
+            awk -v add_proxy="$APACHE_NEED_PROXY" -v add_reverse="$APACHE_NEED_PROXY_REVERSE" '
+                function terminal_websocket() {
+                    if (add_proxy) print "ProxyPass        /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal"
+                    if (add_reverse) print "ProxyPassReverse /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal"
+                }
+                /^[[:space:]]*ProxyPass[[:space:]]/ && !inserted {
+                    terminal_websocket()
+                    inserted = 1
+                }
+                { print }
+                END {
+                    if (!inserted) terminal_websocket()
+                }
+            ' "$APACHE_CONF" >"$APACHE_PATCH_TMP"
+            chmod --reference="$APACHE_CONF" "$APACHE_PATCH_TMP"
+            chown --reference="$APACHE_CONF" "$APACHE_PATCH_TMP"
+            mv "$APACHE_PATCH_TMP" "$APACHE_CONF"
+            APACHE_PATCH_TMP=
+            APACHE_PATCHED=1
         fi
         if a2enmod proxy proxy_http proxy_wstunnel headers alias >/dev/null && \
             a2enconf amerimon >/dev/null && apache2ctl configtest; then
@@ -64,11 +101,15 @@ if [ -d /run/systemd/system ]; then
                 systemctl start apache2 || echo "Aviso: no se pudo iniciar Apache; Amerimon sigue disponible en el puerto 8082." >&2
             fi
         else
+            if [ "$APACHE_PATCHED" -eq 1 ]; then
+                cp -p "$APACHE_PATCH_BACKUP" "$APACHE_CONF"
+            fi
             if [ "$APACHE_WAS_ENABLED" -eq 0 ]; then
                 a2disconf amerimon >/dev/null 2>&1 || true
             fi
             echo "Aviso: la configuración de Apache no pasó configtest; se dejó deshabilitada para proteger el sitio existente." >&2
         fi
+        [ -z "$APACHE_PATCH_BACKUP" ] || rm -f "$APACHE_PATCH_BACKUP"
     elif command -v nginx >/dev/null 2>&1 && [ -x /usr/lib/amerimon/configure-nginx.sh ]; then
         /usr/lib/amerimon/configure-nginx.sh || echo "Aviso: no se pudo configurar Nginx; Amerimon sigue disponible en el puerto 8082." >&2
     fi

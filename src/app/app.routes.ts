@@ -32,6 +32,11 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/primary-node/primary-node.component').then((m) => m.PrimaryNodeComponent),
   },
   {
+    path: 'admin/terminal',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./shared/terminal/terminal.component').then((m) => m.TerminalComponent),
+  },
+  {
     path: 'admin/private-nodes',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/private-nodes/private-nodes.component').then((m) => m.PrivateNodesComponent),

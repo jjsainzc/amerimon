@@ -95,6 +95,11 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.PATCH("/listen-live/sessions/:id", controllers.UpdateListenLiveSession(mgr), opt)
 	publica.DELETE("/listen-live/sessions/:id", controllers.DeleteListenLiveSession, opt)
 
+	// terminal
+	privada.GET("/terminal", controllers.HandleTerminalConnection, jwt, admin)
+	privada.POST("/terminal/credentials/get", controllers.GetTerminalCredentials, jwt, admin)
+	privada.POST("/terminal/credentials/save", controllers.SaveTerminalCredentials, jwt, admin)
+
 	// iax users
 	privada.GET("/iax-users", controllers.GetIAXUsers, jwt, admin)
 	privada.POST("/iax-users", controllers.SaveOrUpdateIAXUser, jwt, admin)

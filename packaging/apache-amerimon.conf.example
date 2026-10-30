@@ -8,9 +8,11 @@ RedirectMatch ^/amerimon$ /amerimon/
 	RequestHeader set X-Forwarded-Prefix "/amerimon"
 </Location>
 
-# El websocket va primero: Apache usa la primera regla que coincide.
+# Los websockets van primero: Apache usa la primera regla que coincide.
 ProxyPass        /amerimon/mon/listen-live/ws ws://127.0.0.1:8082/mon/listen-live/ws
 ProxyPassReverse /amerimon/mon/listen-live/ws ws://127.0.0.1:8082/mon/listen-live/ws
+ProxyPass        /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal
+ProxyPassReverse /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal
 
 # Frontend y API (/amerimon/mon) salen del mismo binario; Apache quita el prefijo /amerimon.
 ProxyPass        /amerimon/ http://127.0.0.1:8082/

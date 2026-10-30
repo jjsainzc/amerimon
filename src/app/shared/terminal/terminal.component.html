@@ -1,0 +1,118 @@
+<section class="terminal-page" aria-labelledby="terminal-title">
+  <aside class="terminal-guidance" aria-label="SSH guidance">
+    <label class="guidance-toggle">
+      <input type="checkbox" [checked]="!showGuidance()" (change)="setGuidanceHidden($event)" />
+      {{ 'SSH_HIDE_GUIDANCE' | translate }}
+    </label>
+    @if (showGuidance()) {
+      <div class="guidance-content">
+        <p>{{ 'SSH_DESCRIPTION' | translate }}</p>
+        <p>{{ 'SSH_TARGET_HELP' | translate }}</p>
+        <p>{{ 'SSH_PUBLIC_KEY_HELP' | translate }}</p>
+        <p>{{ 'SSH_SECURITY_NOTE' | translate }}</p>
+      </div>
+    }
+  </aside>
+
+  <header class="terminal-page-header">
+    <div>
+      <h2 id="terminal-title">{{ 'SSH_TERMINAL' | translate }}</h2>
+    </div>
+    <span class="connection-indicator" [class.connected]="connectionState() === 'connected'">
+      {{ (connectionState() === 'connected' ? 'SSH_CONNECTED' : connectionState() === 'connecting' ? 'SSH_CONNECTING' : 'SSH_DISCONNECTED') | translate }}
+    </span>
+  </header>
+
+  <form class="connection-form" (ngSubmit)="connect()">
+    <label>
+      {{ 'SSH_HOST' | translate }}
+      <input name="host" [(ngModel)]="settings.host" autocomplete="url" required maxlength="253" />
+    </label>
+    <label>
+      {{ 'SSH_PORT' | translate }}
+      <input name="port" type="number" [(ngModel)]="settings.port" min="1" max="65535" required />
+    </label>
+    <label>
+      {{ 'SSH_USERNAME' | translate }}
+      <input name="username" [(ngModel)]="settings.username" autocomplete="username" maxlength="64" />
+    </label>
+    <label>
+      {{ 'SSH_AUTHENTICATION' | translate }}
+      <select name="authMethod" [(ngModel)]="settings.authMethod">
+        <option value="password">{{ 'SSH_PASSWORD_AUTH' | translate }}</option>
+        <option value="publickey">{{ 'SSH_PRIVATE_KEY_AUTH' | translate }}</option>
+      </select>
+    </label>
+
+    @if (settings.authMethod === 'password') {
+      <div class="credential-field">
+        <label for="sshPassword">{{ 'SSH_PASSWORD' | translate }}</label>
+        <div class="secret-control">
+          <input id="sshPassword" name="password" [type]="showPassword ? 'text' : 'password'"
+                 [(ngModel)]="password" autocomplete="new-password" />
+          <button type="button" class="secret-toggle" [attr.aria-label]="(showPassword ? 'SSH_HIDE_SECRET' : 'SSH_SHOW_SECRET') | translate"
+                  [attr.aria-pressed]="showPassword" (click)="showPassword = !showPassword">
+            @if (showPassword) {
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.7a2 2 0 0 0 2.7 2.7M9.9 5.2A10.7 10.7 0 0 1 12 5c5.2 0 8.5 4.7 9.5 7-.4.8-1.1 1.8-2.1 2.8M6.2 6.3C3.9 7.8 2.8 9.7 2.5 12c.5 1.1 3.8 7 9.5 7 1.4 0 2.7-.4 3.8-1" /></svg>
+            } @else {
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-7 9.5-7 9.5 7 9.5 7-3.3 7-9.5 7-9.5-7-9.5-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+            }
+          </button>
+        </div>
+      </div>
+    } @else {
+      <div class="credential-field private-key-picker">
+        <div class="private-key-picker-control">
+          <input #privateKeyFile id="privateKeyFile" name="privateKeyFile" class="visually-hidden"
+                 type="file" autocomplete="off" (change)="selectPrivateKey($event)" />
+          <label for="privateKeyFile">{{ 'SSH_PRIVATE_KEY_FILE' | translate }}</label>
+          <button type="button" class="private-key-button" (click)="privateKeyFile.click()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2v-12.5a2 2 0 0 1 2-2Z" />
+              <path d="M14 3.75v4h4M12 17v-6m-2.5 2.5L12 11l2.5 2.5" />
+            </svg>
+            {{ 'SSH_SELECT_PRIVATE_KEY' | translate }}
+          </button>
+          @if (privateKeyReading) {
+            <span class="private-key-reading">{{ 'SSH_PRIVATE_KEY_READING' | translate }}</span>
+          } @else if (privateKeySelected) {
+            <span class="private-key-selected">{{ 'SSH_PRIVATE_KEY_SELECTED' | translate }}</span>
+          }
+        </div>
+      </div>
+      <div class="credential-field passphrase-field">
+        <label for="sshKeyPassphrase">{{ 'SSH_KEY_PASSPHRASE' | translate }}</label>
+        <div class="secret-control">
+          <input id="sshKeyPassphrase" name="keyPassphrase"
+                 [type]="showKeyPassphrase ? 'text' : 'password'"
+                 [(ngModel)]="keyPassphrase" autocomplete="new-password" />
+          <button type="button" class="secret-toggle" [attr.aria-label]="(showKeyPassphrase ? 'SSH_HIDE_SECRET' : 'SSH_SHOW_SECRET') | translate"
+                  [attr.aria-pressed]="showKeyPassphrase" (click)="showKeyPassphrase = !showKeyPassphrase">
+            @if (showKeyPassphrase) {
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.7a2 2 0 0 0 2.7 2.7M9.9 5.2A10.7 10.7 0 0 1 12 5c5.2 0 8.5 4.7 9.5 7-.4.8-1.1 1.8-2.1 2.8M6.2 6.3C3.9 7.8 2.8 9.7 2.5 12c.5 1.1 3.8 7 9.5 7 1.4 0 2.7-.4 3.8-1" /></svg>
+            } @else {
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.3-7 9.5-7 9.5 7 9.5 7-3.3 7-9.5 7-9.5-7-9.5-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+            }
+          </button>
+        </div>
+      </div>
+    }
+
+    <div class="form-actions">
+      <button type="button" class="secondary-button" [disabled]="privateKeyReading" (click)="saveSettings()">{{ 'SSH_SAVE_CONFIGURATION' | translate }}</button>
+      @if (connectionState() === 'disconnected') {
+        <button type="submit" class="primary-button">{{ 'SSH_CONNECT' | translate }}</button>
+      } @else {
+        <button type="button" class="danger-button" (click)="disconnect()">{{ 'SSH_DISCONNECT' | translate }}</button>
+      }
+    </div>
+  </form>
+
+  @if (status()) {
+    <p class="terminal-status" role="status">{{ status() }}</p>
+  }
+
+  <div class="terminal-panel" [hidden]="!terminalVisible()" aria-label="Terminal SSH">
+    <div #terminalContainer class="terminal-container"></div>
+  </div>
+</section>

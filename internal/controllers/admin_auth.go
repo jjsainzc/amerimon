@@ -41,8 +41,19 @@ func AdminConfigured(db *sql.DB) (bool, error) {
 
 // ClearAdminPassword borra la contraseña; la web vuelve a pedir una nueva (reset desde root).
 func ClearAdminPassword(db *sql.DB) error {
-	_, err := db.Exec(`DELETE FROM admin`)
-	return err
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM terminal_credentials`); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM admin`); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
 // AdminStatus informa si hay contraseña definida, para que la web ofrezca crearla o iniciar sesión.

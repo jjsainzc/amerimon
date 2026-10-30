@@ -13,9 +13,14 @@ fi
 NGINX_DUMP=$(mktemp)
 ORIGINAL=$(mktemp)
 TARGET_TMP=
+SNIPPET_ORIGINAL=
+SNIPPET_TMP=
+SNIPPET_UPDATED=0
 cleanup() {
     rm -f "$NGINX_DUMP" "$ORIGINAL"
     [ -z "$TARGET_TMP" ] || rm -f "$TARGET_TMP"
+    [ -z "$SNIPPET_ORIGINAL" ] || rm -f "$SNIPPET_ORIGINAL"
+    [ -z "$SNIPPET_TMP" ] || rm -f "$SNIPPET_TMP"
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -64,6 +69,34 @@ if [ ! -e "$SNIPPET_TARGET" ]; then
     install -m 0644 "$SNIPPET_SOURCE" "$SNIPPET_TARGET"
 fi
 
+if ! grep -Fq 'location ^~ /amerimon/mon/terminal' "$SNIPPET_TARGET" &&
+    ! grep -Fq 'location /amerimon/mon/terminal' "$SNIPPET_TARGET"; then
+    SNIPPET_ORIGINAL=$(mktemp)
+    cp -p "$SNIPPET_TARGET" "$SNIPPET_ORIGINAL"
+    SNIPPET_TMP=$(mktemp "${SNIPPET_TARGET}.amerimon.XXXXXX")
+    cp -p "$SNIPPET_TARGET" "$SNIPPET_TMP"
+    cat >>"$SNIPPET_TMP" <<'EOF'
+
+# BEGIN AMERIMON TERMINAL WEBSOCKET
+location ^~ /amerimon/mon/terminal {
+    proxy_pass http://127.0.0.1:8082/mon/terminal;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 1h;
+}
+# END AMERIMON TERMINAL WEBSOCKET
+EOF
+    chmod --reference="$SNIPPET_TARGET" "$SNIPPET_TMP"
+    chown --reference="$SNIPPET_TARGET" "$SNIPPET_TMP"
+    mv "$SNIPPET_TMP" "$SNIPPET_TARGET"
+    SNIPPET_TMP=
+    SNIPPET_UPDATED=1
+fi
+
 if ! grep -Fq 'include /etc/nginx/snippets/amerimon.conf;' "$TARGET"; then
     cp -p "$TARGET" "$ORIGINAL"
     TARGET_TMP=$(mktemp "${TARGET}.amerimon.XXXXXX")
@@ -104,6 +137,9 @@ fi
 
 if ! "$NGINX_BIN" -t; then
     cp -p "$ORIGINAL" "$TARGET"
+    if [ "$SNIPPET_UPDATED" -eq 1 ]; then
+        cp -p "$SNIPPET_ORIGINAL" "$SNIPPET_TARGET"
+    fi
     echo "Aviso: nginx -t falló; se restauró la configuración original." >&2
     exit 1
 fi
@@ -111,6 +147,9 @@ fi
 if systemctl is-active --quiet nginx; then
     systemctl reload nginx || {
         cp -p "$ORIGINAL" "$TARGET"
+        if [ "$SNIPPET_UPDATED" -eq 1 ]; then
+            cp -p "$SNIPPET_ORIGINAL" "$SNIPPET_TARGET"
+        fi
         echo "Aviso: no se pudo recargar Nginx; se restauró la configuración original." >&2
         exit 1
     }

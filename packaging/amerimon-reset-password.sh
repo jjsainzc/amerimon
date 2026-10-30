@@ -1,5 +1,5 @@
 #!/bin/sh
-# Borra la contraseña del administrador de amerimon; la web pedirá definir una nueva.
+# Borra la contraseña de administrador y las credenciales SSH guardadas; la web pedirá definir una nueva.
 # Uso (como root, por ssh): amerimon-reset-password
 set -e
 
@@ -17,4 +17,5 @@ fi
 DB="${AMERIMON_DB:-/var/lib/amerimon/amerimon.db}"
 
 /usr/bin/amerimon -reset-admin -db "$DB"
+echo "Se borraron las credenciales de administrador y las credenciales SSH guardadas."
 echo "Abra la web y defina la nueva contraseña desde el botón de acceso."
