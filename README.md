@@ -49,7 +49,7 @@ El servidor remoto debe publicar su nombre y la red debe permitir mDNS. Consulta
 
 ## Limpieza posterior a la distribución
 
-Al finalizar correctamente GoReleaser mediante `make release` (incluido en `make dist`), se ejecuta `node scripts/clean-web-dist.cjs`. Este paso elimina únicamente el frontend generado de `internal/web/dist`, conservando `.gitkeep` para `go:embed`. Los binarios y paquetes de `dist/` ya contienen el frontend y no se modifican. Si la distribución falla, el frontend se conserva para diagnóstico. Si ejecutas GoReleaser directamente, la limpieza no es automática. Para volver a ejecutar el binario desde fuentes con interfaz embebida, usa `make run` o ejecuta antes `npm run build`.
+Usa `make clean` para eliminar únicamente el frontend generado de `internal/web/dist`, conservando `.gitkeep` para `go:embed`. Al finalizar correctamente GoReleaser mediante `make release` (incluido en `make dist`), se llama automáticamente a ese mismo objetivo. Los binarios y paquetes de `dist/` ya contienen el frontend y no se modifican. Si la distribución falla, el frontend se conserva para diagnóstico. Si ejecutas GoReleaser directamente, la limpieza no es automática. Una compilación posterior vuelve a crear el frontend; puedes limpiarlo de nuevo con `make clean`. Para volver a ejecutar el binario desde fuentes con interfaz embebida, usa `make run` o ejecuta antes `npm run build`.
 
 Los tests se conservan junto al código que prueban: los `_test.go` en su paquete Go y los tests de instalación junto a los scripts en `packaging/`. La limpieza no los elimina ni los regenera. El script de limpieza se verifica con `node --test scripts/clean-web-dist.test.cjs`.
 

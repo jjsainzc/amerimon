@@ -6,7 +6,7 @@ PORT     ?= 8082
 # scripts/clean-rep.sh lee REPO_DIR del entorno.
 export REPO_DIR
 
-.PHONY: dist newtags release copy-repo index-repo clean-repo push-repo dev-backend dev-front run
+.PHONY: dist newtags release clean copy-repo index-repo clean-repo push-repo dev-backend dev-front run
 
 # Los pasos de dist dependen unos de otros: no ejecutar con make -j.
 .NOTPARALLEL:
@@ -47,6 +47,10 @@ newtags:
 
 release:
 	goreleaser release --clean
+# 	$(MAKE) clean-web-dist
+
+# Limpia solo el frontend generado; conserva .gitkeep, tests y paquetes .deb.
+clean-web-dist:
 	node scripts/clean-web-dist.cjs
 
 copy-repo:

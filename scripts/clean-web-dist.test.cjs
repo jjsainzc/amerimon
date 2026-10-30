@@ -61,6 +61,21 @@ test('refuses a symlink as the generated output directory', (t) => {
   assert.equal(fs.readFileSync(path.join(outside, 'keep.txt'), 'utf8'), 'keep');
 });
 
+test('make clean removes only generated frontend files without running a release', (t) => {
+  const { root, dist } = fixture(t);
+  fs.copyFileSync(path.join(__dirname, '../Makefile'), path.join(root, 'Makefile'));
+  fs.mkdirSync(dist);
+  fs.writeFileSync(path.join(dist, 'main.js'), 'frontend');
+  fs.mkdirSync(path.join(root, 'dist'));
+  fs.writeFileSync(path.join(root, 'dist/amerimon.deb'), 'package');
+  fs.writeFileSync(path.join(root, 'internal/web/web_test.go'), 'test');
+  const result = spawnSync('make', ['clean'], { cwd: root, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fs.readdirSync(dist), ['.gitkeep']);
+  assert.equal(fs.readFileSync(path.join(root, 'dist/amerimon.deb'), 'utf8'), 'package');
+  assert.equal(fs.readFileSync(path.join(root, 'internal/web/web_test.go'), 'utf8'), 'test');
+});
+
 for (const status of [0, 1]) {
   test(`make release cleans the frontend only when packaging succeeds (exit ${status})`, (t) => {
     const { root, dist } = fixture(t);

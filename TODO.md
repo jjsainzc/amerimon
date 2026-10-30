@@ -57,5 +57,8 @@
     ```
 
   - Revisar tambien la coma adicional antes de `b(...)` en `Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))` del parche `packaging/pjsip-extensions-sip-phones-patch.conf`. Es una anomalia a investigar, no una causa demostrada de la perdida de audio.
+  
+- [ ] 13. No se cuanta carga pudiera tener la pagina si usamos el mismo websocket que tenemos para la terminal sssh y para el listen-live para determinar cual es la estacion que esta con audio en el momento, para mostrarlo en las tablas, o sea si el nodo principal detecta un audio y este esta enlazado a otros server tambien iluminarlos y ponerlos en el tope de cada una, y esto solo se activaria si en el "actualizar cada" de la tabla Allstarlink, se pone desactivado.
+
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes
