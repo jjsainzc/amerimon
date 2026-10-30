@@ -40,6 +40,7 @@ El puerto `8086` debe estar libre al iniciar Amerimon. El proceso EAGI y la cone
 | `favoritos` | Nodos favoritos de administración |
 | `enlaces_externos` | Enlaces publicados y administrados desde la web |
 | `app_settings` | Título y subtítulo de cabecera |
+| `terminal_credentials` | Credenciales SSH cifradas por destino |
 | `asterisk_operation_logs` | Operaciones Asterisk, resultado y diagnóstico |
 
 ## 4. Instalación Debian
@@ -86,6 +87,7 @@ Después de que el mantenedor publique una versión, el índice APT puede tardar
 | `/etc/amerimon/allmon.ini` | Configuración propia de nodos si no existe otra activa |
 | `/var/lib/asterisk/privatenodes.txt` | Nodos privados administrados desde el panel web |
 | `/var/lib/amerimon/amerimon.db` | Base SQLite de producción |
+| `/var/lib/amerimon/terminal-credentials.key` | Clave maestra para cifrar credenciales SSH, permisos `0600` |
 | `/lib/systemd/system/amerimon.service` | Unidad systemd |
 | `/usr/local/bin/astdb.sh` | Actualización de la base de nodos AstDB |
 
@@ -348,6 +350,18 @@ Las preferencias se almacenan en Local Storage bajo `amerimon.notice-preferences
 
 Temporalmente, **Admin → Personalizar cabecera → Restablecer advertencias y confirmaciones** permite volver a mostrar todos los tipos ocultos. No guarda los campos de cabecera ni modifica credenciales, sesión, nodos o configuración del servidor. El restablecimiento solo anuncia éxito si se elimina correctamente la preferencia del navegador.
 
+### Terminal SSH
+
+La terminal está disponible para administradores y se conecta desde el backend de Amerimon al host SSH indicado, a través del WebSocket de la aplicación. Para el mismo servidor usa `127.0.0.1` si SSH está activo; para otro servidor, indica su IP privada o nombre DNS y el puerto en el que escucha `sshd`. El destino solo necesita ser accesible desde la red del backend: **no expongas el puerto SSH a Internet**.
+
+1. Indica host, puerto y usuario remoto, y selecciona **Contraseña** o **Clave pública**. En este último modo selecciona el archivo de clave privada de tu equipo; no introduzcas una ruta del servidor. La clave pública correspondiente debe estar autorizada para el usuario remoto. Si la clave está cifrada, introduce su frase; el botón del ojo permite mostrarla u ocultarla.
+2. Para recordar las credenciales, selecciona primero la clave privada (espera a que aparezca **Clave privada lista**), introduce la frase si corresponde y pulsa **Guardar configuración y credenciales**. El mensaje de confirmación indica si se guardaron. La contraseña SSH también se puede mostrar u ocultar con el ojo.
+3. La configuración de destino se guarda en el navegador; contraseñas, claves privadas y frases **no**. Al guardar credenciales, Amerimon las cifra con AES-GCM y las almacena en la tabla `terminal_credentials`, separadas por host, puerto, usuario y método. La clave maestra está en `/var/lib/amerimon/terminal-credentials.key`, separada de SQLite y con permisos `0600`. Al conectar, el backend recupera las credenciales del destino; si no existen, solicita la contraseña o la selección de la clave. Para usar esta función, accede con la sesión de administrador y protege el acceso web con HTTPS.
+4. Una clave de host SSH desconocida muestra su huella y requiere confirmación explícita. Verifica la huella con el administrador del servidor antes de aceptarla; si una clave conocida cambia, la conexión se rechaza.
+5. **Desconectar** cierra la sesión y limpia la pantalla y el historial de la terminal. `exit` en el shell remoto también cierra la sesión normalmente.
+
+El comando `sudo amerimon-reset-password` elimina tanto la cuenta de administrador como las credenciales SSH guardadas; después hay que guardarlas de nuevo. No elimines ni reemplaces la clave maestra mientras existan credenciales cifradas que quieras conservar: sin la clave original no se pueden descifrar.
+
 ### Usuarios IAX y extensiones PJSIP
 
 Accede mediante **Admin → Más opciones → Usuarios IAX / Extensiones PJSIP**, en las rutas `/admin/iax-users` y `/admin/pjsip-users`. Son páginas administrativas, no ventanas modales, y consultan su listado al abrirse. Los títulos, etiquetas, botones, estados vacíos, mensajes de carga, errores genéricos y confirmaciones de eliminación siguen el idioma español o inglés seleccionado en la cabecera, incluso al cambiarlo con el formulario abierto. Los valores de configuración no se traducen. Los diagnósticos enviados por el backend se conservan literalmente para no perder información técnica.
@@ -390,7 +404,7 @@ Si se olvidó la contraseña, ejecuta como usuario con sudo:
 sudo amerimon-reset-password
 ```
 
-El comando elimina el registro de administrador de la tabla `admin`; no borra la base de datos ni los nodos, favoritos, historial de conexiones o registros Asterisk. Después, abre la web, pulsa **Admin** y vuelve a definir el usuario y la contraseña.
+El comando elimina el registro de administrador y las credenciales SSH guardadas; no borra la base de datos ni los nodos, favoritos, historial de conexiones o registros Asterisk. Después, abre la web, pulsa **Admin** y vuelve a definir el usuario y la contraseña.
 
 El reset de contraseña no rota `/etc/amerimon/jwt.secret` ni revoca tokens JWT ya emitidos. Si además se necesita invalidar todos los tokens, respalda y regenera el secreto JWT y reinicia el servicio:
 

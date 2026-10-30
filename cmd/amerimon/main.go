@@ -152,13 +152,14 @@ func main() {
 	}
 	defer database.Close()
 	config.App.DB = database
+	config.App.DBPath = *dbPath
 	config.App.UseDB = true
 
 	if *resetAdmin {
 		if err := controllers.ClearAdminPassword(database); err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("Contraseña de admin borrada: defina una nueva desde la web.")
+		fmt.Println("Contraseña de admin y credenciales SSH guardadas borradas: defina una nueva contraseña desde la web.")
 		return
 	}
 	if ok, err := controllers.AdminConfigured(database); err != nil {
