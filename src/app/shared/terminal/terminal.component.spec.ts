@@ -74,6 +74,37 @@ describe('TerminalComponent', () => {
   let fixture: ComponentFixture<TerminalComponent>;
   let component: TerminalComponent;
 
+  it('enables settings save only after changes and resets after saving', async () => {
+    createComponent();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const save: HTMLButtonElement = fixture.nativeElement.querySelector('.secondary-button');
+    expect(save.disabled).toBe(true);
+    const original = component.settings.host;
+    const host: HTMLInputElement = fixture.nativeElement.querySelector('input[name="host"]');
+    host.value = '192.0.2.10';
+    host.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    host.value = original;
+    host.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    component.settings.host = '192.0.2.11';
+    await component.saveSettings();
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    component.settings.username = 'operator';
+    component.password = 'new-password';
+    await component.saveSettings();
+    fixture.detectChanges();
+    expect(component.password).toBe('');
+    expect(save.disabled).toBe(true);
+  });
+
   beforeEach(async () => {
     localStorage.clear();
     vi.stubGlobal('ResizeObserver', class {

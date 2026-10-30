@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../core/environment';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
+import { FormChanges } from '../../core/utils/form-changes';
 
 type SSHAuthMethod = 'password' | 'publickey';
 type TerminalConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -52,6 +53,8 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
   private readonly translations = inject(TranslationService);
+  private readonly changes = new FormChanges();
+  readonly savingSettings = signal(false);
   private readonly terminal = new Terminal({
     cursorBlink: true,
     fontSize: 14,
@@ -89,6 +92,12 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.loadSettings();
+    this.changes.reset(this.settings);
+  }
+
+  hasSettingsChanges(): boolean {
+    return this.changes.changed(this.settings) ||
+      (this.settings.authMethod === 'password' ? this.password !== '' : this.privateKey !== '' || this.keyPassphrase !== '');
   }
 
   ngAfterViewInit(): void {
@@ -104,6 +113,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
   }
 
   async saveSettings(): Promise<void> {
+    if (this.savingSettings() || !this.hasSettingsChanges()) { return; }
     if (this.privateKeyReading) {
       this.status.set(this.translations.translate('SSH_PRIVATE_KEY_READING'));
       return;
@@ -114,6 +124,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
     }
     try {
       localStorage.setItem(settingsStorageKey, JSON.stringify(this.settings));
+      this.changes.reset(this.settings);
     } catch (error) {
       console.error('No se pudo guardar la configuración SSH.', error);
       this.status.set(this.translations.translate('SSH_CONFIG_SAVE_FAILED'));
@@ -132,6 +143,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
       this.status.set(this.translations.translate(messageKey));
       return;
     }
+    this.savingSettings.set(true);
     try {
       await firstValueFrom(this.http.post<{ status: string }>(
         `${environment.apiUrl}/terminal/credentials/save`,
@@ -142,6 +154,8 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('No se pudieron guardar las credenciales SSH cifradas.', error);
       this.status.set(this.translations.translate('SSH_CREDENTIALS_SAVE_FAILED'));
+    } finally {
+      this.savingSettings.set(false);
     }
   }
 

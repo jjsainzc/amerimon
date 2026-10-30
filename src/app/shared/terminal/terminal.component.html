@@ -99,7 +99,7 @@
     }
 
     <div class="form-actions">
-      <button type="button" class="secondary-button" [disabled]="privateKeyReading" (click)="saveSettings()">{{ 'SSH_SAVE_CONFIGURATION' | translate }}</button>
+      <button type="button" class="secondary-button" [disabled]="privateKeyReading || savingSettings() || !hasSettingsChanges()" (click)="saveSettings()">{{ 'SSH_SAVE_CONFIGURATION' | translate }}</button>
       @if (connectionState() === 'disconnected') {
         <button type="submit" class="primary-button">{{ 'SSH_CONNECT' | translate }}</button>
       } @else {
