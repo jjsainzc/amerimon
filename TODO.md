@@ -21,12 +21,12 @@
 
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
-- [ ] 8. Despues de crear las distribuciones .deb evaluar vaciar el contenido de internal/web/dist se esta acumulando los chunks js y otros files, mover los _test.go a los lugares adecuados, estan en varios lugares.
+- [x] 8. Despues de crear las distribuciones .deb limpiar el contenido generado de internal/web/dist, conservando .gitkeep. Mantener todos los tests junto al codigo o scripts que prueban, sin borrarlos ni regenerarlos. Revisados: los _test.go ya estan en sus paquetes correspondientes, incluidos los tests de instalacion en packaging.
 
-- [ ] 9. No es un bugs, pero para los dialogos que modifican informacion, poner por defecto el boton de guardar desactivado y habilitarlo solo si se han hecho cambios.
+- [x] 9. En los formularios y dialogos de edicion, Guardar empieza desactivado y se habilita solo con cambios; al restaurar los valores originales vuelve a desactivarse. Aplicado a perfil, favoritos, enlaces externos, Allmon, nodos privados, nodo principal/AMI, IAX/PJSIP y configuracion SSH. Se mantiene la validacion y los cambios tras errores para reintentar; las acciones de conexion y consulta no requieren cambios.
 
  
-- [ ] 10. Ver ajustes iax users, esconder las stanzas radio, allstar-sys y allstar-public, si en iax.conf, la stanza  iaxclient, aparece de esta forma `[iaxclient](!)` (quiere decir que es una plantilla), entonces buscar la linea `#tryinclude custom/iax/iaxrpt-users.conf` que aparece mas debao, y que es un path relativo a `/etc/asterisk`) y poner los users nuevos en esa sección, solo con este formato:
+- [x] 10. Ver ajustes iax users, esconder las stanzas radio, allstar-sys y allstar-public. Si en iax.conf aparece `[iaxclient](!)`, guardar los users nuevos en el archivo indicado por el `#tryinclude` dentro de ESA MISMA stanza, no en otra. La ruta no es fija: puede ser absoluta o relativa al directorio de iax.conf (normalmente `/etc/asterisk`). Sin esa plantilla, crearlos en iax.conf como hasta ahora. Los comentarios no determinan el destino. Los users del archivo incluido van con este formato:
   
 ```
     [<indicativo>](iaxclient)                ; pull in the config from the [iaxclient] section in
@@ -34,7 +34,7 @@
     secret = Your_Secret_Password_Here ; (user, secret, and callerid). n0call is the USERNAME in
     callerid = "<indicativo en mayúsculas>"                ; their client account configuration.
 ```
-  Si no aparece `[iaxclient](!)`, entonces crear los users como ya esta realizado.
+  Las secciones de usuario heredan de `[iaxclient]` cuando se usa ese archivo.
 
 - [x] 11. Componente que renderize un xterm.js (cliente ssh, que debe tener una pantalla de configuracion, host (por defecto el ipaddress del server principal), puerto y login/passwd o publickey), en la parte de angular en shared hay uno hecho llamado terminal.component para que lo adaptes con el estilo del proyecto, la forma de conexion debe priorizar lo que se configuró previamente, un detalle, para el publickey, este ya previamente debe existir en el server, en el backend dentro de controllers tengo un file que se llama terminal.go, para que lo adaptes a comportarse como lo hace, por ejemplo, un putty ssh client, la intencion es usar el mismo puerto websocket que se esta usando para el listen-live (por supuesto no se puede usar al mismo tiempo, para no tener que abrir otro adicioanl), ya esta instalado el xterm.js de angular, dentro de angular.json agre esto:
 ``` 
@@ -48,5 +48,14 @@
 
 - [ ] 12. El pjsip, a traves de un telefono Grandstream, se esta quedando sin audio de recepcion en ocasiones, para resolverlo lo que hago se desconecter y conectar el sip phone, no se si algunas de las operaciones que hicimos le hace tener esta fall, porque anteriormente no pasaba.
 
-> **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 
+  - Ocurre ocasionalmente durante una conexion normal, sin usar mute, desconexion desde la pagina ni Listen Live (la opcion para PJSIP esta oculta). La causa sigue sin confirmar; no cambiar parametros RTP ni configuraciones personalizadas sin evidencia.
+  - Cuando vuelva a fallar, **antes de desconectar o reconectar el telefono**, capturar estas salidas para revisar los canales y el trafico RTP:
 
+    ```bash
+    sudo asterisk -rx 'pjsip show channelstats'
+    sudo asterisk -rx 'core show channels concise'
+    ```
+
+  - Revisar tambien la coma adicional antes de `b(...)` en `Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))` del parche `packaging/pjsip-extensions-sip-phones-patch.conf`. Es una anomalia a investigar, no una causa demostrada de la perdida de audio.
+
+> **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes

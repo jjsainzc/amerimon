@@ -369,7 +369,7 @@ Accede mediante **Admin → Más opciones → Usuarios IAX / Extensiones PJSIP**
 1. Pulsa **Nuevo usuario IAX** o **Nueva extensión PJSIP**, o selecciona una entrada del listado para editarla.
 2. En IAX se editan **Nombre (sección)**, **Contexto**, **Secreto (contraseña)** y **Autenticación**. En PJSIP se editan **Número de extensión (ID)**, **Contexto**, **Contraseña**, **Identificador de llamada** y **Máximo de contactos**.
 3. El nombre o ID queda bloqueado durante la edición; no se admite renombrar desde estos formularios. El contexto y el secreto o contraseña son obligatorios; el máximo de contactos debe ser un entero positivo. Los identificadores admiten de 1 a 80 letras ASCII, números, punto, guion y guion bajo; IAX reserva `general`. El backend rechaza saltos de línea, caracteres nulos y delimitadores de comentario `;` y `#` en los valores enviados.
-4. **Guardar** aplica los cambios y vuelve a consultar la lista. Si el nombre IAX no coincide con el formato reconocido de indicativo de radioaficionado, se solicita confirmación porque la sección podría pertenecer a la configuración del sistema. Los indicativos reconocidos y las extensiones PJSIP se guardan directamente, sin esta advertencia. **Cancelar** cierra la edición sin guardar. **Eliminar** aparece al editar y solicita confirmación con el identificador de la entrada.
+4. **Guardar** permanece desactivado hasta que cambien los datos y el formulario sea válido; si se restauran los valores originales, vuelve a desactivarse. Al guardar aplica los cambios y vuelve a consultar la lista. Si el nombre IAX no coincide con el formato reconocido de indicativo de radioaficionado, se solicita confirmación porque la sección podría pertenecer a la configuración del sistema. Los indicativos reconocidos y las extensiones PJSIP se guardan directamente, sin esta advertencia. **Cancelar** cierra la edición sin guardar. **Eliminar** aparece al editar y solicita confirmación con el identificador de la entrada; admite nombres como `hc1lnm-m`, `hc1lnm-p` y otros nombres de usuario. La sección heredada `iaxrpt` permanece visible, pero no se puede eliminar.
 5. La confirmación de guardado para secciones que no parecen indicativos solo se aplica a IAX. Se puede marcar **No volver a mostrar este tipo de aviso**; la preferencia se guarda en este navegador y, desde entonces, los guardados de ese tipo se ejecutan sin volver a preguntar. También puede restablecerse desde **Admin → Personalizar cabecera → Restablecer advertencias y confirmaciones**.
 6. Si falla una operación, se muestra el error y se conservan los datos en edición para corregirlos o reintentar. **Recargar lista** reintenta la consulta sin guardar el formulario. En PJSIP, **Cancelar** descarta la edición y actualiza la lista; un guardado correcto también vuelve a la lista actualizada, tanto al crear como al editar. Guardar y eliminar quedan bloqueados mientras otra modificación está en curso.
 
@@ -377,10 +377,38 @@ Accede mediante **Admin → Más opciones → Usuarios IAX / Extensiones PJSIP**
 
 | Módulo | Archivo | Recarga por AMI |
 | --- | --- | --- |
-| IAX | `iax.conf` en el directorio de `ami.rpt_config_path`; por defecto `/etc/asterisk/iax.conf` | `iax2 reload` |
+| IAX | `iax.conf` en el directorio de `ami.rpt_config_path`; por defecto `/etc/asterisk/iax.conf`. Con `[iaxclient](!)`, los usuarios nuevos se guardan en el archivo de su propio `#tryinclude` | `iax2 reload` al crear, editar o eliminar usuarios |
 | PJSIP | `ami.pjsip_config_path`; por defecto `/etc/asterisk/pjsip.conf`. Si está vacío, se busca junto a `ami.rpt_config_path` | `module reload res_pjsip.so` al crear, editar o eliminar extensiones |
 
 El usuario del servicio necesita leer y escribir los archivos y crear archivos en su directorio. Antes de guardar se crea o reemplaza un respaldo `<archivo>.amerimon.bak` con permisos `0600`; el reemplazo del archivo de configuración es atómico, resuelve los enlaces simbólicos y conserva propietario, grupo y permisos. Si falla el respaldo, no se modifica la configuración. Incluye estos archivos y respaldos, que contienen contraseñas, en una política de acceso restringido y copia de seguridad; no dependen de la base SQLite.
+
+#### Usuarios IAX con plantilla e inclusión
+
+Amerimon comprueba si existe la plantilla `[iaxclient](!)` en `iax.conf`. El signo `!` indica que es una plantilla, no un usuario. Si existe, busca un único `#tryinclude` **dentro de esa misma stanza**, hasta la siguiente cabecera de sección. No utiliza los comentarios ni un include de otra stanza para decidir el destino. El nombre del archivo no es fijo:
+
+```ini
+[iaxclient](!)
+type = friend
+context = iax-client
+auth = md5
+host = dynamic
+#tryinclude custom/iax/iaxclient-users.conf
+```
+
+En este ejemplo los usuarios nuevos se escriben en `/etc/asterisk/custom/iax/iaxclient-users.conf`. Las rutas relativas parten del directorio de `iax.conf`; las absolutas se respetan. Si el archivo o sus directorios no existen, se crean automáticamente al guardar el primer usuario, sin tratar su ausencia como un error. El archivo nuevo usa permisos `0640`. Si ya existe, se conserva su contenido y se crea el respaldo antes de modificarlo.
+
+Cada usuario nuevo hereda de `iaxclient` y contiene solo sus datos particulares:
+
+```ini
+[hc1lnm-m](iaxclient)
+    user = hc1lnm-m
+    secret = CONTRASENA_DEL_USUARIO
+    callerid = "HC1LNM-M"
+```
+
+Los nombres deben ser únicos entre `iax.conf` y el archivo incluido. Se pueden usar sufijos `-m` o `-p` para distinguir clientes. Los usuarios existentes no se trasladan: los del archivo principal siguen allí, y los derivados de `iaxclient` en el incluido aparecen en el mismo listado para editar su secreto o eliminarlos, conservando las demás opciones al editar.
+
+Sin `[iaxclient](!)`, los usuarios nuevos se crean en `iax.conf` con el formato habitual. Si existe la plantilla pero falta un `#tryinclude` válido en ella, hay varios destinos o se usan comodines, se informa del problema sin guardar en otro archivo. Después de cada creación, modificación o eliminación se envía `iax2 reload` por AMI, también si se acaba de crear el archivo incluido.
 
 Las recargas usan las credenciales AMI configuradas en Amerimon y requieren autorización para ejecutar comandos CLI; no se ejecuta un binario `asterisk` mediante privilegios del navegador ni se reinicia Asterisk. **Si el archivo se guarda pero falla la recarga, no se revierte automáticamente:** la interfaz informa del guardado parcial. Comprueba AMI y los registros de Asterisk, revisa el contenido y recarga antes de repetir la operación. Una respuesta de recarga no garantiza que un teléfono se registre o tenga audio; verifica el resultado en Asterisk y en el cliente.
 
@@ -390,11 +418,11 @@ El icono de copia permite copiar el nombre o ID desde el listado sin abrir la ed
 
 #### Conservación de configuraciones personalizadas y límites
 
-IAX no lista `[general]` ni plantillas marcadas con `(!)`. PJSIP lista endpoints y relaciona sus referencias `auth` y `aors`, aunque los objetos tengan nombres distintos; los objetos globales y transportes no se tratan como extensiones. Al editar se conservan las opciones no expuestas, como transporte, usuario de autenticación y parámetros personalizados; las opciones expuestas se actualizan con los valores del formulario.
+IAX no lista `[general]`, `radio`, `allstar-sys`, `allstar-public` ni plantillas marcadas con `(!)`. Las secciones reservadas se protegen también en el backend. PJSIP lista endpoints y relaciona sus referencias `auth` y `aors`, aunque los objetos tengan nombres distintos; los objetos globales y transportes no se tratan como extensiones. Al editar se conservan las opciones no expuestas, como transporte, usuario de autenticación y parámetros personalizados; las opciones expuestas se actualizan con los valores del formulario, salvo los usuarios IAX derivados de `iaxclient`, cuya edición modifica solo el secreto.
 
-Solo se editan y eliminan secciones inequívocas del archivo principal. Para PJSIP se requiere un único objeto auth `userpass` y un único AOR, ambos locales al archivo y exclusivos del endpoint. Se rechazan sin escritura los objetos compartidos, duplicados, heredados de plantillas, las referencias múltiples o ausentes y las secciones que contienen directivas `#include`. No se recorren ni se editan archivos incluidos: una instalación distribuida entre varios archivos necesita revisión manual, también antes de crear un identificador que pudiera existir en un include.
+Solo se editan y eliminan secciones inequívocas del archivo principal, con la excepción IAX del archivo `#tryinclude` descrito arriba. Para PJSIP se requiere un único objeto auth `userpass` y un único AOR, ambos locales al archivo y exclusivos del endpoint. Se rechazan sin escritura los objetos compartidos, duplicados, heredados de plantillas, las referencias múltiples o ausentes y las secciones que contienen directivas `#include`. No se recorren otros archivos incluidos: una instalación distribuida entre varios archivos necesita revisión manual, también antes de crear un identificador que pudiera existir en otro include.
 
-Las nuevas extensiones PJSIP crean objetos endpoint, auth y AOR con el mismo ID; los nuevos usuarios IAX usan los valores predeterminados del formulario. No se crean contextos del dialplan, transportes ni reglas de red: el contexto seleccionado y la infraestructura de telefonía deben existir y ser compatibles con la instalación.
+Las nuevas extensiones PJSIP crean objetos endpoint, auth y AOR con el mismo ID; los nuevos usuarios IAX usan los valores del formulario sin plantilla o heredan de `iaxclient` en el modo incluido. No se crean contextos del dialplan, transportes ni reglas de red: el contexto seleccionado y la infraestructura de telefonía deben existir y ser compatibles con la instalación.
 
 ### Restablecer la cuenta de administrador
 

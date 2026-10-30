@@ -47,6 +47,7 @@ newtags:
 
 release:
 	goreleaser release --clean
+	node scripts/clean-web-dist.cjs
 
 copy-repo:
 	cp dist/*.deb $(REPO_DIR)/

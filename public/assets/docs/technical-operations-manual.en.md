@@ -369,7 +369,7 @@ Open **Admin → More options → IAX users / PJSIP extensions**, at `/admin/iax
 1. Click **New IAX user** or **New PJSIP extension**, or select a list entry to edit it.
 2. IAX exposes **Name (section)**, **Context**, **Secret (password)**, and **Authentication**. PJSIP exposes **Extension number (ID)**, **Context**, **Password**, **Caller ID**, and **Maximum contacts**.
 3. The name or ID is locked while editing; renaming is not supported by these forms. Context and secret or password are required; maximum contacts must be a positive integer. Identifiers accept 1 to 80 ASCII letters, numbers, periods, hyphens, and underscores; IAX reserves `general`. The backend rejects newlines, null characters, and the `;` and `#` comment delimiters in submitted values.
-4. **Save** applies changes and reloads the list. If the IAX name does not match the recognized amateur radio callsign format, a confirmation is requested because the section may belong to system configuration. Recognized callsigns and PJSIP extensions are saved directly, without this warning. **Cancel** closes the editor without saving. **Delete** is available while editing and requests confirmation containing the entry's identifier.
+4. **Save** remains disabled until values change and the form is valid; restoring the original values disables it again. Saving applies changes and reloads the list. If the IAX name does not match the recognized amateur radio callsign format, a confirmation is requested because the section may belong to system configuration. Recognized callsigns and PJSIP extensions are saved directly, without this warning. **Cancel** closes the editor without saving. **Delete** is available while editing and requests confirmation containing the entry's identifier; names such as `hc1lnm-m`, `hc1lnm-p`, and other usernames are supported. The legacy `iaxrpt` section remains visible but cannot be deleted.
 5. The save confirmation for sections that do not look like callsigns only applies to IAX. You can select **Do not show this type of notice again**; the preference is stored in this browser and future saves of this type proceed without asking. It can also be reset from **Admin → Customize Header → Reset warnings and confirmations**.
 6. If an operation fails, the error is displayed and the edited data is retained for correction or retry. **Reload list** retries the query without saving the form. In PJSIP, **Cancel** discards edits and refreshes the list; a successful save also returns to the refreshed list, both when creating and editing. Saving and deleting are disabled while another modification is in progress.
 
@@ -377,10 +377,38 @@ Open **Admin → More options → IAX users / PJSIP extensions**, at `/admin/iax
 
 | Module | File | AMI reload |
 | --- | --- | --- |
-| IAX | `iax.conf` in the directory containing `ami.rpt_config_path`; defaults to `/etc/asterisk/iax.conf` | `iax2 reload` |
+| IAX | `iax.conf` in the directory containing `ami.rpt_config_path`; defaults to `/etc/asterisk/iax.conf`. With `[iaxclient](!)`, new users go into the file specified by its own `#tryinclude` | `iax2 reload` when creating, editing, or deleting users |
 | PJSIP | `ami.pjsip_config_path`; defaults to `/etc/asterisk/pjsip.conf`. If empty, it is located alongside `ami.rpt_config_path` | `module reload res_pjsip.so` when creating, editing, or deleting extensions |
 
 The service user needs to read and write the files and create files in their directory. Before saving, an `<file>.amerimon.bak` backup is created or replaced with mode `0600`; configuration replacement is atomic, resolves symbolic links, and preserves owner, group, and permissions. If backup creation fails, the configuration is not changed. Include these files and backups, which contain passwords, in a restricted-access and backup policy; they are independent of SQLite.
+
+#### IAX users with a template and included file
+
+Amerimon checks for the `[iaxclient](!)` template in `iax.conf`. The `!` marks a template, not a user. When present, it looks for exactly one `#tryinclude` **inside that same stanza**, stopping at the next section header. Comments and includes in other stanzas do not determine the destination. The filename is not fixed:
+
+```ini
+[iaxclient](!)
+type = friend
+context = iax-client
+auth = md5
+host = dynamic
+#tryinclude custom/iax/iaxclient-users.conf
+```
+
+In this example, new users are written to `/etc/asterisk/custom/iax/iaxclient-users.conf`. Relative paths are resolved from the directory containing `iax.conf`; absolute paths are respected. If the file or its directories are missing, they are created automatically when saving the first user; absence is not treated as an error. A new file uses mode `0640`. Existing content is preserved and backed up before modifications.
+
+Each new user inherits from `iaxclient` and contains only user-specific settings:
+
+```ini
+[hc1lnm-m](iaxclient)
+    user = hc1lnm-m
+    secret = USER_PASSWORD
+    callerid = "HC1LNM-M"
+```
+
+Names must be unique across `iax.conf` and the included file. Suffixes such as `-m` or `-p` can distinguish clients. Existing users are not moved: main-file users stay there, while users inheriting from `iaxclient` in the included file appear in the same list for password editing or deletion. Editing preserves their other settings.
+
+Without `[iaxclient](!)`, new users are created in `iax.conf` using the previous format. If the template exists but lacks a valid `#tryinclude` inside its stanza, has multiple destinations, or uses wildcards, an error is reported instead of saving elsewhere. Every successful creation, modification, or deletion sends `iax2 reload` through AMI, including creation of the included file.
 
 Reloads use Amerimon's configured AMI credentials and require permission to execute CLI commands; no `asterisk` binary is executed through browser privileges, and Asterisk is not restarted. **If the file is saved but the reload fails, there is no automatic rollback:** the interface reports the partial save. Check AMI and Asterisk logs, review the content, and reload before repeating the operation. A reload response does not guarantee phone registration or audio; verify the result in Asterisk and on the client.
 
@@ -390,11 +418,11 @@ The copy icon copies the name or ID from the list without opening the editor, an
 
 #### Preserving customized configurations and limitations
 
-IAX does not list `[general]` or templates marked with `(!)`. PJSIP lists endpoints and follows their `auth` and `aors` references, even when the objects have different names; global and transport objects are not treated as extensions. Editing preserves unexposed settings, such as transport, authentication username, and custom parameters; exposed settings are updated with the form values.
+IAX does not list `[general]`, `radio`, `allstar-sys`, `allstar-public`, or templates marked with `(!)`. Reserved sections are also protected by the backend. PJSIP lists endpoints and follows their `auth` and `aors` references, even when the objects have different names; global and transport objects are not treated as extensions. Editing preserves unexposed settings, such as transport, authentication username, and custom parameters; exposed settings are updated with the form values, except for IAX users inheriting from `iaxclient`, for which editing changes only the secret.
 
-Only unambiguous sections in the main file can be edited or deleted. PJSIP requires one `userpass` auth object and one AOR, both in that file and exclusive to the endpoint. Shared, duplicate, or template-inherited objects, multiple or missing references, and sections containing `#include` directives are rejected without writing. Included files are not traversed or edited: installations split across several files require manual review, including before creating an identifier that might already exist in an include.
+Only unambiguous sections in the main file can be edited or deleted, with the IAX `#tryinclude` file exception described above. PJSIP requires one `userpass` auth object and one AOR, both in that file and exclusive to the endpoint. Shared, duplicate, or template-inherited objects, multiple or missing references, and sections containing `#include` directives are rejected without writing. Other included files are not traversed: installations split across several files require manual review, including before creating an identifier that might already exist in another include.
 
-New PJSIP extensions create endpoint, auth, and AOR objects with the same ID; new IAX users use the form defaults. Dialplan contexts, transports, and network rules are not created: the selected context and telephony infrastructure must already exist and be compatible with the installation.
+New PJSIP extensions create endpoint, auth, and AOR objects with the same ID; new IAX users use form values without a template or inherit from `iaxclient` in included-file mode. Dialplan contexts, transports, and network rules are not created: the selected context and telephony infrastructure must already exist and be compatible with the installation.
 
 ### Resetting the administrator account
 

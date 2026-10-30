@@ -47,7 +47,15 @@ El paquete `.deb` declara `libc-bin`, `libnss-mdns` y `avahi-daemon` como depend
 
 El servidor remoto debe publicar su nombre y la red debe permitir mDNS. Consulta [Usar hostname en la LAN](docs/hostname-lan.md). `install.sh` es una herramienta de instalación desde fuentes para desarrollo, no el mecanismo de distribución a otros equipos.
 
+## Limpieza posterior a la distribución
+
+Al finalizar correctamente GoReleaser mediante `make release` (incluido en `make dist`), se ejecuta `node scripts/clean-web-dist.cjs`. Este paso elimina únicamente el frontend generado de `internal/web/dist`, conservando `.gitkeep` para `go:embed`. Los binarios y paquetes de `dist/` ya contienen el frontend y no se modifican. Si la distribución falla, el frontend se conserva para diagnóstico. Si ejecutas GoReleaser directamente, la limpieza no es automática. Para volver a ejecutar el binario desde fuentes con interfaz embebida, usa `make run` o ejecuta antes `npm run build`.
+
+Los tests se conservan junto al código que prueban: los `_test.go` en su paquete Go y los tests de instalación junto a los scripts en `packaging/`. La limpieza no los elimina ni los regenera. El script de limpieza se verifica con `node --test scripts/clean-web-dist.test.cjs`.
+
 ## Primer acceso
+
+Los botones de guardado de configuración y los diálogos de edición permanecen desactivados hasta que haya cambios respecto a los valores cargados. Restaurar los valores originales vuelve a desactivarlos; guardar correctamente o recargar establece una nueva referencia. Se conservan las validaciones, el bloqueo durante operaciones y los cambios pendientes cuando falla un guardado. Las acciones de consulta y conexión no requieren modificar una configuración.
 
 ### Usuarios IAX y extensiones PJSIP
 
@@ -56,6 +64,10 @@ En **Admin → Más opciones → Usuarios IAX / Extensiones PJSIP** se abren pá
 Al guardar una sección IAX cuyo nombre no coincide con el formato reconocido de indicativo de radioaficionado, la aplicación pide confirmación porque podría pertenecer a la configuración del sistema. Esta advertencia admite **No volver a mostrar este tipo de aviso** por navegador y no se aplica a las extensiones PJSIP, cuyos identificadores no tienen que ser indicativos.
 
 IAX utiliza `iax.conf` junto al archivo configurado en `ami.rpt_config_path`; PJSIP utiliza `ami.pjsip_config_path`. El usuario del servicio Amerimon necesita lectura y escritura sobre estos archivos y su directorio para crear el respaldo `.amerimon.bak` y reemplazar el contenido de forma atómica, conservando propietario y permisos. Las recargas se envían por AMI (`iax2 reload` / `module reload res_pjsip.so`), con las credenciales ya configuradas, no ejecutando Asterisk como root. PJSIP recarga el módulo al crear, editar o eliminar extensiones. Si falla la recarga después de guardar, se informa explícitamente: revisa AMI y los registros de Asterisk antes de reintentar.
+
+IAX oculta y protege las secciones `radio`, `allstar-sys` y `allstar-public`. Si existe `[iaxclient](!)`, los usuarios nuevos se guardan en el archivo definido por un único `#tryinclude` dentro de esa misma stanza y heredan de `iaxclient`. Las rutas relativas se resuelven desde el directorio de `iax.conf`; las absolutas se respetan. No se utilizan includes de otras stanzas ni comentarios para elegir el destino. Si falta el include o el destino es ambiguo, se informa un error sin modificar archivos. Sin la plantilla, los usuarios nuevos se siguen creando en `iax.conf`; los existentes no se trasladan.
+
+Para eliminar un usuario IAX, abre su edición y pulsa **Eliminar**; se solicita confirmación independientemente del formato del nombre. La sección heredada `iaxrpt` permanece visible pero no se puede eliminar.
 
 PJSIP agrupa cada endpoint con sus referencias `auth` y `aors`, aunque los tres objetos tengan nombres distintos, y conserva opciones no expuestas en los formularios. Para editar o eliminar se requiere un único objeto auth `userpass` y un único AOR, exclusivos del endpoint y presentes en el archivo principal. Las plantillas, los objetos compartidos y las configuraciones ambiguas se rechazan sin modificarlos; los archivos incluidos mediante `#include` no se recorren ni se editan, y se bloquean las operaciones sobre secciones que contienen estas directivas. Antes de trabajar con una configuración heredada o distribuida, revísala manualmente.
 
