@@ -18,6 +18,7 @@
 ```
 /whitelist/HC1LNM                             : JJSC
 ```
+
 `database put <whilelist|blacklist> <callsing> <motivo>`
 
 - [ ] 8. Despues de crear las distribuciones .deb evaluar vaciar el contenido de internal/web/dist se esta acumulando los chunks js y otros files.
@@ -25,6 +26,16 @@
 - [ ] 9. No es un bugs para los dialogos que modifican informacion, poner por defecto el boton de guardar desactivado y habilitarlo solo si se han hecho cambios.
 
  
+- [ ] 10. Ver ajustes iax users, esconder radio, allstar-sys y allstar-public, si en iax.conf, la stanza  iaxclient, aparece asi `[iaxclient](!)`, entonces buscar en esta linea `#tryinclude custom/iax/iaxrpt-users.conf` (path relativo debajo de `/etc/asterisk`) y poner los users nuevos en esa sección, solo con este formato:
+  
+```
+    [<indicativo>](iaxclient)                ; pull in the config from the [iaxclient] section in
+    user = <indicativo>                      ; iax.conf and then add this user's specific information
+    secret = Your_Secret_Password_Here ; (user, secret, and callerid). n0call is the USERNAME in
+    callerid = "<indicativo en mayúsculas>"                ; their client account configuration.
+```
+  Si no aparece `[iaxclient](!)`, entonces crear los users como ya esta realizado.
 
+- [ ] 11. Ver la posibilidad de poner una pantalla cliente ssh por el puesto 22, que apunte al ip address del servidor principal.
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes 
