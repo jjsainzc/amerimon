@@ -240,10 +240,12 @@ case "$2" in
                 exit 0
             fi
         fi
-        if [ "$module" = "$PJSIP_TEST_FAIL" ]; then
-            printf 'Dependency unavailable\n'
+        case " $PJSIP_TEST_FAIL " in
+        *" $module "*)
+            printf 'Dependency unavailable\nModule initialization declined\n'
             exit 0
-        fi
+            ;;
+        esac
         : > "$PJSIP_TEST_STATE/$module"
         ;;
     *) exit 1 ;;
@@ -263,7 +265,8 @@ esac
 	)
 	command.Env = append(command.Env, extraEnv...)
 	output, err := command.CombinedOutput()
-	if slices.Contains(extraEnv, "PJSIP_TEST_FAIL=chan_pjsip.so") {
+	if slices.Contains(extraEnv, "PJSIP_TEST_EXPECT_FAILURE=yes") ||
+		slices.Contains(extraEnv, "PJSIP_TEST_FAIL=chan_pjsip.so") {
 		if err == nil {
 			t.Fatal("installation must fail explicitly when a required module cannot run")
 		}
@@ -274,6 +277,58 @@ esac
 	}
 
 	return output
+}
+
+func TestPJSIPOptionalPublicationFailure(t *testing.T) {
+	for _, requiredFailure := range []bool{false, true} {
+		t.Run("required-failure="+map[bool]string{false: "no", true: "yes"}[requiredFailure], func(t *testing.T) {
+			dir := t.TempDir()
+			stateDir := filepath.Join(dir, "state")
+			moduleDir := filepath.Join(dir, "custom modules")
+			for _, path := range []string{stateDir, moduleDir} {
+				if err := os.Mkdir(path, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			module := "res_pjsip_publish_asterisk.so"
+			modulePath := filepath.Join(moduleDir, module)
+			if err := os.WriteFile(modulePath, nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			config := "[directories](!)\nastvarlibdir => /var/lib/asterisk\nastmoddir => " + moduleDir + " ; custom path\n[options]\nentityid = 00:11:22:33:44:55\n"
+			configPath := filepath.Join(dir, "asterisk.conf")
+			if err := os.WriteFile(configPath, []byte(config), 0o640); err != nil {
+				t.Fatal(err)
+			}
+			env := []string{"PJSIP_TEST_LOG=" + filepath.Join(dir, "loads.log"), "PJSIP_TEST_STATE=" + stateDir}
+			failed := module
+			if requiredFailure {
+				failed += " chan_pjsip.so"
+				env = append(env, "PJSIP_TEST_EXPECT_FAILURE=yes")
+			}
+			env = append(env, "PJSIP_TEST_FAIL="+failed)
+			output := string(runPJSIPConfiguration(t, dir, dir, env...))
+			for _, expected := range []string{"Aviso: módulo opcional " + module, modulePath, "Dependency unavailable\nModule initialization declined", "Entity ID"} {
+				if !strings.Contains(output, expected) {
+					t.Fatalf("missing diagnostic %q:\n%s", expected, output)
+				}
+			}
+			if strings.Contains(output, "todos los módulos requeridos están en estado Running") == requiredFailure {
+				t.Fatalf("activation status must reflect required modules:\n%s", output)
+			}
+			if requiredFailure && !strings.Contains(output, "no confirmó la carga de chan_pjsip.so") {
+				t.Fatalf("optional failure must not hide a required failure:\n%s", output)
+			}
+			after, err := os.ReadFile(configPath)
+			if err != nil || string(after) != config {
+				t.Fatalf("asterisk.conf must not be changed: %v", err)
+			}
+			modules, err := os.ReadFile(filepath.Join(dir, "modules.conf"))
+			if err != nil || !strings.Contains(string(modules), "load   = "+module) {
+				t.Fatalf("optional module directive must be preserved: %v", err)
+			}
+		})
+	}
 }
 
 func TestPJSIPLoadsDependenciesUntilAllModulesAreRunning(t *testing.T) {
@@ -312,7 +367,7 @@ func TestPJSIPLoadsDependenciesUntilAllModulesAreRunning(t *testing.T) {
 }
 
 func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
-	for _, failedModule := range []string{"", "chan_pjsip.so"} {
+	for _, failedModule := range []string{"", "chan_pjsip.so", "res_pjsip.so"} {
 		t.Run("failed-module="+failedModule, func(t *testing.T) {
 			dir := t.TempDir()
 			astDir := filepath.Join(dir, "asterisk")
@@ -338,8 +393,11 @@ func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
 			logPath := filepath.Join(dir, "loaded.log")
 			dirs := filepath.Join(dir, "lib", "*", "asterisk", "modules") + " " + standardDir
 			for run := 0; run < 2; run++ {
-				output := runPJSIPConfiguration(t, astDir, dirs,
-					"PJSIP_TEST_LOG="+logPath, "PJSIP_TEST_STATE="+stateDir, "PJSIP_TEST_FAIL="+failedModule)
+				env := []string{"PJSIP_TEST_LOG=" + logPath, "PJSIP_TEST_STATE=" + stateDir, "PJSIP_TEST_FAIL=" + failedModule}
+				if failedModule != "" {
+					env = append(env, "PJSIP_TEST_EXPECT_FAILURE=yes")
+				}
+				output := runPJSIPConfiguration(t, astDir, dirs, env...)
 				for _, module := range []string{"chan_pjsip.so", "res_pjsip.so"} {
 					if strings.Contains(string(output), "no instalado: "+module+";") {
 						t.Fatalf("installed module was not discovered: %s", output)
@@ -350,6 +408,15 @@ func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
 				}
 				if failedModule != "" && !strings.Contains(string(output), "Respuesta de Asterisk: Dependency unavailable") {
 					t.Fatalf("Asterisk error text must be reported even when the CLI exits successfully: %s", output)
+				}
+				if failedModule != "" {
+					expectedPath := filepath.Join(multiarchDir, failedModule)
+					if failedModule == "res_pjsip.so" {
+						expectedPath = filepath.Join(standardDir, failedModule)
+					}
+					if !strings.Contains(string(output), expectedPath) {
+						t.Fatalf("module discovery must report its actual location: %s", output)
+					}
 				}
 				if failedModule == "" && strings.Contains(string(output), "no confirmó la carga") {
 					t.Fatalf("running modules must not generate load warnings: %s", output)
@@ -368,11 +435,15 @@ func TestPJSIPModuleDiscoveryAndLoading(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Count(string(loads), "res_pjsip.so\n") != 1 {
+			expectedResourceLoads := 1
+			if failedModule == "res_pjsip.so" {
+				expectedResourceLoads = 3
+			}
+			if strings.Count(string(loads), "res_pjsip.so\n") != expectedResourceLoads {
 				t.Fatalf("module must be loaded once and skipped when already loaded: %s", loads)
 			}
 			expectedLoads := 1
-			if failedModule != "" {
+			if failedModule == "chan_pjsip.so" {
 				expectedLoads = 3
 			}
 			if strings.Count(string(loads), "chan_pjsip.so\n") != expectedLoads {

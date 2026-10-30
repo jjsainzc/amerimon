@@ -180,7 +180,37 @@ module_running() {
         '
 }
 
+module_location() {
+    if [ -n "$configured_module_dir" ] && [ -f "$configured_module_dir/$1" ]; then
+        printf '%s\n' "$configured_module_dir/$1"
+        return
+    fi
+    for module_dir in ${ASTERISK_MODULE_DIRS:-/usr/lib/*/asterisk/modules /usr/lib/asterisk/modules /usr/lib64/asterisk/modules /usr/local/lib/asterisk/modules}; do
+        if [ -f "$module_dir/$1" ]; then
+            printf '%s\n' "$module_dir/$1"
+            return
+        fi
+    done
+    printf 'no encontrado en astmoddir ni en las rutas de búsqueda\n'
+}
+
 if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev/null 2>&1; then
+    configured_module_dir=
+    if [ -r "$AST_DIR/asterisk.conf" ]; then
+        configured_module_dir=$(awk '
+            { sub(/;.*/, "") }
+            /^[[:space:]]*\[/ {
+                in_directories = ($0 ~ /^[[:space:]]*\[directories\]([[:space:]]*\(!\))?[[:space:]]*$/)
+                next
+            }
+            in_directories && /^[[:space:]]*astmoddir[[:space:]]*=>?/ {
+                sub(/^[[:space:]]*astmoddir[[:space:]]*=>?[[:space:]]*/, "")
+                sub(/[[:space:]]+$/, "")
+                directory = $0
+            }
+            END { print directory }
+        ' "$AST_DIR/asterisk.conf")
+    fi
     # Load infrastructure before SIP resources and the channel driver.
     pending_modules=$(printf '%s\n' "$AVAILABLE_MODULES" | awk '
         {
@@ -217,9 +247,31 @@ if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev
             fi
         done
         if [ -n "$next_pending" ] && [ "$progress" -eq 0 ]; then
-            cat "$load_errors" >&2
-            echo "Error: no se pudo activar PJSIP. La configuración y sus respaldos se conservaron; no se reinició Asterisk." >&2
-            exit 1
+            required_failed=0
+            for module in $next_pending; do
+                location=$(module_location "$module")
+                severity=Error
+                if [ "$module" = res_pjsip_publish_asterisk.so ]; then
+                    severity=Aviso
+                    printf 'Aviso: módulo opcional %s no activo; solo afecta al intercambio de eventos PUBLISH entre servidores, no a las extensiones SIP.\n' "$module" >&2
+                    echo "Revise el registro de Asterisk: este módulo puede rechazar la carga si falta Entity ID (consulte core show settings), aunque el archivo exista. No se modificó entityid." >&2
+                else
+                    required_failed=1
+                fi
+                printf 'Ubicación de %s: %s\n' "$module" "$location" >&2
+                awk -v module="$module" -v severity="$severity" '
+                    /^Error: Asterisk no confirmó la carga de / {
+                        selected = index($0, "la carga de " module " ") > 0
+                        if (selected) sub(/^Error:/, severity ":")
+                    }
+                    selected { print }
+                ' "$load_errors" >&2
+            done
+            if [ "$required_failed" -eq 1 ]; then
+                echo "Error: no se pudo activar PJSIP. La configuración y sus respaldos se conservaron; no se reinició Asterisk." >&2
+                exit 1
+            fi
+            break
         fi
         pending_modules=$next_pending
     done
