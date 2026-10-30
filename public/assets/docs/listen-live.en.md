@@ -14,10 +14,10 @@ flowchart LR
     TCP -->|PCM SLIN16| Stream[AudioStreamManager]
     Frontend <-->|Binary WebSocket<br/>/api/listen-live/ws?uuid=...| Stream
     Frontend -->|Processed audio| Speaker[Browser audio]
-    Frontend -->|PATCH fecha_fin on close| DB[(MariaDB: listenlive)]
+    Frontend -->|PATCH fecha_fin on close| DB[(SqLite3: listenlive)]
 ```
 
-The UUID correlates Asterisk's audio stream with the WebSocket. The MariaDB listening session is identified by `listenliveid` and belongs to a user; these identifiers serve different purposes.
+The UUID correlates Asterisk's audio stream with the WebSocket. The SqLite3 listening session is identified by `listenliveid` and belongs to a user; these identifiers serve different purposes.
 
 ## Starting and routing audio
 
@@ -27,7 +27,7 @@ sequenceDiagram
     actor U as User
     participant F as Frontend
     participant API as Go backend
-    participant DB as MariaDB
+    participant DB as SqLite3
     participant AMI as Asterisk AMI
     participant AST as Asterisk / EAGI
     participant TCP as TCP listener :8086
@@ -75,7 +75,7 @@ sequenceDiagram
     participant TCP as EAGI stream
     participant AST as Asterisk
     participant API as Sessions API
-    participant DB as MariaDB
+    participant DB as SqLite3
 
     WS-->>F: Periodic Ping
     F-->>WS: Automatic browser Pong
@@ -106,6 +106,6 @@ When EAGI detects that there are no listeners left, it closes its TCP connection
 
 ### Who updates `fecha_fin`
 
-Closing the WebSocket **does not directly update MariaDB** in the current backend. The frontend must retain the `listenliveid` returned when the session is created and call `PATCH /api/listen-live/sessions/{id}` with an RFC3339 timestamp when playback stops or ends. The route verifies that a regular user can only close their own session.
+Closing the WebSocket **does not directly update SqLite3** in the current backend. The frontend must retain the `listenliveid` returned when the session is created and call `PATCH /api/listen-live/sessions/{id}` with an RFC3339 timestamp when playback stops or ends. The route verifies that a regular user can only close their own session.
 
 This works for closures the browser can process. If the browser process exits or the network disappears abruptly, the PATCH may not arrive; the heartbeat detects the dead connection and stops the audio stream, but does not close the database row by itself.

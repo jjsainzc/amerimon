@@ -14,10 +14,10 @@ flowchart LR
     TCP -->|PCM SLIN16| Stream[AudioStreamManager]
     Frontend <-->|WebSocket binario<br/>/api/listen-live/ws?uuid=...| Stream
     Frontend -->|Audio procesado| Speaker[Audio del navegador]
-    Frontend -->|PATCH fecha_fin al cerrar| DB[(MariaDB: listenlive)]
+    Frontend -->|PATCH fecha_fin al cerrar| DB[(SqLite3: listenlive)]
 ```
 
-El UUID correlaciona el flujo de audio de Asterisk con el WebSocket. La sesión de escucha de MariaDB se identifica por `listenliveid` y pertenece a un usuario; son identificadores con funciones distintas.
+El UUID correlaciona el flujo de audio de Asterisk con el WebSocket. La sesión de escucha de SqLite3 se identifica por `listenliveid` y pertenece a un usuario; son identificadores con funciones distintas.
 
 ## Inicio y recorrido del audio
 
@@ -27,7 +27,7 @@ sequenceDiagram
     actor U as Usuario
     participant F as Frontend
     participant API as Backend Go
-    participant DB as MariaDB
+    participant DB as SqLite3
     participant AMI as Asterisk AMI
     participant AST as Asterisk / EAGI
     participant TCP as Listener TCP :8086
@@ -75,7 +75,7 @@ sequenceDiagram
     participant TCP as Flujo EAGI
     participant AST as Asterisk
     participant API as API de sesiones
-    participant DB as MariaDB
+    participant DB as SqLite3
 
     WS-->>F: Ping periódico
     F-->>WS: Pong automático del navegador
@@ -106,6 +106,6 @@ Cuando EAGI detecta que ya no quedan oyentes, cierra su conexión TCP; al termin
 
 ### Quién actualiza `fecha_fin`
 
-El cierre del WebSocket **no actualiza directamente MariaDB** en el backend actual. El frontend debe conservar el `listenliveid` devuelto al crear la sesión y llamar a `PATCH /api/listen-live/sessions/{id}` con una fecha RFC3339 al detener o finalizar la reproducción. La ruta verifica que un usuario normal solo cierre su propia sesión.
+El cierre del WebSocket **no actualiza directamente SqLite3** en el backend actual. El frontend debe conservar el `listenliveid` devuelto al crear la sesión y llamar a `PATCH /api/listen-live/sessions/{id}` con una fecha RFC3339 al detener o finalizar la reproducción. La ruta verifica que un usuario normal solo cierre su propia sesión.
 
 Esto funciona para cierres que el navegador puede procesar. Si el proceso del navegador termina o la red desaparece abruptamente, el PATCH podría no llegar; el heartbeat detecta la conexión muerta y detiene el flujo de audio, pero no cierra por sí solo la fila de la tabla.

@@ -106,7 +106,7 @@ describe('App', () => {
     expect(element.querySelector('form.dialogo')).toBeNull();
   });
 
-  it('shows a compact footer with the backend version and SQLite instead of MariaDB', async () => {
+  it('shows a compact footer with the backend version and SQLite instead of SqLite3', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     TestBed.inject(HttpTestingController).expectOne(`${environment.apiUrl}/site-settings`)
@@ -118,7 +118,7 @@ describe('App', () => {
     expect(footer.textContent).toContain('Angular Framework');
     expect(footer.textContent).toContain('SQLite3');
     expect(footer.textContent).toContain('Go Language');
-    expect(footer.textContent).not.toMatch(/MariaDB|Términos|Condiciones|Nosotros|Privacidad/);
+    expect(footer.textContent).not.toMatch(/SqLite3|Términos|Condiciones|Nosotros|Privacidad/);
     expect(footer.querySelector('img[src="assets/images/sqlite.svg"]')).not.toBeNull();
     expect(footer.querySelectorAll('a')).toHaveLength(0);
   });
