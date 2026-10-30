@@ -52,7 +52,7 @@
 
           <div class="sip-users-acciones">
             <button type="button" (click)="cancelarEdicion()" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
-            <button type="submit" [disabled]="formulario.invalid || guardando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
+            <button type="submit" [disabled]="formulario.invalid || guardando() || !cambios.changed(extActual())">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
             @if (esEdicion()) {
               <button type="button" class="sip-users-eliminar" (click)="eliminarExtension(extActual().id)" [disabled]="guardando()">
                 <i class="fa-solid fa-trash-can" aria-hidden="true"></i> {{ 'ELIMINAR' | translate }}

@@ -54,7 +54,7 @@
 
     <div class="allmon-acciones">
       <button type="button" (click)="agregar()">{{ 'AGREGAR_NODO' | translate }}</button>
-      <button type="submit" [disabled]="guardando() || !escribible()">{{ 'GUARDAR' | translate }}</button>
+      <button type="submit" [disabled]="guardando() || cargando() || !escribible() || !cambios.changed(filas())">{{ 'GUARDAR' | translate }}</button>
     </div>
   </form>
 </section>

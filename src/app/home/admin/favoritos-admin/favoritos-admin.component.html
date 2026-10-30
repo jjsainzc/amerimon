@@ -86,7 +86,7 @@
         </label>
         <div class="fa-form-acciones">
           <button type="button" class="fa-btn" (click)="cerrarFormulario()" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
-          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando() || buscando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
+          <button type="submit" class="fa-btn fa-primario" [disabled]="guardando() || buscando() || form.invalid || !nodoSeleccionado() || !cambios.changed(datosFormulario())">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
         </div>
       </form>
     </section>

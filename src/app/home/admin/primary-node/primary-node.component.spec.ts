@@ -42,6 +42,39 @@ describe('Primary node administration', () => {
     return { fixture, http, component: fixture.componentInstance, element: fixture.nativeElement as HTMLElement };
   }
 
+  it('tracks configuration and AMI independently and ignores network calculator-only edits', async () => {
+    const { fixture, http, component, element } = await crear();
+    const saves = element.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
+    expect(saves[0].disabled).toBe(true);
+    expect(saves[1].disabled).toBe(true);
+    component.solicitarGuardado();
+    component.guardarAMI();
+    http.expectNone(url);
+    http.expectNone(`${url}/ami`);
+    const callsign = element.querySelector<HTMLInputElement>('input[name="indicativo"]')!;
+    callsign.value = 'TEST2';
+    callsign.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(saves[0].disabled).toBe(false);
+    expect(saves[1].disabled).toBe(true);
+    callsign.value = config.callsign;
+    callsign.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    component.entradaRed.set('192.0.2.1/24');
+    component.calcularRed();
+    fixture.detectChanges();
+    expect(saves[0].disabled).toBe(true);
+    expect(saves[1].disabled).toBe(true);
+    component.agregarRed();
+    fixture.detectChanges();
+    expect(saves[1].disabled).toBe(false);
+    component.permitsNuevas.set('');
+    fixture.detectChanges();
+    expect(saves[1].disabled).toBe(true);
+    http.verify();
+  });
+
   it('keeps allowlist clearing independent from denylist clearing and configuration saving', async () => {
     const { fixture, http, component } = await crear();
     component.solicitarVaciado('allowlist');
@@ -57,6 +90,7 @@ describe('Primary node administration', () => {
     component.solicitarVaciado('denylist');
     expect(component.vaciadoPendiente()?.tipo).toBe('denylist');
     http.expectNone(`${url}/access/clear`);
+    component.indicativo = 'TEST2';
     component.solicitarGuardado();
     expect(component.confirmando()).toBe(true);
     http.expectNone(url);

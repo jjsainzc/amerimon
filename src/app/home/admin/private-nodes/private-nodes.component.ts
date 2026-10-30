@@ -6,6 +6,7 @@ import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.
 import { PrivateNodesService } from '../../../core/services/private-nodes.service';
 import { TranslationService } from '../../../core/services/translation.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 @Component({
   selector: 'app-private-nodes',
@@ -17,6 +18,7 @@ import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 export class PrivateNodesComponent implements OnInit {
   private readonly service = inject(PrivateNodesService);
   private readonly translation = inject(TranslationService);
+  readonly cambios = new FormChanges();
 
   readonly lineas = signal<string[]>([]);
   readonly ruta = signal('');
@@ -41,6 +43,7 @@ export class PrivateNodesComponent implements OnInit {
         this.ruta.set(respuesta.path);
         this.escribible.set(respuesta.writable);
         this.lineas.set(respuesta.lines);
+        this.cambios.reset(this.lineas());
       },
       error: (error: HttpErrorResponse) => {
         this.cargando.set(false);
@@ -66,6 +69,7 @@ export class PrivateNodesComponent implements OnInit {
 
   /** Guarda las líneas editadas y vuelve a cargar el archivo confirmado. */
   guardar(): void {
+    if (this.guardando() || this.cargando() || !this.cambios.changed(this.lineas())) { return; }
     this.error.set('');
     this.aviso.set('');
     this.guardando.set(true);

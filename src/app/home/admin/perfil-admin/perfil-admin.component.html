@@ -1,5 +1,5 @@
 <section class="admin-page">
-  <form class="admin-page-form" (ngSubmit)="guardar()">
+  <form class="admin-page-form" #formulario="ngForm" (ngSubmit)="formulario.valid && guardar()">
     <h1>{{ 'PERFIL_ADMINISTRADOR' | translate }}</h1>
     <h2>{{ 'CONFIGURACION_GENERAL' | translate }}</h2>
     @if (cargando()) {
@@ -20,7 +20,7 @@
       @if (error()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }
       <div class="admin-page-actions">
         <a routerLink="/allstarlink">{{ 'CANCELAR' | translate }}</a>
-        <button type="submit" [disabled]="guardando()">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
+        <button type="submit" [disabled]="formulario.invalid || guardando() || !cambios.changed(datosFormulario())">{{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}</button>
       </div>
     }
     @if (error() && cargando()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }

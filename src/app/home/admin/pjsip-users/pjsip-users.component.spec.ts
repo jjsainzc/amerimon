@@ -41,6 +41,28 @@ describe('PjsipUsersComponent', () => {
 
   afterEach(() => http.verify());
 
+  it('blocks unchanged saves and detects reverted edits including the password', async () => {
+    http.expectOne(url).flush([extension]);
+    const component = fixture.componentInstance;
+    component.seleccionarExtension(extension);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const save: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(save.disabled).toBe(true);
+    component.guardarExtension();
+    http.expectNone(url);
+    const password: HTMLInputElement = fixture.nativeElement.querySelector('app-password-field input');
+    password.value = 'new-password';
+    password.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    password.value = extension.password;
+    password.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+  });
+
   it('loads once and renders without modal inputs when activated', () => {
     http.expectOne(url).flush([extension]);
     fixture.detectChanges();
@@ -82,6 +104,7 @@ describe('PjsipUsersComponent', () => {
   it('keeps the form and backend error visible, then allows a save retry', async () => {
     http.expectOne(url).flush([extension]);
     fixture.componentInstance.seleccionarExtension(extension);
+    fixture.componentInstance.extActual().context = 'edited-context';
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.componentInstance.guardarExtension();
@@ -292,6 +315,7 @@ describe('PjsipUsersComponent', () => {
         component.seleccionarExtension(extension);
         errorMessage = operation === 'save' ? 'PJSIP_USERS_SAVE_ERROR' : 'PJSIP_USERS_DELETE_ERROR';
         if (operation === 'save') {
+          component.extActual().context = 'edited-context';
           component.guardarExtension();
         } else {
           component.eliminarExtension(extension.id);
@@ -334,6 +358,7 @@ describe('PjsipUsersComponent', () => {
       for (const editing of [false, true]) {
         if (editing) {
           fixture.componentInstance.seleccionarExtension({ ...extension, id });
+          fixture.componentInstance.extActual().context = 'edited-context';
         } else {
           fixture.componentInstance.nuevaExtension();
           fixture.componentInstance.extActual.set({ ...extension, id });

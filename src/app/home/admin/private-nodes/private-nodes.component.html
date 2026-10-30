@@ -35,7 +35,7 @@
 
     <div class="private-nodes-acciones">
       <button type="button" (click)="agregar()" [disabled]="guardando()">{{ 'AGREGAR_LINEA' | translate }}</button>
-      <button type="submit" [disabled]="guardando() || !escribible()">
+      <button type="submit" [disabled]="guardando() || cargando() || !escribible() || !cambios.changed(lineas())">
         {{ (guardando() ? 'GUARDANDO' : 'GUARDAR_CAMBIOS') | translate }}
       </button>
     </div>

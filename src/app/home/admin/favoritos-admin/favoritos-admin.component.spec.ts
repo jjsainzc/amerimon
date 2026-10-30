@@ -63,6 +63,31 @@ describe('FavoritosAdminComponent', () => {
     vi.useRealTimers();
   });
 
+  it('compares saved favorite data, not search text, and recognizes reverted descriptions', async () => {
+    const component = fixture.componentInstance;
+    component.abrirEditar({ id: 1, numero: '700001', descripcion: 'Original' });
+    fixture.detectChanges();
+    const save: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(save.disabled).toBe(true);
+    component.guardar();
+    expect(service.actualizar).not.toHaveBeenCalled();
+    const description: HTMLInputElement = fixture.nativeElement.querySelector('input[formControlName="descripcion"]');
+    description.value = 'Changed';
+    description.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    description.value = 'Original';
+    description.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    component.abrirNuevo();
+    component.form.controls.busqueda.setValue('HC1LNM');
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+  });
+
   it('copies search result identities without selecting or saving them', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });

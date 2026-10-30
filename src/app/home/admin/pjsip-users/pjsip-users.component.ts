@@ -8,6 +8,7 @@ import { PJSIPExtension } from '../../../core/models/pjsip-extension.model';
 import { PjsipUsersService } from '../../../core/services/pjsip-users.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 @Component({
   selector: 'app-pjsip-users',
@@ -18,6 +19,7 @@ import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog
 })
 export class PjsipUsersComponent implements OnInit {
   private readonly service = inject(PjsipUsersService);
+  readonly cambios = new FormChanges();
 
   readonly extensionesList = signal<PJSIPExtension[]>([]);
   readonly cargando = signal(false);
@@ -72,6 +74,7 @@ export class PjsipUsersComponent implements OnInit {
       direct_media: 'no',
       media_encryption: 'no'
     });
+    this.cambios.reset(this.extActual());
     this.editando.set(true);
   }
 
@@ -79,6 +82,7 @@ export class PjsipUsersComponent implements OnInit {
     this.error.set('');
     this.esEdicion.set(true);
     this.extActual.set({ ...ext, allow: [...(ext.allow ?? [])], disallow: [...(ext.disallow ?? [])] });
+    this.cambios.reset(this.extActual());
     this.editando.set(true);
   }
 
@@ -89,7 +93,7 @@ export class PjsipUsersComponent implements OnInit {
   }
 
   guardarExtension(): void {
-    if (this.guardando()) { return; }
+    if (this.guardando() || !this.cambios.changed(this.extActual())) { return; }
     this.error.set('');
     this.guardando.set(true);
     this.service.guardar(this.extActual()).subscribe({

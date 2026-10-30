@@ -36,6 +36,31 @@ describe('IaxUsersComponent', () => {
 
   afterEach(() => http.verify());
 
+  it('only enables saving changed values and disables it again after reverting', async () => {
+    http.expectOne(url).flush({ HC1LNM: { ...user, name: 'HC1LNM' } });
+    const component = fixture.componentInstance;
+    component.seleccionarUsuario({ ...user, name: 'HC1LNM' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const save: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(save.disabled).toBe(true);
+    component.guardarUsuario();
+    http.expectNone(url);
+    const input: HTMLInputElement = fixture.nativeElement.querySelector('input[name="context"]');
+    input.value = 'changed';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    input.value = user.context;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    component.nuevoUsuario();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
+  });
+
   it('loads once and renders the API map without requiring an open input', () => {
     http.expectOne(url).flush({ radio: user });
     fixture.detectChanges();
@@ -77,6 +102,7 @@ describe('IaxUsersComponent', () => {
   it('keeps the edited data visible after a backend error and supports retry', () => {
     http.expectOne(url).flush({ radio: user });
     fixture.componentInstance.seleccionarUsuario(user);
+    fixture.componentInstance.usuarioActual().context = 'edited-context';
     fixture.componentInstance.guardarUsuario();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('no parece un indicativo de radioaficionado');
@@ -242,6 +268,7 @@ describe('IaxUsersComponent', () => {
       } else {
         http.expectOne(url).flush({ radio: user });
         component.seleccionarUsuario(user);
+        component.usuarioActual().context = 'edited-context';
         errorMessage = 'IAX_USERS_SAVE_ERROR';
         component.guardarUsuario();
         fixture.detectChanges();
@@ -280,11 +307,13 @@ describe('IaxUsersComponent', () => {
   it('saves callsign sections directly and requires confirmation for system sections', () => {
     http.expectOne(url).flush({ 'HC1LNM': { ...user, name: 'HC1LNM' }, 'system-user': { ...user, name: 'system-user' } });
     fixture.componentInstance.seleccionarUsuario({ ...user, name: 'HC1LNM' });
+    fixture.componentInstance.usuarioActual().context = 'edited-context';
     fixture.componentInstance.guardarUsuario();
     http.expectOne(url).flush({ message: 'Guardado' });
     http.expectOne(url).flush({});
 
     fixture.componentInstance.seleccionarUsuario({ ...user, name: 'system-user' });
+    fixture.componentInstance.usuarioActual().context = 'edited-context';
     fixture.componentInstance.guardarUsuario();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('system-user');

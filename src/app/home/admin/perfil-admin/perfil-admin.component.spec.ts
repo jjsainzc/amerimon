@@ -21,6 +21,31 @@ describe('Admin profile settings', () => {
   });
   afterEach(() => localStorage.clear());
 
+  it('enables save only for changed profile settings, not notice preferences', async () => {
+    const fixture = TestBed.createComponent(PerfilAdminComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const url = `${environment.apiUrl}/site-settings`;
+    http.expectOne(url).flush({ title: 'Amerimon', subtitle: '', weather_location: '' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const save: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(save.disabled).toBe(true);
+    const title: HTMLInputElement = fixture.nativeElement.querySelector('input[name="tituloCabecera"]');
+    title.value = 'New title';
+    title.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    title.value = 'Amerimon';
+    title.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    http.expectNone(url);
+    http.verify();
+  });
+
   it('restores all notices without submitting header settings or erasing credentials', () => {
     const preferences = TestBed.inject(NoticePreferencesService);
     preferences.hide('confirm.asterisk.connect');

@@ -11,6 +11,7 @@ import { TranslationService } from '../../../core/services/translation.service';
 import { LoadingIndicatorComponent } from '../../../shared/loading-indicator/loading-indicator.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { DismissibleNoticeComponent } from '../../../shared/dismissible-notice/dismissible-notice.component';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 @Component({
   selector: 'app-favoritos-admin',
@@ -25,6 +26,11 @@ export class FavoritosAdminComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly translation = inject(TranslationService);
   private readonly solicitudesBusqueda = new Subject<string | null>();
+  readonly cambios = new FormChanges();
+
+  datosFormulario(): { numero: string; descripcion: string } {
+    return { numero: this.nodoSeleccionado(), descripcion: this.form.controls.descripcion.value };
+  }
 
   readonly favoritos = signal<Favorito[]>([]);
   readonly cargando = signal(false);
@@ -125,6 +131,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.errorBusqueda.set('');
     this.estadoBusqueda.set('');
     this.form.reset({ busqueda: '', descripcion: '' });
+    this.cambios.reset(this.datosFormulario());
     this.formularioAbierto.set(true);
   }
 
@@ -139,6 +146,7 @@ export class FavoritosAdminComponent implements OnInit {
     this.errorBusqueda.set('');
     this.estadoBusqueda.set(this.translation.translate('NODO_GUARDADO_SELECCIONADO'));
     this.form.reset({ busqueda: f.numero, descripcion: f.descripcion }, { emitEvent: false });
+    this.cambios.reset(this.datosFormulario());
     this.formularioAbierto.set(true);
   }
 
@@ -152,7 +160,7 @@ export class FavoritosAdminComponent implements OnInit {
   /** Valida y crea o actualiza el favorito según el modo de edición. */
   guardar(): void {
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.guardando() || this.buscando()) { return; }
+    if (this.form.invalid || this.guardando() || this.buscando() || !this.cambios.changed(this.datosFormulario())) { return; }
     if (!this.nodoSeleccionado()) {
       this.errorBusqueda.set(this.translation.translate('SELECCIONA_UN_NODO_DE_RESULTADOS_ASTDB_ECHOLINK'));
       return;

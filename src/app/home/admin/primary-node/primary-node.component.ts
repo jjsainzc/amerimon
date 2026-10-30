@@ -14,6 +14,7 @@ import { TranslationService } from '../../../core/services/translation.service';
 import { NoticePreferencesService } from '../../../core/services/notice-preferences.service';
 import { NoticePreferenceComponent } from '../../../shared/notice-preference/notice-preference.component';
 import { DismissibleNoticeComponent } from '../../../shared/dismissible-notice/dismissible-notice.component';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 
 
@@ -94,6 +95,16 @@ export class PrimaryNodeComponent implements OnInit {
   indicativo = '';
   password = '';
   private passwordOriginal = '';
+  readonly cambios = new FormChanges();
+  readonly cambiosAMI = new FormChanges();
+
+  datosFormulario(): string[] {
+    return [this.numero, this.indicativo, this.password];
+  }
+
+  datosAMI(): string[] {
+    return [this.amiSecret(), this.amiBindAddress(), this.permitsNuevas().trim(), this.deniesNuevas().trim()];
+  }
   tipo: NodeAccessEntry['type'] = 'allowlist';
   remoto = '';
   motivo = '';
@@ -126,6 +137,7 @@ export class PrimaryNodeComponent implements OnInit {
         this.amiConfig.set(config);
         this.amiSecret.set(config.secret);
         this.amiBindAddress.set(config.bind_address);
+        this.cambiosAMI.reset([config.secret, config.bind_address, '', '']);
         this.cargandoAMI.set(false);
       },
       error: (err: HttpErrorResponse) => {
@@ -149,7 +161,7 @@ export class PrimaryNodeComponent implements OnInit {
   }
 
   guardarAMI(): void {
-    if (this.guardandoAMI() || this.cargandoAMI() || !this.amiConfig()) { return; }
+    if (this.guardandoAMI() || this.cargandoAMI() || !this.amiConfig() || !this.cambiosAMI.changed(this.datosAMI())) { return; }
     this.guardandoAMI.set(true);
     this.errorAMI.set('');
     this.avisoAMI.set('');
@@ -190,6 +202,7 @@ export class PrimaryNodeComponent implements OnInit {
         this.indicativo = config.callsign;
         this.password = config.password;
         this.passwordOriginal = config.password;
+        this.cambios.reset(this.datosFormulario());
         this.cargando.set(false);
       },
       error: (err: HttpErrorResponse) => {
@@ -200,6 +213,7 @@ export class PrimaryNodeComponent implements OnInit {
   }
 
   solicitarGuardado(): void {
+    if (!this.cambios.changed(this.datosFormulario())) { return; }
     this.noMostrarGuardado.set(false);
     if (this.noticePreferences.isHidden('confirm.primary.save')) {
       this.guardar();
@@ -209,7 +223,7 @@ export class PrimaryNodeComponent implements OnInit {
   }
 
   guardar(): void {
-    if (this.guardando() || this.guardandoAcceso() || !this.actual()) { return; }
+    if (this.guardando() || this.guardandoAcceso() || !this.actual() || !this.cambios.changed(this.datosFormulario())) { return; }
     if (this.noMostrarGuardado()) { this.noticePreferences.hide('confirm.primary.save'); }
     this.guardando.set(true);
     this.confirmando.set(false);

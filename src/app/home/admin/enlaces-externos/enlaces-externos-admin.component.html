@@ -75,7 +75,7 @@
         </div>
         <div class="ea-form-acciones">
           <button type="button" class="ea-boton" (click)="cerrarFormulario()" [disabled]="guardando()">{{ 'CANCELAR' | translate }}</button>
-          <button type="submit" class="ea-boton ea-primario" [disabled]="guardando()">
+          <button type="submit" class="ea-boton ea-primario" [disabled]="guardando() || form.invalid || !cambios.changed(form.getRawValue())">
             {{ (guardando() ? 'GUARDANDO' : 'GUARDAR') | translate }}
           </button>
         </div>

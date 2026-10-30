@@ -67,6 +67,32 @@ describe('AllmonConfigComponent', () => {
     })]);
   });
 
+  it('tracks checkbox and row changes without saving unchanged configuration', () => {
+    const component = fixture.componentInstance;
+    const save: HTMLButtonElement = fixture.nativeElement.querySelector('button[type="submit"]');
+    expect(save.disabled).toBe(true);
+    component.guardar();
+    expect(service.guardar).not.toHaveBeenCalled();
+    const checkbox: HTMLInputElement = fixture.nativeElement.querySelector('input[type="checkbox"]');
+    checkbox.click();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    checkbox.click();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    component.agregar();
+    fixture.detectChanges();
+    expect(save.disabled).toBe(false);
+    component.quitar(1);
+    fixture.detectChanges();
+    expect(save.disabled).toBe(true);
+    component.filas()[0].host = '192.0.2.55';
+    component.guardar();
+    fixture.detectChanges();
+    expect(service.guardar).toHaveBeenCalledOnce();
+    expect(save.disabled).toBe(true);
+  });
+
   it('copies edited host and node values without saving or exposing secrets', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });

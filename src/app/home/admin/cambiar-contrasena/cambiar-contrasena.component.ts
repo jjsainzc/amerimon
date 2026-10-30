@@ -26,6 +26,7 @@ export class CambiarContrasenaComponent {
   protected readonly error = signal('');
 
   protected guardar(): void {
+    if (this.enviando() || (!this.actual && !this.nueva && !this.repetir)) { return; }
     this.error.set('');
     if (this.nueva.length < 8) {
       this.error.set('ERROR_CONTRASENA_MINIMO_8_CARACTERES');

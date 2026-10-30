@@ -22,7 +22,7 @@
       <small>{{ 'SE_UTILIZA_PARA_LA_IDENTIFICACION_DE_ASTERISK_IDRECORDING' | translate }}</small>
       <div class="acciones">
         <button type="button" (click)="cargar()" [disabled]="guardando()">{{ 'RECARGAR_CONFIGURACION' | translate }}</button>
-        <button type="submit" [disabled]="configForm.invalid || guardando() || guardandoAcceso()">{{ 'GUARDAR_CONFIGURACION' | translate }}</button>
+        <button type="submit" [disabled]="configForm.invalid || guardando() || guardandoAcceso() || !cambios.changed(datosFormulario())">{{ 'GUARDAR_CONFIGURACION' | translate }}</button>
       </div>
     </fieldset>
   </form>
@@ -30,7 +30,7 @@
     <section class="confirmacion" role="group" [attr.aria-label]="'CONFIRMAR_CONFIGURACION' | translate">
       <p>{{ 'NODO_CONFIRMAR_GUARDADO' | translate: { actual: actual(), nuevo: numero } }}</p>
       <app-notice-preference [checked]="noMostrarGuardado()" (checkedChange)="noMostrarGuardado.set($event)" />
-      <button type="button" (click)="guardar()" [disabled]="configForm.invalid || guardando() || guardandoAcceso()">{{ 'CONFIRMAR_GUARDADO' | translate }}</button>
+      <button type="button" (click)="guardar()" [disabled]="configForm.invalid || guardando() || guardandoAcceso() || !cambios.changed(datosFormulario())">{{ 'CONFIRMAR_GUARDADO' | translate }}</button>
       <button type="button" (click)="confirmando.set(false)">{{ 'CANCELAR' | translate }}</button>
     </section>
   }
@@ -101,7 +101,7 @@
           </fieldset>
           <div class="acciones">
             <button type="button" (click)="cargarAMI()" [disabled]="guardandoAMI()">{{ 'RECARGAR_AMI' | translate }}</button>
-            <button type="submit" [disabled]="amiForm.invalid || guardandoAMI() || guardando()">
+            <button type="submit" [disabled]="amiForm.invalid || guardandoAMI() || guardando() || !cambiosAMI.changed(datosAMI())">
               {{ guardandoAMI() ? ('APLICANDO_Y_VERIFICANDO_ACCESO_AMI' | translate) : ('GUARDAR_Y_APLICAR_MANAGER_RELOAD' | translate) }}
             </button>
           </div>

@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { SiteSettingsService } from '../../../core/services/site-settings.service';
 import { NoticePreferencesService } from '../../../core/services/notice-preferences.service';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 type ErrorHttp = { error?: { message?: string } };
 
@@ -26,6 +27,11 @@ export class PerfilAdminComponent implements OnInit {
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
   protected readonly error = signal('');
+  protected readonly cambios = new FormChanges();
+
+  protected datosFormulario(): string[] {
+    return [this.titulo, this.subtitulo, this.ubicacionClima];
+  }
 
   ngOnInit(): void {
     this.settingsService.obtener().subscribe({
@@ -33,6 +39,7 @@ export class PerfilAdminComponent implements OnInit {
         this.titulo = settings.title;
         this.subtitulo = settings.subtitle;
         this.ubicacionClima = settings.weather_location ?? '';
+        this.cambios.reset(this.datosFormulario());
         this.cargando.set(false);
       },
       error: (error: ErrorHttp) => {
@@ -43,6 +50,7 @@ export class PerfilAdminComponent implements OnInit {
   }
 
   protected guardar(): void {
+    if (this.guardando() || this.cargando() || !this.cambios.changed(this.datosFormulario())) { return; }
     this.guardando.set(true);
     this.error.set('');
     this.settingsService.guardar(this.titulo, this.subtitulo, this.ubicacionClima).subscribe({

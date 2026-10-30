@@ -6,6 +6,7 @@ import { AllmonConfigService, AllmonNodoEntrada } from '../../../core/services/a
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 interface Fila extends AllmonNodoEntrada {
   passwdSet: boolean;
@@ -20,6 +21,7 @@ interface Fila extends AllmonNodoEntrada {
 })
 export class AllmonConfigComponent implements OnInit {
   private readonly service = inject(AllmonConfigService);
+  readonly cambios = new FormChanges();
 
   readonly filas = signal<Fila[]>([]);
   readonly ruta = signal('');
@@ -52,6 +54,7 @@ export class AllmonConfigComponent implements OnInit {
           passwdSet: n.passwd_set,
           tracking_enabled: n.tracking_enabled,
         })));
+        this.cambios.reset(this.filas());
       },
       error: (e: HttpErrorResponse) => {
         this.cargando.set(false);
@@ -75,6 +78,7 @@ export class AllmonConfigComponent implements OnInit {
 
   /** Persiste las filas sin el indicador interno de contraseña y recarga el estado. */
   guardar(): void {
+    if (this.guardando() || this.cargando() || !this.cambios.changed(this.filas())) { return; }
     this.error.set('');
     this.aviso.set('');
     this.guardando.set(true);

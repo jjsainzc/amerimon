@@ -7,6 +7,7 @@ import { TranslationService } from '../../../core/services/translation.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 @Component({
   selector: 'app-enlaces-externos-admin',
@@ -19,6 +20,7 @@ export class EnlacesExternosAdminComponent implements OnInit {
   private readonly service = inject(EnlacesExternosService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly translation = inject(TranslationService);
+  readonly cambios = new FormChanges();
 
   readonly enlaces = signal<EnlaceExterno[]>([]);
   readonly cargando = signal(false);
@@ -63,6 +65,7 @@ export class EnlacesExternosAdminComponent implements OnInit {
     this.editandoId.set(null);
     this.error.set('');
     this.form.reset({ descripcion: '', url: '', target: '_blank', is_active: true });
+    this.cambios.reset(this.form.getRawValue());
     this.formularioAbierto.set(true);
   }
 
@@ -76,6 +79,7 @@ export class EnlacesExternosAdminComponent implements OnInit {
       target: enlace.target || '_blank',
       is_active: enlace.is_active === 1
     });
+    this.cambios.reset(this.form.getRawValue());
     this.formularioAbierto.set(true);
   }
 
@@ -87,7 +91,7 @@ export class EnlacesExternosAdminComponent implements OnInit {
   /** Valida y persiste el enlace, creando uno nuevo o actualizando el existente. */
   guardar(): void {
     this.form.markAllAsTouched();
-    if (this.form.invalid || this.guardando()) { return; }
+    if (this.form.invalid || this.guardando() || !this.cambios.changed(this.form.getRawValue())) { return; }
     const values = this.form.getRawValue();
     const input: EnlaceExternoEntrada = {
       descripcion: values.descripcion.trim(),
