@@ -24,8 +24,9 @@ if [ ! -e "$MODULES_CONF" ]; then
 fi
 
 merged_modules=$(mktemp "${MODULES_CONF}.pjsip-merged.XXXXXX")
+modules_source=$(mktemp "${MODULES_CONF}.pjsip-source.XXXXXX")
 load_errors=$(mktemp "${MODULES_CONF}.pjsip-errors.XXXXXX")
-trap 'rm -f "$merged_modules" "$load_errors"' EXIT HUP INT TERM
+trap 'rm -f "$merged_modules" "$modules_source" "$load_errors"' EXIT HUP INT TERM
 AVAILABLE_MODULES=
 
 while IFS= read -r line || [ -n "$line" ]; do
@@ -35,7 +36,13 @@ while IFS= read -r line || [ -n "$line" ]; do
     fi
 done < "$PJSIP_MODULES_PATCH"
 
-if awk -v config="$MODULES_CONF" -v patch="$PJSIP_MODULES_PATCH" -f "$PJSIP_MODULES_MERGER" "$MODULES_CONF" > "$merged_modules"; then
+# Remove only the previous installer-managed load line. Preserve any explicit
+# administrator override for inter-server PUBLISH support.
+awk '
+    !/^[[:space:]]*load[[:space:]]*(=>|=)[[:space:]]*res_pjsip_publish_asterisk\.so[[:space:]]*;[[:space:]]*PJSIP Asterisk Event PUBLISH Support[[:space:]]*$/
+' "$MODULES_CONF" > "$modules_source"
+
+if awk -v config="$modules_source" -v patch="$PJSIP_MODULES_PATCH" -f "$PJSIP_MODULES_MERGER" "$modules_source" > "$merged_modules"; then
     if ! cmp -s "$MODULES_CONF" "$merged_modules"; then
         if [ "$modules_created" -eq 0 ] && [ ! -e "$MODULES_CONF.bak-pjsip" ]; then
             cp -a "$MODULES_CONF" "$MODULES_CONF.bak-pjsip"
