@@ -9,6 +9,7 @@ import { IaxUsersService } from '../../../core/services/iax-users.service';
 import { TranslatePipe } from '../../../core/pipes/translate.pipe';
 import { ConfirmacionDialogComponent } from '../../../shared/confirmacion-dialog/confirmacion-dialog.component';
 import { isRadioAmateurCallsign } from '../../../core/utils/radio-callsign';
+import { FormChanges } from '../../../core/utils/form-changes';
 
 @Component({
   selector: 'app-iax-users',
@@ -19,6 +20,7 @@ import { isRadioAmateurCallsign } from '../../../core/utils/radio-callsign';
 })
 export class IaxUsersComponent implements OnInit {
   private readonly service = inject(IaxUsersService);
+  readonly cambios = new FormChanges();
 
   readonly usuariosList = signal<IAXUser[]>([]);
   readonly cargando = signal(false);
@@ -75,6 +77,7 @@ export class IaxUsersComponent implements OnInit {
       allow: ['ulaw', 'adpcm', 'gsm'],
       transfer: 'no'
     });
+    this.cambios.reset(this.usuarioActual());
     this.editando.set(true);
   }
 
@@ -83,15 +86,16 @@ export class IaxUsersComponent implements OnInit {
     this.confirmacionGuardadoPendiente.set(false);
     this.esEdicion.set(true);
     this.usuarioActual.set({ ...u, allow: [...(u.allow ?? [])], disallow: [...(u.disallow ?? [])] });
+    this.cambios.reset(this.usuarioActual());
     this.editando.set(true);
   }
 
   puedeEliminarUsuario(name: string): boolean {
-    return isRadioAmateurCallsign(name);
+    return name.length > 0 && !['general', 'radio', 'allstar-sys', 'allstar-public', 'iaxrpt'].includes(name.toLowerCase());
   }
 
   guardarUsuario(): void {
-    if (this.guardando()) { return; }
+    if (this.guardando() || !this.cambios.changed(this.usuarioActual())) { return; }
     if (!isRadioAmateurCallsign(this.usuarioActual().name)) {
       this.confirmacionGuardadoPendiente.set(true);
       return;
@@ -110,7 +114,7 @@ export class IaxUsersComponent implements OnInit {
   }
 
   private persistirUsuario(): void {
-    if (this.guardando()) { return; }
+    if (this.guardando() || !this.cambios.changed(this.usuarioActual())) { return; }
     this.error.set('');
     this.guardando.set(true);
     this.service.guardar(this.usuarioActual()).subscribe({

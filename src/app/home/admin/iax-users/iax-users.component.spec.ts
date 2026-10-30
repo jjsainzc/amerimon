@@ -145,18 +145,24 @@ describe('IaxUsersComponent', () => {
     http.expectNone(url);
   });
 
-  it('only offers deletion for callsign sections', () => {
+  it('offers deletion for arbitrary usernames but protects iaxrpt and hidden sections', () => {
     http.expectOne(url).flush({
       radio: user,
       HC1LNM: { ...user, name: 'HC1LNM' },
     });
-    fixture.componentInstance.seleccionarUsuario(user);
+    fixture.componentInstance.seleccionarUsuario({ ...user, name: 'iaxrpt' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.sip-users-eliminar')).toBeNull();
 
     fixture.componentInstance.seleccionarUsuario({ ...user, name: 'HC1LNM' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.sip-users-eliminar')).not.toBeNull();
+    fixture.componentInstance.seleccionarUsuario({ ...user, name: 'test-user' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.sip-users-eliminar')).not.toBeNull();
+    for (const name of ['iaxrpt', 'IAXRPT', 'radio', 'allstar-sys', 'allstar-public', 'general']) {
+      expect(fixture.componentInstance.puedeEliminarUsuario(name)).toBe(false);
+    }
     http.expectNone(`${url}/HC1LNM`);
   });
 
@@ -254,16 +260,16 @@ describe('IaxUsersComponent', () => {
     });
   }
 
-  it('deletes a callsign user and refreshes the list', () => {
-    const callsignUser = { ...user, name: 'HC1LNM' };
+  it('deletes a non-callsign user and refreshes the list', () => {
+    const callsignUser = { ...user, name: 'test-user' };
     http.expectOne(url).flush({ HC1LNM: callsignUser });
     fixture.componentInstance.seleccionarUsuario(callsignUser);
     fixture.componentInstance.eliminarUsuario(callsignUser.name);
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('¿Eliminar el usuario IAX HC1LNM?');
-    http.expectNone(`${url}/HC1LNM`);
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]').textContent).toContain('¿Eliminar el usuario IAX test-user?');
+    http.expectNone(`${url}/test-user`);
     (fixture.nativeElement.querySelector('.confirmacion-confirmar') as HTMLButtonElement).click();
-    const request = http.expectOne(`${url}/HC1LNM`);
+    const request = http.expectOne(`${url}/test-user`);
     expect(request.request.method).toBe('DELETE');
     request.flush({ message: 'Eliminado' });
     http.expectOne(url).flush({});
