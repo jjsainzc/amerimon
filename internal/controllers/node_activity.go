@@ -60,6 +60,8 @@ var allStarLinkReceiveStates = struct {
 	byNode map[string]allStarLinkReceiveState
 }{byNode: make(map[string]allStarLinkReceiveState)}
 
+// currentAllStarLinkReceiveActivity devuelve el estado actual de la actividad de recepción de todos los nodos StarLink.
+// Filtra las actividades observadas hace más de 3 segundos y ordena los resultados por nodo local y remoto.
 func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 	activities := make([]AllStarLinkNodeActivity, 0)
 	servers := make([]string, 0)
@@ -84,6 +86,8 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 	return map[string]any{"status": "success", "data": activities, "server_nodes": servers}
 }
 
+// pollAllStarLinkReceiveState actualiza el estado de recepción de un nodo StarLink específico.
+// Consulta NodeStat para obtener COS y SawStat para obtener los enlaces de recepción, y almacena los resultados en el estado global.
 func pollAllStarLinkReceiveState(instance allmonInstance) {
 	state := allStarLinkReceiveState{Links: make([]AllStarLinkNodeActivity, 0)}
 	nodeStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "NodeStat", 2*time.Second)
@@ -114,6 +118,8 @@ func pollAllStarLinkReceiveState(instance allmonInstance) {
 	allStarLinkReceiveStates.Unlock()
 }
 
+// parseRPTCOS analiza la salida de NodeStat para determinar el estado de COS.
+// Devuelve true si SignalOnInput es "YES", false si es "NO", y un error si no se encuentra o es inválido.
 func parseRPTCOS(nodeStat string) (bool, error) {
 	for _, line := range config.ParseAMIOutputToLines(nodeStat) {
 		key, value, found := strings.Cut(line, ":")
@@ -132,6 +138,8 @@ func parseRPTCOS(nodeStat string) (bool, error) {
 	return false, fmt.Errorf("NodeStat no contiene SignalOnInput")
 }
 
+// parseRPTReceivingLinks analiza la salida de SawStat para obtener los enlaces de recepción.
+// Devuelve una lista de actividades de recepción con el nodo local, nodo remoto y marca de tiempo.
 func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]AllStarLinkNodeActivity, error) {
 	activities := make([]AllStarLinkNodeActivity, 0)
 	for _, line := range config.ParseAMIOutputToLines(sawStat) {
@@ -152,6 +160,8 @@ func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]
 	return activities, nil
 }
 
+// startAllStarLinkReceiveScheduler inicia un programador que periódicamente sondea el estado de recepción de todos los nodos StarLink configurados.
+// Mantiene un mapa de solicitudes en vuelo para evitar sondeos concurrentes del mismo nodo y limpia los estados de nodos no configurados.
 func startAllStarLinkReceiveScheduler() {
 	go func() {
 		var inFlight sync.Map

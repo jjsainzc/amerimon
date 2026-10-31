@@ -11,15 +11,17 @@
 
 - [x] 5. Quitar personalizar cabecera y hacer un perfil de usuario admin para configuraciones generales, poner ahi las opciones de la personalizacion de la cabecera.
 
-- [ ] 6. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch, esa stanza se va a estar ahi, solo hay que modificarla y agregarle el chequeo en la base de datos de asterisk que esta en el patch.
+- [ ] 6. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch, esa stanza si va a encontrar ahi, solo hay que modificarla y agregarle el chequeo en la base de datos de asterisk que esta en el patch.
 
-- [ ] 7. En la parte de admin, nodo principal, primeramente chequear si no se puede determinar linea que identifica al node (que tiene este formato, por ejemplo, `41777 = radio@127.0.0.1/41777,NONE`), que esta dentro de la stanza `[nodes]`, si es asi emitir una advertencia de que falta la linea correspondiente en el lugar adecuado, etc etc. Y agregar mantenimiento para esa stanza `[allstar-public]` , que tiene el chequeo en la base de datos de asteris, `whitelist/blacklist`,  en la misma forma en que se hizo la de permitidos/denegados, el formato en la base para el chequeo en esta stanza es:
+- [ ] 7. En la parte de admin, nodo principal, primeramente chequear si no se puede determinar linea que identifica al node (que tiene este formato, por ejemplo, `41777 = radio@127.0.0.1/41777,NONE`), que esta dentro de la stanza `[nodes]`, si es asi emitir una advertencia de que falta la linea correspondiente en el lugar adecuado, etc etc. Posteriormente agregar mantenimiento para esa stanza `[allstar-public]` , CRUD para los indicativos en `whitelist/blacklist` que tiene el chequeo en la base de datos de asterisk, en la misma forma en que se hizo la de permitidos/denegados, el formato en la base para el chequeo en esta stanza es:
 
 ```
 /whitelist/HC1LNM                             : JJSC
 ```
 
 `database put <whilelist|blacklist> <callsing> <motivo>`
+
+Organizar estas dos listas de permitidos/denegados y ponerlas en dos tarjetas colapsables porque se vuelven un poco confuso entenderlos bien, esta ultima lista `whitelist/blacklist`,  controla la entrada via indicativo, la otra lista controla la entrada via numero de nodos.
 
 - [x] 8. Despues de crear las distribuciones .deb limpiar el contenido generado de internal/web/dist, conservando .gitkeep. Mantener todos los tests junto al codigo o scripts que prueban, sin borrarlos ni regenerarlos. Revisados: los _test.go ya estan en sus paquetes correspondientes, incluidos los tests de instalacion en packaging.
 
@@ -44,8 +46,6 @@
     ]
 ```
 
-  - [ ] 11.1. Actualizar el import del node a `@xterm/xterm` si no es muy problemático el cambio
-
 - [ ] 12. El pjsip, a traves de un telefono Grandstream, se esta quedando sin audio de recepcion en ocasiones, para resolverlo lo que hago se desconecter y conectar el sip phone, no se si algunas de las operaciones que hicimos le hace tener esta fall, porque anteriormente no pasaba.
 
   - Ocurre ocasionalmente durante una conexion normal, sin usar mute, desconexion desde la pagina ni Listen Live (la opcion para PJSIP esta oculta). La causa sigue sin confirmar; no cambiar parametros RTP ni configuraciones personalizadas sin evidencia.
@@ -69,5 +69,9 @@ type=transport
 protocol=udp    ;udp,tcp,tls,ws,wss,flow
 bind=0.0.0.0
 ``` 
+
+- [ ] 16. Agregar en el perfil del administrador la forma inicial en que se consultan los nodos, si denegado, en tiempo real o por intervalo definido en el combo que ya existe.
+
+- [ ] 17. Actualizar la terminal ssh con el el import del node a `@xterm/xterm` si no es muy problemático el ccambio.
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes

@@ -168,8 +168,10 @@ func main() {
 		log.Printf("contraseña de admin sin definir: se pedirá al primer ingreso desde la web")
 	}
 
+	// iniciar el programador de actividad de todos los nodos StarLink
 	controllers.StartAllStarLinkActivityScheduler()
 
+	// iniciar el listener de audio
 	audioManager := config.NewAudioStreamManager()
 	go config.StartAudioListener(fmt.Sprintf("127.0.0.1:%d", config.CurrentAMI().ListenPort), audioManager)
 

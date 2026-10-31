@@ -1,3 +1,7 @@
+/**
+ * @file node_activity_live_test.go
+ * @brief Pruebas en vivo de la actividad de los nodos StarLink.
+ */
 package controllers
 
 import (
@@ -16,6 +20,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// setupReceiveActivityTest configura el entorno para probar la actividad de recepción.
+// Inicializa una base de datos temporal, limpia los estados de recepción globales y asegura la limpieza después de la prueba.
 func setupReceiveActivityTest(t *testing.T) {
 	t.Helper()
 	database, err := db.Open(filepath.Join(t.TempDir(), "activity.db"))
@@ -37,6 +43,7 @@ func setupReceiveActivityTest(t *testing.T) {
 	})
 }
 
+// TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime verifica que el estado de recepción de RPT utilice COS y RX, y no el tiempo de la última clave.
 func TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime(t *testing.T) {
 	for _, test := range []struct {
 		name, raw string
@@ -67,6 +74,7 @@ func TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime(t *testing.T) {
 	}
 }
 
+// TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey verifica que la actividad de los nodos StarLink reporte COS y se limpie al desactivar la clave.
 func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 	setupReceiveActivityTest(t)
 	var keyed atomic.Bool
@@ -117,6 +125,7 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 	}
 }
 
+// TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState verifica que la transmisión de la actividad de los nodos StarLink publique y limpie el estado de recepción.
 func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.T) {
 	setupReceiveActivityTest(t)
 	now := time.Now().UTC()
@@ -167,6 +176,7 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 	}
 }
 
+// TestReceiveActivityPollingAndPublishingIntervals verifica que los intervalos de sondeo y publicación de la actividad de recepción no excedan los 250 ms.
 func TestReceiveActivityPollingAndPublishingIntervals(t *testing.T) {
 	if liveActivityPollInterval > 250*time.Millisecond || liveActivityPublishInterval > 250*time.Millisecond {
 		t.Fatal("COS/RX polling and publishing must not each add more than 250ms")
