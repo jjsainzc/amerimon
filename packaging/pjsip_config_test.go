@@ -197,6 +197,109 @@ func TestPJSIPConfigurationCreatesMissingFilesAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestPJSIPConfigurationPreservesExistingTransportAndCustomSettings(t *testing.T) {
+	dir := t.TempDir()
+	initial := "[global]\nuser_agent=Customer PBX\n\n[transport-udp]\ntype=transport\nlocal_net=192.168.1.0/24\n"
+	pjsipPath := filepath.Join(dir, "pjsip.conf")
+	if err := os.WriteFile(pjsipPath, []byte(initial), 0o640); err != nil {
+		t.Fatal(err)
+	}
+
+	runPJSIPConfiguration(t, dir, dir)
+
+	config, err := os.ReadFile(pjsipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(config) != initial {
+		t.Fatalf("existing transport or custom settings were changed:\n%s", config)
+	}
+	if _, err := os.Stat(pjsipPath + ".bak-pjsip"); !os.IsNotExist(err) {
+		t.Fatalf("existing transport should not be backed up or modified: %v", err)
+	}
+
+	runPJSIPConfiguration(t, dir, dir)
+	config, err = os.ReadFile(pjsipPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(config) != initial {
+		t.Fatalf("existing transport changed on a repeated install:\n%s", config)
+	}
+}
+
+func TestPJSIPConfigurationAddsTransportWhenMissingOrCommented(t *testing.T) {
+	for name, initial := range map[string]string{
+		"missing":   "[global]\nuser_agent=Customer PBX\n",
+		"commented": ";[transport-udp]\n;type=transport\n;protocol=udp\n;bind=0.0.0.0\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			pjsipPath := filepath.Join(dir, "pjsip.conf")
+			if err := os.WriteFile(pjsipPath, []byte(initial), 0o640); err != nil {
+				t.Fatal(err)
+			}
+
+			runPJSIPConfiguration(t, dir, dir)
+
+			config, err := os.ReadFile(pjsipPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, required := range []string{
+				"[transport-udp]",
+				"type=transport",
+				"protocol=udp",
+				"bind=0.0.0.0",
+			} {
+				if !strings.Contains(string(config), required) {
+					t.Fatalf("PJSIP configuration is missing %q:\n%s", required, config)
+				}
+			}
+			if !strings.HasPrefix(string(config), initial) {
+				t.Fatalf("existing or commented configuration was changed:\n%s", config)
+			}
+			backup, err := os.ReadFile(pjsipPath + ".bak-pjsip")
+			if err != nil || string(backup) != initial {
+				t.Fatalf("original pjsip.conf backup was not preserved: %v", err)
+			}
+
+			first := string(config)
+			runPJSIPConfiguration(t, dir, dir)
+			config, err = os.ReadFile(pjsipPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(config) != first {
+				t.Fatalf("PJSIP transport merge is not idempotent:\n%s", config)
+			}
+		})
+	}
+}
+
+func TestPJSIPConfigurationVerifiesActiveUDPTransport(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, "state")
+	if err := os.Mkdir(stateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(dir, "loaded.log")
+	output := string(runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_LOG="+logPath,
+		"PJSIP_TEST_STATE="+stateDir,
+		"PJSIP_TEST_TRANSPORT_ACTIVE=yes"))
+	if !strings.Contains(output, "[transport-udp] está activo en 0.0.0.0:5060/UDP") {
+		t.Fatalf("active UDP transport was not verified: %s", output)
+	}
+
+	output = string(runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_LOG="+logPath,
+		"PJSIP_TEST_STATE="+stateDir))
+	if !strings.Contains(output, "no confirmó [transport-udp] activo") {
+		t.Fatalf("inactive UDP transport was not reported: %s", output)
+	}
+}
+
 func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string, extraEnv ...string) []byte {
 	t.Helper()
 	modulePatch, err := filepath.Abs("pjsip-modules-patch.conf")
@@ -216,6 +319,13 @@ func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string, extraEnv ...s
 [ -n "$PJSIP_TEST_LOG" ] || exit 1
 case "$2" in
     'core show version') printf 'Asterisk test\n' ;;
+    'pjsip show transport transport-udp')
+        if [ "$PJSIP_TEST_TRANSPORT_ACTIVE" = yes ]; then
+            printf 'Transport: transport-udp\nProtocol: UDP\nBind: 0.0.0.0:5060\n'
+        else
+            printf 'Unable to find object transport-udp\n'
+        fi
+        ;;
     'module show like '*)
         module=${2#module show like }
         printf 'Module                         Description                              Use Count  Status      Support Level\n'

@@ -177,6 +177,49 @@ for context in sip-phones rpt-internal; do
     fi
 done
 
+PJSIP_CONF="$AST_DIR/pjsip.conf"
+pjsip_created=0
+if [ ! -e "$PJSIP_CONF" ]; then
+    install -m 0640 /dev/null "$PJSIP_CONF"
+    pjsip_created=1
+fi
+
+transport_merged=$(mktemp "${PJSIP_CONF}.amerimon.XXXXXX")
+if awk '
+    /^[[:space:]]*[;#]/ { next }
+    /^[[:space:]]*\[/ {
+        section = $0
+        sub(/^[[:space:]]*\[/, "", section)
+        sub(/\].*$/, "", section)
+        sub(/[[:space:]]*\(!\)[[:space:]]*$/, "", section)
+        if (tolower(section) == "transport-udp") found = 1
+    }
+    END { exit !found }
+' "$PJSIP_CONF"; then
+    rm -f "$transport_merged"
+    echo "PJSIP: [transport-udp] ya existe; se conserva sin cambios."
+else
+    if ! awk '
+        { print }
+        END {
+            if (NR > 0) print ""
+            print "[transport-udp]"
+            print "type=transport"
+            print "protocol=udp"
+            print "bind=0.0.0.0"
+        }
+    ' "$PJSIP_CONF" > "$transport_merged"; then
+        rm -f "$transport_merged"
+        echo "Error: no se pudo integrar el transporte UDP en $PJSIP_CONF." >&2
+        exit 1
+    fi
+    if [ "$pjsip_created" -eq 0 ] && [ ! -e "$PJSIP_CONF.bak-pjsip" ]; then
+        cp -a "$PJSIP_CONF" "$PJSIP_CONF.bak-pjsip"
+    fi
+    cat "$transport_merged" > "$PJSIP_CONF"
+    rm -f "$transport_merged"
+fi
+
 module_running() {
     asterisk -rx "module show like $1" 2>/dev/null |
         awk -v module="$1" '
@@ -283,4 +326,17 @@ if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev
         pending_modules=$next_pending
     done
     echo "PJSIP: todos los módulos requeridos están en estado Running."
+
+    if transport_output=$(asterisk -rx 'pjsip show transport transport-udp' 2>&1) &&
+       printf '%s\n' "$transport_output" | grep -qi 'transport-udp' &&
+       printf '%s\n' "$transport_output" | grep -Eq '(^|[[:space:]])0\.0\.0\.0:5060([[:space:]]|$)'; then
+        echo "PJSIP: [transport-udp] está activo en 0.0.0.0:5060/UDP."
+    else
+        echo "Aviso: Asterisk no confirmó [transport-udp] activo en 0.0.0.0:5060/UDP. La configuración se conservó; revisa 'pjsip show transport transport-udp' y si el transporte requiere reiniciar Asterisk." >&2
+        if [ -n "${transport_output:-}" ]; then
+            printf 'Respuesta de Asterisk: %s\n' "$transport_output" >&2
+        fi
+    fi
+else
+    echo "Aviso: Asterisk no está activo; no se pudo comprobar si [transport-udp] escucha en 0.0.0.0:5060/UDP. La configuración se aplicará al iniciar Asterisk." >&2
 fi
