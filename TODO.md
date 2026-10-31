@@ -58,7 +58,16 @@
 
   - Revisar tambien la coma adicional antes de `b(...)` en `Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))` del parche `packaging/pjsip-extensions-sip-phones-patch.conf`. Es una anomalia a investigar, no una causa demostrada de la perdida de audio.
   
-- [ ] 13. No se cuanta carga pudiera tener la pagina si usamos el mismo websocket que tenemos para la terminal sssh y para el listen-live para determinar cual es la estacion que esta con audio en el momento, para mostrarlo en las tablas, o sea si el nodo principal detecta un audio y este esta enlazado a otros server tambien iluminarlos y ponerlos en el tope de cada una, y esto solo se activaria si en el "actualizar cada" de la tabla Allstarlink, se pone desactivado.
+- [ ] 13. Usemos el mismo websocket que tenemos para la terminal ssh y para el listen-live para determinar cual es la estacion que esta con audio en el momento, para mostrarlo en las tablas, mediante un highlight de la linea, que se coloca en la primera posicion de la tabla, o sea si el nodo principal detecta un audio y este esta enlazado a otros server tambien iluminarlos y ponerlos en el tope de cada una, y esto solo se activaría si en el "Actualizar cada" del Allstarlink, se pone "Tiempo Real" (opcion nueva), esta funcionalidad la tiene el Supermon y el Allmon3
 
+- [x] 14. Si se envian nuevas credenciales para la misma localidad en terminal ssh, que se reemplacen por las existentes, mostrar un mensaje para configmar esa opcion, y cuando se haga la conexion, necesito esconder ese box de encabezado para darle el maximo espacio a la terminal ssh.
+ 
+- [x] 15. En la configuracion del pjsip.conf verificar que esto este activo y verificar que el puerto 5060 se active:
+```
+[transport-udp]
+type=transport
+protocol=udp    ;udp,tcp,tls,ws,wss,flow
+bind=0.0.0.0
+``` 
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes
