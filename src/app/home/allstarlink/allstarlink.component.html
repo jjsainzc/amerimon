@@ -19,20 +19,19 @@
           <option value="300000">{{ '5_MINUTOS' | translate }}</option>
         </select>
       </label>
-      <button type="button" class="allstarlink-actualizar accion-estandar" (click)="cargar()" [disabled]="cargando()">
-        <i class="fa-solid fa-rotate" aria-hidden="true"></i>
-        {{ cargando() ? ('ACTUALIZANDO' | translate) : ('ACTUALIZAR_AHORA' | translate) }}
-      </button>
+      @if (intervaloMs() === -1) {
+        <span class="allstarlink-tiempo-real-indicador"
+          role="status"
+          [class.conectado]="estadoActividadTiempoReal() === 'connected'"
+          [attr.aria-label]="(estadoActividadTiempoReal() === 'connected' ? 'ALLSTAR_REALTIME_CONNECTED' : estadoActividadTiempoReal() === 'reconnecting' ? 'ALLSTAR_REALTIME_RECONNECTING' : 'ALLSTAR_REALTIME_CONNECTING') | translate"></span>
+      } @else {
+        <button type="button" class="allstarlink-actualizar accion-estandar" (click)="cargar()" [disabled]="cargando()">
+          <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+          {{ cargando() ? ('ACTUALIZANDO' | translate) : ('ACTUALIZAR_AHORA' | translate) }}
+        </button>
+      }
     </div>
   </header>
-  @if (intervaloMs() === -1) {
-    <div class="allstarlink-tiempo-real-fila">
-      <span class="allstarlink-tiempo-real" role="status">
-        <span class="allstarlink-tiempo-real-indicador" [class.conectado]="estadoActividadTiempoReal() === 'connected'"></span>
-        {{ (estadoActividadTiempoReal() === 'connected' ? 'ALLSTAR_REALTIME_CONNECTED' : estadoActividadTiempoReal() === 'reconnecting' ? 'ALLSTAR_REALTIME_RECONNECTING' : 'ALLSTAR_REALTIME_CONNECTING') | translate }}
-      </span>
-    </div>
-  }
 
   @if (error()) {
     <p class="allstarlink-error" role="alert">{{ error() }}</p>

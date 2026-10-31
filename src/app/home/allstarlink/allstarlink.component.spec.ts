@@ -867,6 +867,10 @@ describe('Allstarlink connection target safety', () => {
       ]);
       component.ordenarPor('nodo');
       component.cambiarIntervalo('-1');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.allstarlink-controles .allstarlink-actualizar')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.allstarlink-tiempo-real-fila')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.allstarlink-controles .allstarlink-tiempo-real-indicador')?.getAttribute('aria-label')).toBeTruthy();
 
       http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
         status: 'success',
@@ -922,6 +926,8 @@ describe('Allstarlink connection target safety', () => {
 
       component.cambiarIntervalo('0');
       fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.allstarlink-controles .allstarlink-actualizar')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.allstarlink-controles .allstarlink-tiempo-real-indicador')).toBeNull();
       expect(component.actividadTiempoReal()).toHaveLength(0);
       expect(component.estadoActividadTiempoReal()).toBe('');
       expect(socket?.readyState).toBe(3);

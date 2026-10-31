@@ -148,11 +148,25 @@
 .allstarlink-actualizar:disabled { opacity: 0.55; cursor: wait; }
 .allstarlink-error { margin: 0 0 0.75rem; color: #ff8a80; font-size: 0.85rem; }
 .allstarlink-grupo { margin-top: 1rem; }
-.allstarlink-tiempo-real { display: inline-flex; align-items: center; gap: 0.4rem; color: #c5d2db; font-size: 0.8rem; }
-.allstarlink-tiempo-real-fila { display: flex; justify-content: flex-end; margin: -0.5rem 0 0.85rem; }
-.allstarlink-tiempo-real-indicador,
-.allstarlink-audio-activo { display: inline-block; width: 0.62rem; height: 0.62rem; flex: 0 0 auto; border-radius: 50%; background: #e6a23c; }
+.allstarlink-tiempo-real-indicador {
+  display: inline-block;
+  width: 0.62rem;
+  height: 0.62rem;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  margin-bottom: 0.8rem;
+  border-radius: 50%;
+  background: #e6a23c;
+  animation: allstarlink-pulso-tiempo-real 1.2s ease-in-out infinite;
+}
 .allstarlink-tiempo-real-indicador.conectado { background: #39d98a; box-shadow: 0 0 0.55rem #39d98a; }
+@keyframes allstarlink-pulso-tiempo-real {
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .allstarlink-tiempo-real-indicador { animation: none; }
+}
+.allstarlink-audio-activo { display: inline-block; width: 0.62rem; height: 0.62rem; flex: 0 0 auto; border-radius: 50%; background: #e6a23c; }
 
 .allstarlink-admin {
   margin: 0.65rem 0;
