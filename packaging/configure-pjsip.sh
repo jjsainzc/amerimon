@@ -36,8 +36,8 @@ while IFS= read -r line || [ -n "$line" ]; do
     fi
 done < "$PJSIP_MODULES_PATCH"
 
-# Remove only the previous installer-managed load line. Preserve any explicit
-# administrator override for inter-server PUBLISH support.
+# Elimina únicamente la línea de carga gestionada por el instalador anterior. Conserva cualquier configuración explícita
+# del administrador para la compatibilidad con PUBLISH entre servidores.
 awk '
     !/^[[:space:]]*load[[:space:]]*(=>|=)[[:space:]]*res_pjsip_publish_asterisk\.so[[:space:]]*;[[:space:]]*PJSIP Asterisk Event PUBLISH Support[[:space:]]*$/
 ' "$MODULES_CONF" > "$modules_source"
