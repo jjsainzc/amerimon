@@ -222,6 +222,8 @@ Under **Update every → Real time**, the browser opens `/mon/allstarlink/activi
 
 In real-time mode, the last active link stays first in its table after audio stops, without retaining the highlight or blinking indicator. New activity takes priority; the selected sort field breaks ties. Leaving real-time mode restores the selected sort order.
 
+Navigating away closes the WebSocket and stops the view's timers, but preserves the update option during navigation. Returning to the monitor automatically opens a new connection if **Real time** was selected.
+
 Only the node number is bold; the description and IP/hostname use normal weight, for both primary and remote nodes.
 
 When a valid `allmon.ini` with remote nodes exists, those instances provide each remote server's AMI connection. A typical entry is:

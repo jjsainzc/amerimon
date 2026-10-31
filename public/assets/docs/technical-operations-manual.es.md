@@ -222,6 +222,8 @@ En **Actualizar cada → Tiempo real**, el navegador abre el WebSocket `/mon/all
 
 En tiempo real, el último enlace que tuvo actividad conserva la primera posición de su tabla al cesar el audio, sin conservar el resaltado ni el indicador intermitente. Una nueva actividad tiene prioridad; el campo de orden elegido se usa para desempatar. Al salir del modo en tiempo real se recupera el orden elegido.
 
+Al cambiar de pantalla se cierra el WebSocket y se detienen los temporizadores de la vista, pero se conserva la opción de actualización durante la navegación. Al volver al monitor, si estaba seleccionado **Tiempo real**, se abre automáticamente una nueva conexión.
+
 Solo el número del nodo se muestra en negrita; la descripción y la IP/hostname usan peso normal, tanto en el principal como en los remotos.
 
 Cuando existe un `allmon.ini` con nodos remotos válidos, esas instancias proporcionan la conexión AMI de cada servidor remoto. Una entrada típica es:

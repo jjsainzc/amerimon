@@ -932,6 +932,52 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('remembers real-time mode and reopens its socket when returning to the screen', async () => {
+    vi.stubGlobal('WebSocket', FakeActivityWebSocket);
+    const primera = await crearMonitor();
+    try {
+      primera.component.cambiarIntervalo('-1');
+      primera.http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success', data: [], server_nodes: []
+      });
+      const primerSocket = FakeActivityWebSocket.instance;
+      primerSocket?.open();
+      primera.fixture.destroy();
+      expect(primerSocket?.readyState).toBe(3);
+      expect(primera.component.intervaloMs()).toBe(-1);
+
+      const vuelta = TestBed.createComponent(AllstarlinkComponent);
+      try {
+        vuelta.detectChanges();
+        const http = TestBed.inject(HttpTestingController);
+        http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({
+          status: 'success', data: []
+        });
+        http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({
+          status: 'success', data: []
+        });
+        http.expectOne(`${nodesUrl}?discovery=true`).flush({
+          status: 'success', data: { nodo_principal: '', tablas: [], resultados: [] }
+        });
+        http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+          status: 'success', data: [], server_nodes: []
+        });
+        const nuevoSocket = FakeActivityWebSocket.instance;
+        expect(nuevoSocket).not.toBe(primerSocket);
+        expect(nuevoSocket?.url).toBe(`${environment.wsUrl}/allstarlink/activity/live`);
+        expect(vuelta.componentInstance.intervaloMs()).toBe(-1);
+        nuevoSocket?.open();
+        expect(vuelta.componentInstance.estadoActividadTiempoReal()).toBe('connected');
+        http.verify();
+      } finally {
+        vuelta.destroy();
+      }
+    } finally {
+      primera.fixture.destroy();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('clears COS rows and header indicators within 500ms of an HTTP fallback update', async () => {
     vi.stubGlobal('WebSocket', FakeActivityWebSocket);
     const { fixture, component, http, element } = await crearMonitor();
