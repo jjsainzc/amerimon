@@ -45,6 +45,7 @@ type terminalCredentialData struct {
 type terminalCredentialSaveRequest struct {
 	terminalCredentialTarget
 	terminalCredentialData
+	ReplaceExisting bool `json:"replaceExisting"`
 }
 
 // SaveTerminalCredentials stores credentials encrypted for one SSH destination.
@@ -62,6 +63,20 @@ func SaveTerminalCredentials(c echo.Context) error {
 	}
 	if config.App.DB == nil {
 		return apiError(http.StatusServiceUnavailable, "La base de datos no está disponible.")
+	}
+
+	var exists bool
+	if err := config.App.DB.QueryRowContext(c.Request().Context(),
+		`SELECT EXISTS(SELECT 1 FROM terminal_credentials WHERE target_key = ?)`, targetKey,
+	).Scan(&exists); err != nil {
+		return apiError(http.StatusInternalServerError, "No se pudieron comprobar las credenciales SSH existentes.")
+	}
+	if exists && !request.ReplaceExisting {
+		return echo.NewHTTPError(http.StatusConflict, map[string]any{
+			"status":  "error",
+			"code":    "terminal_credentials_exist",
+			"message": "Ya existen credenciales SSH guardadas para este destino.",
+		})
 	}
 
 	encrypted, err := encryptTerminalCredentials(targetKey, request.terminalCredentialData)

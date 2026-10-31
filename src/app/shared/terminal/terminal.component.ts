@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -8,6 +8,7 @@ import { environment } from '../../core/environment';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
 import { FormChanges } from '../../core/utils/form-changes';
+import { ConfirmacionDialogComponent } from '../confirmacion-dialog/confirmacion-dialog.component';
 
 type SSHAuthMethod = 'password' | 'publickey';
 type TerminalConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -36,6 +37,11 @@ interface StoredTerminalCredentials {
   keyPassphrase?: string;
 }
 
+interface PendingCredentialSave {
+  target: TerminalSettings;
+  credentials: { password: string; privateKey: string; keyPassphrase: string };
+}
+
 const settingsStorageKey = 'amerimon.ssh-terminal.settings';
 const hideGuidanceStorageKey = 'amerimon.ssh-terminal.hide-guidance';
 const maxPrivateKeySize = 48 * 1024;
@@ -43,7 +49,7 @@ const maxPrivateKeySize = 48 * 1024;
 @Component({
   selector: 'app-terminal',
   standalone: true,
-  imports: [FormsModule, TranslatePipe],
+  imports: [FormsModule, TranslatePipe, ConfirmacionDialogComponent],
   templateUrl: './terminal.component.html',
   styleUrl: './terminal.component.scss'
 })
@@ -55,6 +61,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
   private readonly translations = inject(TranslationService);
   private readonly changes = new FormChanges();
   readonly savingSettings = signal(false);
+  readonly replaceCredentialsConfirmation = signal(false);
   private readonly terminal = new Terminal({
     cursorBlink: true,
     fontSize: 14,
@@ -89,6 +96,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
   privateKey = '';
   privateKeySelected = false;
   privateKeyReading = false;
+  private pendingCredentialSave: PendingCredentialSave | null = null;
 
   constructor() {
     this.loadSettings();
@@ -145,18 +153,31 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
     }
     this.savingSettings.set(true);
     try {
-      await firstValueFrom(this.http.post<{ status: string }>(
-        `${environment.apiUrl}/terminal/credentials/save`,
-        { ...this.credentialTarget(), ...credentials }
-      ));
-      this.clearCredentials();
-      this.status.set(this.translations.translate('SSH_CREDENTIALS_SAVED'));
-    } catch (error) {
-      console.error('No se pudieron guardar las credenciales SSH cifradas.', error);
-      this.status.set(this.translations.translate('SSH_CREDENTIALS_SAVE_FAILED'));
+      await this.storeCredentials({
+        target: this.credentialTarget(),
+        credentials
+      }, false);
     } finally {
       this.savingSettings.set(false);
     }
+  }
+
+  async confirmCredentialReplacement(): Promise<void> {
+    const pending = this.pendingCredentialSave;
+    if (!pending || this.savingSettings()) { return; }
+    this.savingSettings.set(true);
+    try {
+      await this.storeCredentials(pending, true);
+    } finally {
+      this.savingSettings.set(false);
+    }
+  }
+
+  cancelCredentialReplacement(): void {
+    if (this.savingSettings()) { return; }
+    this.pendingCredentialSave = null;
+    this.replaceCredentialsConfirmation.set(false);
+    this.status.set(this.translations.translate('SSH_CREDENTIALS_REPLACE_CANCELLED'));
   }
 
   async selectPrivateKey(event: Event): Promise<void> {
@@ -514,6 +535,28 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
     return this.privateKey
       ? { password: '', privateKey: this.privateKey, keyPassphrase: this.keyPassphrase }
       : null;
+  }
+
+  private async storeCredentials(pending: PendingCredentialSave, replaceExisting: boolean): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post<{ status: string }>(
+        `${environment.apiUrl}/terminal/credentials/save`,
+        { ...pending.target, ...pending.credentials, replaceExisting }
+      ));
+      this.pendingCredentialSave = null;
+      this.replaceCredentialsConfirmation.set(false);
+      this.clearCredentials();
+      this.status.set(this.translations.translate('SSH_CREDENTIALS_SAVED'));
+    } catch (error) {
+      if (error instanceof HttpErrorResponse && error.status === 409 &&
+          error.error?.code === 'terminal_credentials_exist' && !replaceExisting) {
+        this.pendingCredentialSave = pending;
+        this.replaceCredentialsConfirmation.set(true);
+        return;
+      }
+      console.error('No se pudieron guardar las credenciales SSH cifradas.', error);
+      this.status.set(this.translations.translate('SSH_CREDENTIALS_SAVE_FAILED'));
+    }
   }
 
   private async loadSavedCredentials(): Promise<void> {

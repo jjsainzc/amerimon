@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,6 +100,79 @@ func TestTerminalCredentialHandlersEncryptAndRetrievePerTarget(t *testing.T) {
 	}
 	if otherKey == key {
 		t.Fatal("credentials for a different port share the same target key")
+	}
+}
+
+func TestTerminalCredentialSaveRequiresConfirmationToReplaceExistingCredentials(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "amerimon.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	previousDB, previousPath := config.App.DB, config.App.DBPath
+	config.App.DB, config.App.DBPath = database, filepath.Join(dir, "amerimon.db")
+	defer func() {
+		config.App.DB, config.App.DBPath = previousDB, previousPath
+	}()
+	t.Setenv("AMERIMON_TERMINAL_CREDENTIALS_KEY_FILE", filepath.Join(dir, "credentials.key"))
+
+	target := terminalCredentialTarget{
+		Host:       "server.internal",
+		Port:       22,
+		Username:   "operator",
+		AuthMethod: "password",
+	}
+	save := func(payload string) error {
+		recorder := httptest.NewRecorder()
+		context := echo.New().NewContext(
+			httptest.NewRequest(http.MethodPost, "/mon/terminal/credentials/save", strings.NewReader(payload)),
+			recorder,
+		)
+		return SaveTerminalCredentials(context)
+	}
+
+	if err := save(`{"host":"server.internal","port":22,"username":"operator","authMethod":"password","password":"old-password"}`); err != nil {
+		t.Fatalf("save initial credentials: %v", err)
+	}
+	err = save(`{"host":"server.internal","port":22,"username":"operator","authMethod":"password","password":"new-password"}`)
+	var httpErr *echo.HTTPError
+	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusConflict {
+		t.Fatalf("unconfirmed replacement error = %#v, want terminal_credentials_exist conflict", err)
+	}
+	message, ok := httpErr.Message.(map[string]any)
+	if !ok || message["code"] != "terminal_credentials_exist" {
+		t.Fatalf("unconfirmed replacement response = %#v, want terminal_credentials_exist", httpErr.Message)
+	}
+
+	targetKey, err := terminalCredentialTargetKey(target)
+	if err != nil {
+		t.Fatalf("create credential target key: %v", err)
+	}
+	var encrypted []byte
+	if err := database.QueryRow(`SELECT encrypted_data FROM terminal_credentials WHERE target_key = ?`, targetKey).Scan(&encrypted); err != nil {
+		t.Fatalf("read stored credentials: %v", err)
+	}
+	stored, err := decryptTerminalCredentials(targetKey, encrypted)
+	if err != nil {
+		t.Fatalf("decrypt stored credentials: %v", err)
+	}
+	if stored.Password != "old-password" {
+		t.Fatalf("unconfirmed replacement changed stored credentials to %q", stored.Password)
+	}
+
+	if err := save(`{"host":"server.internal","port":22,"username":"operator","authMethod":"password","password":"new-password","replaceExisting":true}`); err != nil {
+		t.Fatalf("save confirmed replacement: %v", err)
+	}
+	if err := database.QueryRow(`SELECT encrypted_data FROM terminal_credentials WHERE target_key = ?`, targetKey).Scan(&encrypted); err != nil {
+		t.Fatalf("read replaced credentials: %v", err)
+	}
+	stored, err = decryptTerminalCredentials(targetKey, encrypted)
+	if err != nil {
+		t.Fatalf("decrypt replaced credentials: %v", err)
+	}
+	if stored.Password != "new-password" {
+		t.Fatalf("confirmed replacement stored password = %q, want new-password", stored.Password)
 	}
 }
 

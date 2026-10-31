@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AuthService } from '../../core/services/auth.service';
 import { TranslationService } from '../../core/services/translation.service';
@@ -357,5 +357,54 @@ describe('TerminalComponent', () => {
     );
     expect(component['privateKey']).toBe('');
     expect(component.keyPassphrase).toBe('');
+  });
+
+  it('asks before replacing saved credentials and replaces them only after confirmation', async () => {
+    createComponent();
+    component.settings.username = 'operator';
+    component.password = 'new-password';
+    const http = TestBed.inject(HttpClient);
+    vi.mocked(http.post).mockImplementationOnce(() => throwError(() => new HttpErrorResponse({
+      status: 409,
+      error: { code: 'terminal_credentials_exist' }
+    })));
+
+    await component.saveSettings();
+    fixture.detectChanges();
+
+    expect(component.replaceCredentialsConfirmation()).toBe(true);
+    expect(fixture.nativeElement.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(component.password).toBe('new-password');
+
+    await component.confirmCredentialReplacement();
+    fixture.detectChanges();
+
+    const saveCalls = vi.mocked(http.post).mock.calls.filter(([url]) => url.endsWith('/credentials/save'));
+    expect(saveCalls).toHaveLength(2);
+    expect(saveCalls[0][1]).toMatchObject({ password: 'new-password', replaceExisting: false });
+    expect(saveCalls[1][1]).toMatchObject({ password: 'new-password', replaceExisting: true });
+    expect(component.replaceCredentialsConfirmation()).toBe(false);
+    expect(component.password).toBe('');
+  });
+
+  it('hides connection settings after connecting and restores them on disconnect', () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    createComponent();
+    component.connect();
+    const socket = fakeSocket;
+    socket?.open();
+    socket?.onmessage?.({
+      data: JSON.stringify({ type: 'status', status: 'connected' })
+    } as MessageEvent<string>);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.connection-form')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.terminal-session-toolbar')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.terminal-panel').classList).toContain('terminal-panel--expanded');
+
+    component.disconnect();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.connection-form')).not.toBeNull();
   });
 });

@@ -12,6 +12,11 @@
   color: #dce5eb;
 }
 
+.terminal-page--connected {
+  max-width: none;
+  padding: 0.75rem 1rem;
+}
+
 .terminal-guidance {
   margin-bottom: 1.25rem;
   padding: 1rem;
@@ -299,6 +304,14 @@
   color: #d0dce4;
 }
 
+.terminal-session-toolbar {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
 .private-key-picker-control {
   display: flex;
   min-width: 0;
@@ -361,6 +374,11 @@
   }
 }
 
+.terminal-panel--expanded {
+  height: max(300px, calc(100dvh - 9rem));
+  margin-top: 0.5rem;
+}
+
 .terminal-container {
   min-width: 0;
   width: 100%;
@@ -385,6 +403,10 @@
 
   .terminal-page-header {
     align-items: flex-start;
+  }
+
+  .terminal-panel--expanded {
+    height: max(300px, calc(100dvh - 8rem));
   }
 
   .connection-form {
