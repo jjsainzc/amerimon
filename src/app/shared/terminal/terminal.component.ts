@@ -239,6 +239,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('No se pudo abrir la conexión WebSocket SSH.', error);
       this.connectionState.set('disconnected');
+      this.terminalVisible.set(false);
       this.status.set(this.translations.translate('SSH_WEBSOCKET_OPEN_FAILED'));
       return;
     }
@@ -273,6 +274,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
       this.loginPrompt = null;
       this.promptBuffer = '';
       this.connectionState.set('disconnected');
+      this.terminalVisible.set(false);
       if (this.status().startsWith(this.translations.translate('SSH_ERROR_PREFIX'))) {
         this.terminal.writeln(this.status());
       } else if ((event.code === 1000 || event.code === 1001) &&
@@ -293,6 +295,7 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
     const socket = this.socket;
     this.socket = undefined;
     this.connectionState.set('disconnected');
+    this.terminalVisible.set(false);
     this.loginPrompt = null;
     this.promptBuffer = '';
     this.clearCredentials();
@@ -371,9 +374,11 @@ export class TerminalComponent implements AfterViewInit, OnDestroy {
       this.resizeTerminal();
     } else if (control.type === 'status' && control.status === 'disconnected') {
       this.connectionState.set('disconnected');
+      this.terminalVisible.set(false);
       this.status.set(this.translations.translate('SSH_DISCONNECTED'));
     } else if (control.type === 'error') {
       this.connectionState.set('disconnected');
+      this.terminalVisible.set(false);
       this.status.set(`${this.translations.translate('SSH_ERROR_PREFIX')} ${control.message}`);
       this.socket?.close();
     }

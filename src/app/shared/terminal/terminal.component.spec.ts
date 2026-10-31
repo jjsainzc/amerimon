@@ -221,6 +221,8 @@ describe('TerminalComponent', () => {
     fakeSocket?.close(1000);
 
     expect(component.connectionState()).toBe('disconnected');
+    expect(component.terminalVisible()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.terminal-panel')!.hidden).toBe(true);
     expect(component.status()).toBe('SSH_DISCONNECTED');
     expect(terminalMock.instance?.writes.join('')).not.toContain('SSH_WEBSOCKET_CLOSED_UNEXPECTEDLY');
   });
@@ -241,6 +243,8 @@ describe('TerminalComponent', () => {
     expect(terminalMock.instance?.writes.join('')).toContain('\x1b[3J\x1b[2J\x1b[H');
     expect(terminalMock.instance?.resetCount).toBe(1);
     expect(socket?.onmessage).toBeNull();
+    expect(component.terminalVisible()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.terminal-panel')!.hidden).toBe(true);
     expect(component.status()).toBe('SSH_DISCONNECTED');
   });
 

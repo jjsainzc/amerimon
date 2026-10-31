@@ -310,6 +310,32 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.65rem;
+  padding-top: 0.75rem;
+
+  .danger-button {
+    display: inline-flex;
+    min-height: 2.1rem;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid;
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 140ms ease, transform 140ms ease;
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+
+    &:focus-visible {
+      outline: 2px solid #ffb4ad;
+      outline-offset: 2px;
+    }
+  }
 }
 
 .private-key-picker-control {
