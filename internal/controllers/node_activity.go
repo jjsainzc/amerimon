@@ -9,23 +9,181 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
 
 const (
 	defaultActivityPollInterval = 5 * time.Second
 	minimumActivityPollInterval = 5 * time.Second
+	liveActivityPollInterval    = 250 * time.Millisecond
+	liveActivityPublishInterval = 250 * time.Millisecond
+	liveActivityPingInterval    = 25 * time.Second
 )
+
+var allStarLinkActivityUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 4096,
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return false
+		}
+		parsed, err := url.Parse(origin)
+		return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") &&
+			strings.EqualFold(parsed.Host, r.Host)
+	},
+}
 
 type AllStarLinkNodeActivity struct {
 	LocalNode       string    `json:"local_node"`
 	RemoteNode      string    `json:"remote_node"`
 	UltimaActividad time.Time `json:"ultima_actividad"`
+}
+
+type allStarLinkReceiveState struct {
+	ObservedAt time.Time
+	COS        bool
+	Links      []AllStarLinkNodeActivity
+}
+
+var allStarLinkReceiveStates = struct {
+	sync.RWMutex
+	byNode map[string]allStarLinkReceiveState
+}{byNode: make(map[string]allStarLinkReceiveState)}
+
+func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
+	activities := make([]AllStarLinkNodeActivity, 0)
+	servers := make([]string, 0)
+	allStarLinkReceiveStates.RLock()
+	for node, state := range allStarLinkReceiveStates.byNode {
+		if now.Sub(state.ObservedAt) > 3*time.Second {
+			continue
+		}
+		activities = append(activities, state.Links...)
+		if state.COS {
+			servers = append(servers, node)
+		}
+	}
+	allStarLinkReceiveStates.RUnlock()
+	sort.Strings(servers)
+	sort.Slice(activities, func(i, j int) bool {
+		if activities[i].LocalNode == activities[j].LocalNode {
+			return activities[i].RemoteNode < activities[j].RemoteNode
+		}
+		return activities[i].LocalNode < activities[j].LocalNode
+	})
+	return map[string]any{"status": "success", "data": activities, "server_nodes": servers}
+}
+
+func pollAllStarLinkReceiveState(instance allmonInstance) {
+	state := allStarLinkReceiveState{Links: make([]AllStarLinkNodeActivity, 0)}
+	nodeStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "NodeStat", 2*time.Second)
+	if err != nil {
+		log.Printf("allstarlink activity: COS para nodo %s falló: %v", instance.Node, err)
+	} else {
+		cos, err := parseRPTCOS(nodeStat)
+		if err != nil {
+			log.Printf("allstarlink activity: COS para nodo %s inválido: %v", instance.Node, err)
+		} else {
+			state.COS = cos
+		}
+	}
+	sawStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "SawStat", 2*time.Second)
+	if err != nil {
+		log.Printf("allstarlink activity: recepción de enlaces para nodo %s falló: %v", instance.Node, err)
+	} else {
+		links, err := parseRPTReceivingLinks(sawStat, instance.Node, time.Now().UTC())
+		if err != nil {
+			log.Printf("allstarlink activity: recepción de enlaces para nodo %s inválida: %v", instance.Node, err)
+		} else {
+			state.Links = links
+		}
+	}
+	state.ObservedAt = time.Now().UTC()
+	allStarLinkReceiveStates.Lock()
+	allStarLinkReceiveStates.byNode[instance.Node] = state
+	allStarLinkReceiveStates.Unlock()
+}
+
+func parseRPTCOS(nodeStat string) (bool, error) {
+	for _, line := range config.ParseAMIOutputToLines(nodeStat) {
+		key, value, found := strings.Cut(line, ":")
+		if !found || strings.TrimSpace(key) != "SignalOnInput" {
+			continue
+		}
+		switch strings.TrimSpace(value) {
+		case "YES":
+			return true, nil
+		case "NO":
+			return false, nil
+		default:
+			return false, fmt.Errorf("SignalOnInput inválido")
+		}
+	}
+	return false, fmt.Errorf("NodeStat no contiene SignalOnInput")
+}
+
+func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]AllStarLinkNodeActivity, error) {
+	activities := make([]AllStarLinkNodeActivity, 0)
+	for _, line := range config.ParseAMIOutputToLines(sawStat) {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] != "Conn:" {
+			continue
+		}
+		// SawStat: nodo, RX activo, segundos desde key y segundos desde unkey.
+		if len(fields) < 5 || !isValidRemoteNodeID(fields[1]) || (fields[2] != "0" && fields[2] != "1") {
+			return nil, fmt.Errorf("Conn de SawStat inválida")
+		}
+		if fields[2] == "1" {
+			activities = append(activities, AllStarLinkNodeActivity{
+				LocalNode: localNode, RemoteNode: fields[1], UltimaActividad: observedAt,
+			})
+		}
+	}
+	return activities, nil
+}
+
+func startAllStarLinkReceiveScheduler() {
+	go func() {
+		var inFlight sync.Map
+		ticker := time.NewTicker(liveActivityPollInterval)
+		defer ticker.Stop()
+		for {
+			instances, err := allStarLinkActivityInstances()
+			if err != nil {
+				log.Printf("allstarlink activity: no se pudieron cargar servidores para COS: %v", err)
+			} else {
+				configured := make(map[string]bool, len(instances))
+				for _, instance := range instances {
+					configured[instance.Node] = true
+					if _, busy := inFlight.LoadOrStore(instance.Node, true); busy {
+						continue
+					}
+					go func(instance allmonInstance) {
+						defer inFlight.Delete(instance.Node)
+						pollAllStarLinkReceiveState(instance)
+					}(instance)
+				}
+				allStarLinkReceiveStates.Lock()
+				for node := range allStarLinkReceiveStates.byNode {
+					if !configured[node] {
+						delete(allStarLinkReceiveStates.byNode, node)
+					}
+				}
+				allStarLinkReceiveStates.Unlock()
+			}
+			<-ticker.C
+		}
+	}()
 }
 
 type AsteriskConnectionHistory struct {
@@ -244,6 +402,9 @@ func parseConnectionHistoryBound(value string, upperBound bool) (time.Time, stri
 // @Failure 401
 // @Router /allstarlink/activity [get]
 func GetAllStarLinkNodeActivity(c echo.Context) error {
+	if c.QueryParam("recent") == "true" {
+		return c.JSON(http.StatusOK, currentAllStarLinkReceiveActivity(time.Now().UTC()))
+	}
 	if config.App.DB == nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]any{
 			"status":  "error",
@@ -316,6 +477,70 @@ func GetAllStarLinkNodeActivity(c echo.Context) error {
 	})
 }
 
+// StreamAllStarLinkNodeActivity publica el COS y RX actual del sondeo AMI compartido.
+func StreamAllStarLinkNodeActivity(c echo.Context) error {
+	if config.App.DB == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]any{
+			"status":  "error",
+			"message": "La base de datos no está disponible",
+		})
+	}
+
+	ws, err := allStarLinkActivityUpgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		return err
+	}
+	defer ws.Close()
+	ws.SetReadLimit(1024)
+	if err := ws.SetReadDeadline(time.Now().Add(60 * time.Second)); err != nil {
+		return err
+	}
+	ws.SetPongHandler(func(string) error {
+		return ws.SetReadDeadline(time.Now().Add(60 * time.Second))
+	})
+
+	readErrors := make(chan error, 1)
+	go func() {
+		for {
+			if _, _, err := ws.ReadMessage(); err != nil {
+				readErrors <- err
+				return
+			}
+		}
+	}()
+
+	ticker := time.NewTicker(liveActivityPublishInterval)
+	defer ticker.Stop()
+	pingTicker := time.NewTicker(liveActivityPingInterval)
+	defer pingTicker.Stop()
+
+	publish := func() error {
+		if err := ws.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return err
+		}
+		return ws.WriteJSON(currentAllStarLinkReceiveActivity(time.Now().UTC()))
+	}
+
+	for {
+		if err := publish(); err != nil {
+			log.Printf("allstarlink activity: stream en tiempo real finalizado: %v", err)
+			_ = ws.WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "activity stream failed"),
+				time.Now().Add(time.Second))
+			return nil
+		}
+		select {
+		case <-readErrors:
+			return nil
+		case <-ticker.C:
+		case <-pingTicker.C:
+			if err := ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+				return nil
+			}
+		}
+	}
+}
+
 // StartAllStarLinkActivityScheduler almacena periódicamente la última hora de audio
 // reportada por Asterisk SawStat para cada nodo remoto conectado.
 func StartAllStarLinkActivityScheduler() {
@@ -323,6 +548,7 @@ func StartAllStarLinkActivityScheduler() {
 		log.Printf("allstarlink activity: sondeo deshabilitado porque no hay base de datos")
 		return
 	}
+	startAllStarLinkReceiveScheduler()
 
 	interval := defaultActivityPollInterval
 	if configured := strings.TrimSpace(config.CurrentAMI().ActivityPollInterval); configured != "" {

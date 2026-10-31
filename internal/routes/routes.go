@@ -56,6 +56,7 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	opt := controllers.OptionalJWTMiddleware
 	publica.GET("/allstarlink/nodes", controllers.GetAllStarLinkNodes, opt)
 	publica.GET("/allstarlink/activity", controllers.GetAllStarLinkNodeActivity, opt)
+	publica.GET("/allstarlink/activity/live", controllers.StreamAllStarLinkNodeActivity, opt)
 	privada.GET("/allstarlink/connections/history", controllers.GetAsteriskConnectionHistory, jwt, admin)
 	privada.GET("/geoip/:ip", controllers.GeoIP, jwt, admin)
 	privada.GET("/allmon/config", controllers.GetAllmonConfig, jwt, admin)

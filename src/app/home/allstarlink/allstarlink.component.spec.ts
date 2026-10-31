@@ -16,6 +16,35 @@ const tablas = ['616265', '700001'].map(nodo_local => ({
   nodo_local, servidor_conectado: false, nodos_disponibles: []
 }));
 
+class FakeActivityWebSocket {
+  static readonly OPEN = 1;
+  static readonly CONNECTING = 0;
+  readyState = 0;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: MessageEvent<string>) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onclose: (() => void) | null = null;
+  static instance: FakeActivityWebSocket | undefined;
+
+  constructor(readonly url: string) {
+    FakeActivityWebSocket.instance = this;
+  }
+
+  close(): void {
+    this.readyState = 3;
+    this.onclose?.();
+  }
+
+  open(): void {
+    this.readyState = FakeActivityWebSocket.OPEN;
+    this.onopen?.();
+  }
+
+  sendMessage(message: string): void {
+    this.onmessage?.({ data: message } as MessageEvent<string>);
+  }
+}
+
 describe('Allstarlink connection target safety', () => {
   beforeEach(async () => {
     localStorage.clear();
@@ -824,6 +853,117 @@ describe('Allstarlink connection target safety', () => {
       http.verify();
     } finally {
       fixture.destroy();
+    }
+  });
+
+  it('connects to live activity only when selected, highlights and prioritizes active links, then closes the stream', async () => {
+    vi.stubGlobal('WebSocket', FakeActivityWebSocket);
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.nodos.set([
+        { nodo_local: '616262', nodo: '700001', protocolo: 'iax' },
+        { nodo_local: '56502', nodo: '700001', protocolo: 'iax' },
+        { nodo_local: '56502', nodo: '10001', protocolo: 'iax' }
+      ]);
+      component.ordenarPor('nodo');
+      component.cambiarIntervalo('-1');
+
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success',
+        data: [{ local_node: '56502', remote_node: '10001', ultima_actividad: new Date().toISOString() }]
+      });
+      fixture.detectChanges();
+      expect(component.estaTransmitiendo(component.nodos()[2])).toBe(true);
+
+      const socket = FakeActivityWebSocket.instance;
+      expect(socket?.url).toBe(`${environment.wsUrl}/allstarlink/activity/live`);
+      socket?.open();
+      socket?.sendMessage(JSON.stringify({
+        status: 'success',
+        data: [
+          { local_node: '616262', remote_node: '700001', ultima_actividad: new Date().toISOString() },
+          { local_node: '56502', remote_node: '10001', ultima_actividad: new Date().toISOString() }
+        ]
+      }));
+      fixture.detectChanges();
+
+      expect(component.estaTransmitiendo(component.nodos()[0])).toBe(true);
+      expect(component.estaTransmitiendo(component.nodos()[1])).toBe(false);
+      expect(component.estaTransmitiendo(component.nodos()[2])).toBe(true);
+      expect(component.gruposFiltrados().find(grupo => grupo.nodoLocal === '56502')?.nodos[0].nodo).toBe('10001');
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(2);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(2);
+      expect(component.estadoActividadTiempoReal()).toBe('connected');
+
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [] }));
+      fixture.detectChanges();
+      expect(component.gruposFiltrados().find(grupo => grupo.nodoLocal === '56502')?.nodos[0].nodo).toBe('10001');
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(0);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(0);
+
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [], server_nodes: ['56502'] }));
+      fixture.detectChanges();
+      expect(component.grupos().find(grupo => grupo.nodoLocal === '56502')?.audioActivo).toBe(true);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(1);
+
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [], server_nodes: ['700001'] }));
+      fixture.detectChanges();
+      expect(component.estaTransmitiendo(component.nodos()[0])).toBe(true);
+      expect(component.estaTransmitiendo(component.nodos()[1])).toBe(true);
+      expect(component.estaTransmitiendo(component.nodos()[2])).toBe(false);
+
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [] }));
+      fixture.detectChanges();
+      expect(component.estaTransmitiendo(component.nodos()[0])).toBe(false);
+      expect(component.estaTransmitiendo(component.nodos()[2])).toBe(false);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(0);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(0);
+      expect(component.gruposFiltrados().find(grupo => grupo.nodoLocal === '56502')?.nodos[0].nodo).toBe('700001');
+
+      component.cambiarIntervalo('0');
+      fixture.detectChanges();
+      expect(component.actividadTiempoReal()).toHaveLength(0);
+      expect(component.estadoActividadTiempoReal()).toBe('');
+      expect(socket?.readyState).toBe(3);
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('clears COS rows and header indicators within 500ms of an HTTP fallback update', async () => {
+    vi.stubGlobal('WebSocket', FakeActivityWebSocket);
+    const { fixture, component, http, element } = await crearMonitor();
+    vi.useFakeTimers();
+    try {
+      component.nodos.set([
+        { nodo_local: '616262', nodo: '10001', protocolo: 'iax' },
+        { nodo_local: '616262', nodo: '56502', protocolo: 'iax' }
+      ]);
+      component.ordenarPor('nodo');
+      component.cambiarIntervalo('-1');
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success', data: [], server_nodes: ['56502']
+      });
+      fixture.detectChanges();
+      expect(element.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(1);
+      expect(element.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(2);
+      vi.advanceTimersByTime(499);
+      http.expectNone(`${environment.apiUrl}/allstarlink/activity?recent=true`);
+      vi.advanceTimersByTime(1);
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success', data: [], server_nodes: []
+      });
+      fixture.detectChanges();
+      expect(element.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(0);
+      expect(element.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(0);
+      expect(component.gruposFiltrados().find(grupo => grupo.nodoLocal === '616262')?.nodos[0].nodo).toBe('56502');
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
     }
   });
 });

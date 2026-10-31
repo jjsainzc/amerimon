@@ -59,6 +59,7 @@ export interface AllstarlinkActivityResponse {
   status: string;
   message?: string;
   data?: AllstarlinkActivity[];
+  server_nodes?: string[];
 }
 
 export interface AllstarlinkConnectionHistory {
@@ -101,6 +102,7 @@ export interface AllstarlinkGrupo {
   nodos: AllstarlinkNode[];
   conectados: number;
   servidorConectado: boolean;
+  audioActivo: boolean;
 }
 
 export interface SupermonCommand {

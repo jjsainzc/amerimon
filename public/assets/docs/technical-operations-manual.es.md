@@ -218,6 +218,10 @@ Los nodos locales se obtienen de `/etc/asterisk/rpt.conf` (o `ami.rpt_config_pat
 
 En el monitor AllStarLink, la tabla del nodo principal aparece primero; las restantes se ordenan por número. La cabecera de cada tabla muestra `número - descripción - IP/hostname`; el principal conserva su etiqueta «Nodo principal» y las remotas no llevan el prefijo «Nodo remoto». La descripción procede de `astdb.txt` y la dirección del host AMI global para los nodos locales o del campo `host` de Allmon para los remotos (sin puerto). Se muestra la IP o el hostname según lo configurado, sin consultas DNS; los datos ausentes se omiten, incluso cuando el servidor está desconectado.
 
+En **Actualizar cada → Tiempo real**, el navegador abre el WebSocket `/mon/allstarlink/activity/live` en el mismo servidor y puerto que los demás WebSockets de Amerimon. Un sondeo AMI compartido consulta cada 250 ms el COS local (`NodeStat`, `SignalOnInput`) y la recepción activa de cada enlace (`SawStat`, indicador RX); las consultas de un servidor no se solapan ni bloquean las de otros servidores. El WebSocket publica el estado cada 250 ms. Si no conecta, la vista consulta ese mismo estado por HTTP cada 500 ms. El resaltado y el indicador verde intermitente de la cabecera se apagan en la siguiente actualización que detecta COS/RX desactivado, sin esperar al vencimiento del historial. Los nodos configurados con COS activo también se resaltan en las tablas donde están conectados. La latencia incluye los tiempos de respuesta AMI y de red; los estados sin actualizar caducan tras tres segundos. El historial de última actividad se mantiene por separado. Al elegir otro intervalo, se detiene el monitoreo de la vista.
+
+En tiempo real, el último enlace que tuvo actividad conserva la primera posición de su tabla al cesar el audio, sin conservar el resaltado ni el indicador intermitente. Una nueva actividad tiene prioridad; el campo de orden elegido se usa para desempatar. Al salir del modo en tiempo real se recupera el orden elegido.
+
 Solo el número del nodo se muestra en negrita; la descripción y la IP/hostname usan peso normal, tanto en el principal como en los remotos.
 
 Cuando existe un `allmon.ini` con nodos remotos válidos, esas instancias proporcionan la conexión AMI de cada servidor remoto. Una entrada típica es:
@@ -460,7 +464,7 @@ El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e *
 | --- | --- | --- |
 | `/mon/health` | Público | Salud de HTTP/DB |
 | `/mon/auth/login`, `/mon/auth/status`, `/mon/auth/setup` | Público | Inicio y configuración inicial de administrador |
-| `/mon/allstarlink/nodes`, `/mon/allstarlink/activity` | Público, token opcional | Nodos y actividad |
+| `/mon/allstarlink/nodes`, `/mon/allstarlink/activity`, `/mon/allstarlink/activity/live` | Público, token opcional | Nodos y actividad (REST y WebSocket en tiempo real) |
 | `/mon/listen-live/*` | Público, token opcional según operación | Sesiones, estado y WebSocket de audio |
 | `/mon/allmon/config` | Administrador | Leer/guardar nodos Allmon |
 | `/mon/iax-users` | Administrador | GET: mapa de usuarios por nombre; POST: crear o actualizar un usuario IAX |

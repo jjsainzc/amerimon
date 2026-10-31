@@ -31,8 +31,10 @@ export class AllstarlinkService {
   }
 
   /** Obtiene la última actividad registrada para cada pareja de nodos local y remoto. */
-  listarActividad(): Observable<AllstarlinkActivityResponse> {
-    return this.http.get<AllstarlinkActivityResponse>(`${environment.apiUrl}/allstarlink/activity`);
+  listarActividad(reciente = false): Observable<AllstarlinkActivityResponse> {
+    return this.http.get<AllstarlinkActivityResponse>(`${environment.apiUrl}/allstarlink/activity`, {
+      params: reciente ? { recent: 'true' } : {}
+    });
   }
 
   /** Consulta el historial enviando solo los filtros con valor definido y no vacío. */

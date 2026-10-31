@@ -4,7 +4,7 @@ import { Component, DestroyRef, OnDestroy, OnInit, computed, effect, inject, sig
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { EMPTY, Observable, Subscription, concatMap, defer, expand, filter, from, map, of, switchMap, take, tap, timeout, timer, toArray } from 'rxjs';
+import { EMPTY, Observable, Subscription, concatMap, defer, expand, filter, finalize, from, map, of, switchMap, take, tap, timeout, timer, toArray } from 'rxjs';
 import {
   AllstarlinkActivity,
   AllstarlinkGrupo,
@@ -55,6 +55,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
 
   readonly nodos = signal<AllstarlinkNode[]>([]);
   readonly actividades = signal<AllstarlinkActivity[]>([]);
+  readonly actividadTiempoReal = signal<AllstarlinkActivity[]>([]);
+  readonly servidoresConCOSTiempoReal = signal<string[]>([]);
+  private readonly ultimoOrdenActividad = signal(new Map<string, number>());
+  private secuenciaActividad = 0;
+  readonly estadoActividadTiempoReal = signal<'connecting' | 'connected' | 'reconnecting' | ''>('');
   readonly conexionesPendientes = signal<AllstarlinkNode[]>([]);
   readonly filtroBusqueda = this.estadoVista.filtroBusqueda;
   readonly servidorSeleccionado = this.estadoVista.servidorSeleccionado;
@@ -109,6 +114,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly resultadoDesconexion = signal<{ clave: string; texto: string; error: boolean } | null>(null);
   readonly tablasContraidas = this.estadoVista.tablasContraidas;
   private temporizador?: ReturnType<typeof setInterval>;
+  private temporizadorReconectarActividad?: ReturnType<typeof setTimeout>;
+  private temporizadorSondeoActividad?: ReturnType<typeof setInterval>;
+  private temporizadorConexionActividad?: ReturnType<typeof setTimeout>;
+  private socketActividad?: WebSocket;
+  private consultaSondeoActividadEnCurso = false;
   private temporizadorRecargaDesconexion?: ReturnType<typeof setTimeout>;
   private recargaPendiente = false;
   private readonly consultasServidor = new Map<string, Subscription>();
@@ -168,7 +178,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           .map(valor => valor?.trim()).filter(Boolean).join(' - '),
         nodos: conexiones,
         conectados: conexiones.filter(nodo => nodo.enlace?.trim().toLowerCase() === 'established').length,
-        servidorConectado: tabla?.servidor_conectado ?? conexiones.length > 0
+        servidorConectado: tabla?.servidor_conectado ?? conexiones.length > 0,
+        audioActivo: this.intervaloMs() === -1 && (
+          this.servidoresConCOSTiempoReal().includes(nodoLocal) ||
+          conexiones.some(nodo => this.estaTransmitiendo(nodo))
+        )
       };
     }).sort((a, b) =>
       Number(b.nodoLocal === this.nodoPrincipal()) - Number(a.nodoLocal === this.nodoPrincipal()) ||
@@ -187,6 +201,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }
     return actividadPorNodo;
   });
+  private readonly paresConAudioTiempoReal = computed(() => new Set(
+    this.actividadTiempoReal().map(actividad =>
+      `${actividad.local_node.trim()}\u0000${actividad.remote_node.trim()}`
+    )
+  ));
   /** Filtra nodos por texto y servidor, y los ordena según actividad o campo elegido. */
   readonly gruposFiltrados = computed(() => {
     const termino = this.normalizarTexto(this.filtroBusqueda().trim());
@@ -222,6 +241,14 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
             const comparacion = campo === 'actividad'
               ? this.compararActividad(actividadA, actividadB, direccion)
               : this.valorOrden(a, campo).localeCompare(this.valorOrden(b, campo), undefined, { numeric: true, sensitivity: 'base' }) * direccion;
+            const audioActivoPrimero = Number(this.estaTransmitiendo(b)) - Number(this.estaTransmitiendo(a));
+            if (audioActivoPrimero !== 0) { return audioActivoPrimero; }
+            if (this.intervaloMs() === -1) {
+              const orden = this.ultimoOrdenActividad();
+              const ultimaActividadPrimero = (orden.get(`${b.nodo_local}\u0000${b.nodo}`) ?? 0) -
+                (orden.get(`${a.nodo_local}\u0000${a.nodo}`) ?? 0);
+              if (ultimaActividadPrimero !== 0) { return ultimaActividadPrimero; }
+            }
             return comparacion || this.compararActividad(actividadA, actividadB, -1);
           })
         };
@@ -263,6 +290,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   /** Cancela los temporizadores al destruir la vista. */
   ngOnDestroy(): void {
     if (this.temporizador) { clearInterval(this.temporizador); }
+    this.cerrarActividadTiempoReal();
     if (this.temporizadorRecargaDesconexion) { clearTimeout(this.temporizadorRecargaDesconexion); }
     for (const temporizador of this.reintentosServidor.values()) { clearTimeout(temporizador); }
     for (const consulta of this.consultasServidor.values()) { consulta.unsubscribe(); }
@@ -271,8 +299,16 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   /** Actualiza el intervalo de sondeo; un valor no numérico desactiva el temporizador. */
   cambiarIntervalo(valor: string): void {
     const intervalo = Number(valor);
-    this.intervaloMs.set(Number.isFinite(intervalo) ? intervalo : 0);
+    this.intervaloMs.set(Number.isFinite(intervalo) && (intervalo === -1 || intervalo >= 0) ? intervalo : 0);
     this.programarActualizacion();
+  }
+
+  /** Indica si el enlace del nodo tiene audio detectado actualmente en el sondeo SawStat. */
+  estaTransmitiendo(nodo: AllstarlinkNode): boolean {
+    if (this.intervaloMs() !== -1) { return false; }
+    const remoto = nodo.nodo.trim();
+    return this.paresConAudioTiempoReal().has(`${nodo.nodo_local.trim()}\u0000${remoto}`) ||
+      this.servidoresConCOSTiempoReal().includes(remoto);
   }
 
   /** Selecciona desde la cabecera el servidor que usará el formulario de conexión. */
@@ -1120,10 +1156,186 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   /** Reinicia el temporizador de actualización con el intervalo configurado. */
   private programarActualizacion(): void {
     if (this.temporizador) { clearInterval(this.temporizador); }
+    this.temporizador = undefined;
     const intervalo = this.intervaloMs();
+    if (intervalo === -1) {
+      this.conectarActividadTiempoReal();
+    } else {
+      this.cerrarActividadTiempoReal();
+    }
     if (intervalo > 0) {
       this.temporizador = setInterval(() => this.cargar(), intervalo);
     }
+  }
+
+  private conectarActividadTiempoReal(): void {
+    if (this.intervaloMs() !== -1 || this.socketActividad) { return; }
+    this.estadoActividadTiempoReal.set('connecting');
+    this.iniciarSondeoActividadFallback();
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(`${environment.wsUrl}/allstarlink/activity/live`);
+    } catch (error) {
+      console.error('No se pudo abrir el WebSocket de actividad AllStarLink.', error);
+      this.estadoActividadTiempoReal.set('reconnecting');
+      this.programarReconectarActividad();
+      return;
+    }
+    this.socketActividad = socket;
+    this.temporizadorConexionActividad = setTimeout(() => {
+      this.temporizadorConexionActividad = undefined;
+      if (this.socketActividad === socket && socket.readyState === WebSocket.CONNECTING) {
+        this.estadoActividadTiempoReal.set('reconnecting');
+        socket.close();
+      }
+    }, 8000);
+    socket.onopen = () => {
+      if (this.socketActividad === socket) {
+        if (this.temporizadorConexionActividad) {
+          clearTimeout(this.temporizadorConexionActividad);
+          this.temporizadorConexionActividad = undefined;
+        }
+        this.detenerSondeoActividadFallback();
+        this.estadoActividadTiempoReal.set('connected');
+      }
+    };
+    socket.onmessage = event => this.recibirActividadTiempoReal(event.data);
+    socket.onerror = error => {
+      console.error('Error en el WebSocket de actividad AllStarLink.', error);
+      this.estadoActividadTiempoReal.set('reconnecting');
+      this.iniciarSondeoActividadFallback();
+    };
+    socket.onclose = () => {
+      if (this.socketActividad === socket) {
+        if (this.temporizadorConexionActividad) {
+          clearTimeout(this.temporizadorConexionActividad);
+          this.temporizadorConexionActividad = undefined;
+        }
+        this.socketActividad = undefined;
+        if (this.intervaloMs() === -1) {
+          this.estadoActividadTiempoReal.set('reconnecting');
+          this.iniciarSondeoActividadFallback();
+          this.programarReconectarActividad();
+        }
+      }
+    };
+  }
+
+  private recibirActividadTiempoReal(payload: unknown): void {
+    if (typeof payload !== 'string') {
+      console.error('El WebSocket de actividad AllStarLink envió un mensaje no textual.');
+      return;
+    }
+    let response: unknown;
+    try {
+      response = JSON.parse(payload);
+    } catch (error) {
+      console.error('No se pudo interpretar el mensaje de actividad AllStarLink.', error);
+      return;
+    }
+    if (typeof response !== 'object' || response === null) {
+      console.error('El WebSocket de actividad AllStarLink envió una respuesta inválida.');
+      return;
+    }
+    const result = response as { status?: unknown; data?: unknown; message?: unknown; server_nodes?: unknown };
+    if (result.status !== 'success' || !Array.isArray(result.data)) {
+      console.error('No se pudo actualizar la actividad AllStarLink en tiempo real.', result.message);
+      this.socketActividad?.close();
+      return;
+    }
+    const activities = result.data.filter((item): item is AllstarlinkActivity =>
+      typeof item === 'object' && item !== null &&
+      typeof (item as AllstarlinkActivity).local_node === 'string' &&
+      typeof (item as AllstarlinkActivity).remote_node === 'string' &&
+      typeof (item as AllstarlinkActivity).ultima_actividad === 'string' &&
+      Number.isFinite(Date.parse((item as AllstarlinkActivity).ultima_actividad))
+    );
+    this.actualizarActividadTiempoReal(activities, Array.isArray(result.server_nodes)
+      ? result.server_nodes.filter((node): node is string => typeof node === 'string')
+      : []);
+  }
+
+  private actualizarActividadTiempoReal(activities: AllstarlinkActivity[], servers: string[]): void {
+    this.actividadTiempoReal.set(activities);
+    this.servidoresConCOSTiempoReal.set(servers);
+    const activos = this.nodos().filter(nodo => this.estaTransmitiendo(nodo));
+    if (activos.length === 0) { return; }
+    const secuencia = ++this.secuenciaActividad;
+    this.ultimoOrdenActividad.update(anteriores => {
+      const siguientes = new Map(anteriores);
+      for (const nodo of activos) {
+        siguientes.set(`${nodo.nodo_local}\u0000${nodo.nodo}`, secuencia);
+      }
+      return siguientes;
+    });
+  }
+
+  private programarReconectarActividad(): void {
+    if (this.intervaloMs() !== -1 || this.temporizadorReconectarActividad) { return; }
+    this.temporizadorReconectarActividad = setTimeout(() => {
+      this.temporizadorReconectarActividad = undefined;
+      this.conectarActividadTiempoReal();
+    }, 5000);
+  }
+
+  private iniciarSondeoActividadFallback(): void {
+    if (this.temporizadorSondeoActividad) { return; }
+    const consultar = () => {
+      if (this.intervaloMs() !== -1 || this.socketActividad?.readyState === WebSocket.OPEN ||
+          this.consultaSondeoActividadEnCurso) { return; }
+      this.consultaSondeoActividadEnCurso = true;
+      this.service.listarActividad(true).pipe(
+        timeout({ each: 10_000 }),
+        finalize(() => this.consultaSondeoActividadEnCurso = false),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe({
+        next: response => {
+          if (response?.status !== 'success') {
+            console.error('No se pudo consultar la actividad reciente de AllStarLink.', response?.message);
+            return;
+          }
+          if (this.socketActividad?.readyState !== WebSocket.OPEN && this.intervaloMs() === -1) {
+            this.actualizarActividadTiempoReal(response.data ?? [], response.server_nodes ?? []);
+          }
+        },
+        error: error => console.error('Falló la consulta de actividad reciente de AllStarLink.', error)
+      });
+    };
+    consultar();
+    this.temporizadorSondeoActividad = setInterval(consultar, 500);
+  }
+
+  private detenerSondeoActividadFallback(): void {
+    if (this.temporizadorSondeoActividad) {
+      clearInterval(this.temporizadorSondeoActividad);
+      this.temporizadorSondeoActividad = undefined;
+    }
+  }
+
+  private cerrarActividadTiempoReal(): void {
+    this.detenerSondeoActividadFallback();
+    if (this.temporizadorConexionActividad) {
+      clearTimeout(this.temporizadorConexionActividad);
+      this.temporizadorConexionActividad = undefined;
+    }
+    if (this.temporizadorReconectarActividad) {
+      clearTimeout(this.temporizadorReconectarActividad);
+      this.temporizadorReconectarActividad = undefined;
+    }
+    const socket = this.socketActividad;
+    this.socketActividad = undefined;
+    if (socket) {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+      socket.close();
+    }
+    this.actividadTiempoReal.set([]);
+    this.servidoresConCOSTiempoReal.set([]);
+    this.ultimoOrdenActividad.set(new Map());
+    this.secuenciaActividad = 0;
+    this.estadoActividadTiempoReal.set('');
   }
 
 }

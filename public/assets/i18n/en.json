@@ -693,6 +693,11 @@
   "ALLSTAR_CONNECTING_IN_BACKGROUND": "Connecting in the background…",
   "ALLSTAR_CONNECTING": "Connecting…",
   "ALLSTAR_DISCONNECTING": "Disconnecting…",
+  "ALLSTAR_REALTIME_CONNECTED": "Real-time audio",
+  "ALLSTAR_REALTIME_CONNECTING": "Connecting to real-time activity…",
+  "ALLSTAR_REALTIME_RECONNECTING": "Reconnecting to real-time activity…",
+  "ALLSTAR_REALTIME_AUDIO_ACTIVE": "Audio active on node {{node}}",
+  "ALLSTAR_SERVER_AUDIO_ACTIVE": "Audio active on server {{node}}",
   "ALLSTAR_CONNECTION_ESTABLISHED": "Connection established",
   "ALLSTAR_MODE_UNSPECIFIED": "Mode not reported",
   "ALLSTAR_LSNODES_PRIMARY_NODE": "LsNodes status for the primary node",
@@ -737,5 +742,6 @@
   "NO_HAY_NODOS_CONECTADOS": "No connected nodes.",
   "ALLSTAR_QRZ_LOOKUP_NODE": "Look up node {{node}} on QRZ",
   "ALLSTAR_STATS_NODE": "AllStarLink statistics for node {{node}}",
-  "ALLSTAR_QRZ_LOOKUP_CALLSIGN": "Look up callsign {{callsign}} on QRZ"
+  "ALLSTAR_QRZ_LOOKUP_CALLSIGN": "Look up callsign {{callsign}} on QRZ",
+  "TIEMPO_REAL": "Real time"
 }

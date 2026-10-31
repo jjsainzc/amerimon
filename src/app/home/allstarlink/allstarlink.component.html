@@ -10,6 +10,7 @@
         <span>{{ 'ACTUALIZAR_CADA' | translate }}</span>
         <select [value]="intervaloMs()" (change)="cambiarIntervalo($any($event.target).value)">
           <option value="0">{{ 'DESACTIVADO' | translate }}</option>
+          <option value="-1">{{ 'TIEMPO_REAL' | translate }}</option>
           <option value="5000">{{ '5_SEGUNDOS' | translate }}</option>
           <option value="10000">{{ '10_SEGUNDOS' | translate }}</option>
           <option value="15000">{{ '15_SEGUNDOS' | translate }}</option>
@@ -24,6 +25,14 @@
       </button>
     </div>
   </header>
+  @if (intervaloMs() === -1) {
+    <div class="allstarlink-tiempo-real-fila">
+      <span class="allstarlink-tiempo-real" role="status">
+        <span class="allstarlink-tiempo-real-indicador" [class.conectado]="estadoActividadTiempoReal() === 'connected'"></span>
+        {{ (estadoActividadTiempoReal() === 'connected' ? 'ALLSTAR_REALTIME_CONNECTED' : estadoActividadTiempoReal() === 'reconnecting' ? 'ALLSTAR_REALTIME_RECONNECTING' : 'ALLSTAR_REALTIME_CONNECTING') | translate }}
+      </span>
+    </div>
+  }
 
   @if (error()) {
     <p class="allstarlink-error" role="alert">{{ error() }}</p>
@@ -235,6 +244,11 @@
           <span class="allstarlink-grupo-titulo"><span [appCopy]="grupo.nodoLocal"><button type="button"
             class="allstarlink-servidor-enlace" (click)="seleccionarServidorConexion(grupo.nodoLocal)"
             [attr.aria-label]="'ALLSTAR_SELECT_SERVER_FOR_CONNECTION' | translate:{node: grupo.nodoLocal}"><strong>{{ grupo.nodoLocal }}</strong></button></span>@if (grupo.detalle) {<span class="allstarlink-grupo-detalle"> - {{ grupo.detalle }}</span>}</span><small>{{ grupo.conectados }} {{ 'CONECTADOS' | translate }}</small>
+          @if (grupo.audioActivo) {
+            <span class="allstarlink-grupo-audio-indicador" role="img"
+              [attr.aria-label]="'ALLSTAR_SERVER_AUDIO_ACTIVE' | translate:{node: grupo.nodoLocal}"
+              [title]="'ALLSTAR_SERVER_AUDIO_ACTIVE' | translate:{node: grupo.nodoLocal}"></span>
+          }
           @if (grupo.nodoLocal === nodoPrincipal()) {
             <span class="allstarlink-modo modo-duplex">{{ 'NODO_PRINCIPAL' | translate }}</span>
           }
@@ -268,8 +282,8 @@
                 </tr>
               }
               @for (nodo of grupo.nodos; track $index) {
-                <tr [class.allstarlink-conexion-pendiente]="nodo.pendiente || desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo" [attr.aria-busy]="nodo.pendiente || desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'true' : null">
-                  <td [attr.data-label]="'TIPO' | translate" class="allstarlink-columna-protocolo"><span [class]="'allstarlink-modo ' + claseCategoria(nodo)">{{ etiquetaProtocolo(nodo) }}</span></td>
+                <tr [class.allstarlink-conexion-pendiente]="nodo.pendiente || desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo" [class.allstarlink-nodo-audio-activo]="estaTransmitiendo(nodo)" [attr.aria-busy]="nodo.pendiente || desconexionEnCurso() === grupo.nodoLocal + '-' + nodo.nodo ? 'true' : null">
+                  <td [attr.data-label]="'TIPO' | translate" class="allstarlink-columna-protocolo"><span [class]="'allstarlink-modo ' + claseCategoria(nodo)">{{ etiquetaProtocolo(nodo) }}</span>@if (estaTransmitiendo(nodo)) { <span class="allstarlink-audio-activo" role="img" [attr.aria-label]="'ALLSTAR_REALTIME_AUDIO_ACTIVE' | translate:{node: nodo.nodo}" [title]="'ALLSTAR_REALTIME_AUDIO_ACTIVE' | translate:{node: nodo.nodo}"></span> }</td>
                   <td [attr.data-label]="'NODO' | translate" class="allstarlink-columna-nodo" [attr.title]="nodo.nodo || null">
                     <span [appCopy]="nodo.nodo">
                     @if (urlNodo(nodo); as url) {

@@ -218,6 +218,10 @@ Local nodes are obtained from `/etc/asterisk/rpt.conf` (or `ami.rpt_config_path`
 
 In the AllStarLink monitor, the primary node's table appears first; the rest are sorted by number. Each table header shows `number - description - IP/hostname`; the primary keeps its **Primary node** label, and remote tables do not have a **Remote node** prefix. The description comes from `astdb.txt`, and the address comes from the global AMI host for local nodes or Allmon's `host` field for remote nodes (without the port). The configured IP or hostname is displayed without DNS lookups; missing data is omitted, even when the server is disconnected.
 
+Under **Update every → Real time**, the browser opens `/mon/allstarlink/activity/live` on the same server and port as Amerimon's other WebSockets. A shared AMI poller checks local COS (`NodeStat`, `SignalOnInput`) and each link's active reception (`SawStat`, RX flag) every 250 ms; queries for a server do not overlap or block other servers. The WebSocket publishes state every 250 ms. If it cannot connect, the view polls the same state over HTTP every 500 ms. Row highlights and blinking green header indicators turn off on the next update detecting inactive COS/RX, without waiting for history to expire. Configured nodes with active COS are also highlighted in tables where they are connected. Latency includes AMI and network response times; states not refreshed expire after three seconds. Last-activity history is maintained separately. Selecting another interval stops monitoring in the view.
+
+In real-time mode, the last active link stays first in its table after audio stops, without retaining the highlight or blinking indicator. New activity takes priority; the selected sort field breaks ties. Leaving real-time mode restores the selected sort order.
+
 Only the node number is bold; the description and IP/hostname use normal weight, for both primary and remote nodes.
 
 When a valid `allmon.ini` with remote nodes exists, those instances provide each remote server's AMI connection. A typical entry is:
@@ -460,7 +464,7 @@ The Listen Live sessions report no longer shows the **User** and **Callsign** co
 | --- | --- | --- |
 | `/mon/health` | Public | HTTP/DB health |
 | `/mon/auth/login`, `/mon/auth/status`, `/mon/auth/setup` | Public | Login and initial administrator setup |
-| `/mon/allstarlink/nodes`, `/mon/allstarlink/activity` | Public, optional token | Nodes and activity |
+| `/mon/allstarlink/nodes`, `/mon/allstarlink/activity`, `/mon/allstarlink/activity/live` | Public, optional token | Nodes and activity (REST and real-time WebSocket) |
 | `/mon/listen-live/*` | Public, token optional depending on operation | Sessions, status, and audio WebSocket |
 | `/mon/allmon/config` | Administrator | Read/save Allmon nodes |
 | `/mon/iax-users` | Administrator | GET: users keyed by name; POST: create or update an IAX user |
