@@ -61,6 +61,7 @@ export interface AllstarlinkActivityResponse {
   data?: AllstarlinkActivity[];
   server_nodes?: string[];
   connections?: Record<string, string[]>;
+  sip_connections?: Record<string, string[]>;
 }
 
 export interface AllstarlinkConnectionHistory {

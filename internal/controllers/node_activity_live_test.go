@@ -78,6 +78,47 @@ func TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime(t *testing.T) {
 	}
 }
 
+func TestReceiveActivityDetectsSIPCallChanges(t *testing.T) {
+	setupReceiveActivityTest(t)
+	var active, failed atomic.Bool
+	host, port := mockConnectionAMI(t, func(fields map[string]string) string {
+		switch fields["Command"] {
+		case "NodeStat":
+			return "Response: Success\r\nSignalOnInput: NO\r\n\r\n"
+		case "SawStat":
+			return "Response: Success\r\nConn: 700001 0 0 0\r\n\r\n"
+		case "core show channels concise":
+			if failed.Load() {
+				return "Response: Error\r\nMessage: simulated failure\r\n\r\n"
+			}
+			output := "PJSIP/registered-only-00000001!default!616265!1!Ringing!App!data"
+			if active.Load() {
+				output += "\r\nOutput: PJSIP/phone-portal-00000002!default!616265!1!Up!App!data"
+				output += "\r\nOutput: PJSIP/phone-portal-00000003!default!616265!1!Up!App!data"
+			}
+			return "Response: Follows\r\nOutput: " + output + "\r\nOutput: --END COMMAND--\r\n\r\n"
+		}
+		return "Response: Error\r\nMessage: unexpected action\r\n\r\n"
+	})
+	instance := allmonInstance{Node: "616265", Host: host, Port: port, User: "test", Secret: "test"}
+	for _, connected := range []bool{false, true, false} {
+		active.Store(connected)
+		pollAllStarLinkReceiveState(instance)
+		snapshot := currentAllStarLinkReceiveActivity(time.Now().UTC())
+		endpoints := snapshot["sip_connections"].(map[string][]string)["616265"]
+		if endpoints == nil || (connected && (len(endpoints) != 1 || endpoints[0] != "phone-portal")) ||
+			(!connected && len(endpoints) != 0) {
+			t.Fatalf("incorrect SIP snapshot for connected=%v: %v", connected, endpoints)
+		}
+	}
+	failed.Store(true)
+	pollAllStarLinkReceiveState(instance)
+	snapshot := currentAllStarLinkReceiveActivity(time.Now().UTC())
+	if _, exists := snapshot["sip_connections"].(map[string][]string)["616265"]; exists {
+		t.Fatal("failed SIP query must not publish an empty/disconnected snapshot")
+	}
+}
+
 // TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey verifica que la actividad de los nodos StarLink reporte COS y se limpie al desactivar la clave.
 func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 	setupReceiveActivityTest(t)
@@ -96,6 +137,12 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 			}
 			return "Response: Success\r\nConn: 700001 0 0 0\r\n\r\n"
 		}
+		if fields["Command"] == "core show channels concise" {
+			if keyed.Load() {
+				return "Response: Follows\r\nOutput: PJSIP/phone-portal-00000001!default!616265!1!Up!App!data\r\nOutput: --END COMMAND--\r\n\r\n"
+			}
+			return "Response: Follows\r\nOutput: --END COMMAND--\r\n\r\n"
+		}
 		return "Response: Error\r\nMessage: unexpected action\r\n\r\n"
 	})
 	instance := allmonInstance{Node: "616265", Host: host, Port: port, User: "test", Secret: "test"}
@@ -108,10 +155,11 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 			t.Fatal(err)
 		}
 		var response struct {
-			Status      string                    `json:"status"`
-			Data        []AllStarLinkNodeActivity `json:"data"`
-			Servers     []string                  `json:"server_nodes"`
-			Connections map[string][]string       `json:"connections"`
+			Status         string                    `json:"status"`
+			Data           []AllStarLinkNodeActivity `json:"data"`
+			Servers        []string                  `json:"server_nodes"`
+			Connections    map[string][]string       `json:"connections"`
+			SIPConnections map[string][]string       `json:"sip_connections"`
 		}
 		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 			t.Fatal(err)
@@ -129,6 +177,11 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 			len(response.Connections["616265"]) != 1 {
 			t.Fatalf("COS/RX still active after unkey: %s", recorder.Body.String())
 		}
+		endpoints := response.SIPConnections["616265"]
+		if endpoints == nil || (active && (len(endpoints) != 1 || endpoints[0] != "phone-portal")) ||
+			(!active && len(endpoints) != 0) {
+			t.Fatalf("incorrect HTTP SIP snapshot: %s", recorder.Body.String())
+		}
 	}
 }
 
@@ -139,8 +192,9 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 	allStarLinkReceiveStates.Lock()
 	allStarLinkReceiveStates.byNode["616265"] = allStarLinkReceiveState{
 		ObservedAt: now, COS: true,
-		Links:       []AllStarLinkNodeActivity{{LocalNode: "616265", RemoteNode: "700001", UltimaActividad: now}},
-		Connections: []string{"700001"},
+		Links:          []AllStarLinkNodeActivity{{LocalNode: "616265", RemoteNode: "700001", UltimaActividad: now}},
+		Connections:    []string{"700001"},
+		SIPConnections: []string{"phone-portal"},
 	}
 	allStarLinkReceiveStates.byNode["56502"] = allStarLinkReceiveState{
 		ObservedAt: now.Add(-30 * time.Second), COS: true,
@@ -161,9 +215,10 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 		t.Fatal(err)
 	}
 	var response struct {
-		Data        []AllStarLinkNodeActivity `json:"data"`
-		Servers     []string                  `json:"server_nodes"`
-		Connections map[string][]string       `json:"connections"`
+		Data           []AllStarLinkNodeActivity `json:"data"`
+		Servers        []string                  `json:"server_nodes"`
+		Connections    map[string][]string       `json:"connections"`
+		SIPConnections map[string][]string       `json:"sip_connections"`
 	}
 	if err := conn.ReadJSON(&response); err != nil {
 		t.Fatal(err)
@@ -172,8 +227,13 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 		len(response.Connections["616265"]) != 1 || response.Connections["616265"][0] != "700001" {
 		t.Fatalf("incorrect receive snapshot: %+v", response)
 	}
+	if endpoints := response.SIPConnections["616265"]; len(endpoints) != 1 || endpoints[0] != "phone-portal" {
+		t.Fatalf("SIP connections missing from WebSocket snapshot: %+v", response)
+	}
 	allStarLinkReceiveStates.Lock()
-	allStarLinkReceiveStates.byNode["616265"] = allStarLinkReceiveState{ObservedAt: time.Now().UTC()}
+	allStarLinkReceiveStates.byNode["616265"] = allStarLinkReceiveState{
+		ObservedAt: time.Now().UTC(), SIPConnections: []string{},
+	}
 	allStarLinkReceiveStates.Unlock()
 	if err := conn.SetReadDeadline(time.Now().Add(750 * time.Millisecond)); err != nil {
 		t.Fatal(err)
@@ -183,6 +243,9 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 	}
 	if len(response.Data) != 0 || len(response.Servers) != 0 {
 		t.Fatalf("receive snapshot did not turn off: %+v", response)
+	}
+	if endpoints := response.SIPConnections["616265"]; endpoints == nil || len(endpoints) != 0 {
+		t.Fatalf("SIP disconnect missing from WebSocket snapshot: %+v", response)
 	}
 }
 

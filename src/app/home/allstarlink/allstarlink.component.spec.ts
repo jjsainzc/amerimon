@@ -1003,6 +1003,57 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('refreshes SIP calls through HTTP fallback and WebSocket without changing other servers or RPT rows', async () => {
+    vi.stubGlobal('WebSocket', FakeActivityWebSocket);
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      const sip = { nodo_local: '616262', nodo: 'phone-portal', protocolo: 'sip', contacto: 'sip:phone@example.invalid' };
+      const refreshServer = (connected: boolean) => {
+        http.expectOne(`${nodesUrl}?local_node=616262`).flush({
+          status: 'success',
+          data: {
+            count: connected ? 2 : 1,
+            tablas: [{ nodo_local: '616262', servidor_conectado: true, nodos_disponibles: [] }],
+            resultados: [
+              { nodo_local: '616262', nodo: '1964', protocolo: 'iax' },
+              ...(connected ? [sip] : [])
+            ]
+          }
+        });
+      };
+      component.cambiarIntervalo('-1');
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success', data: [],
+        connections: { '616262': ['1964'] },
+        sip_connections: { '616262': ['phone-portal'], '56502': [], '59201': [] }
+      });
+      refreshServer(true);
+      expect(component.nodos()).toContainEqual(sip);
+      const socket = FakeActivityWebSocket.instance;
+      socket?.open();
+      const snapshot = {
+        status: 'success', data: [], connections: { '616262': ['1964'] },
+        sip_connections: { '616262': ['phone-portal'] }
+      };
+      socket?.sendMessage(JSON.stringify(snapshot));
+      http.expectNone(`${nodesUrl}?local_node=616262`);
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [], connections: { '616262': ['1964'] } }));
+      http.expectNone(`${nodesUrl}?local_node=616262`);
+      socket?.sendMessage(JSON.stringify({ ...snapshot, sip_connections: { '616262': [] } }));
+      refreshServer(false);
+      expect(component.nodos().some(node => node.protocolo === 'sip')).toBe(false);
+      socket?.sendMessage(JSON.stringify(snapshot));
+      refreshServer(true);
+      socket?.sendMessage(JSON.stringify(snapshot));
+      http.expectNone(`${nodesUrl}?local_node=616262`);
+      expect(component.nodos().filter(node => node.nodo_local === '616262')).toHaveLength(2);
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('remembers real-time mode and reopens its socket when returning to the screen', async () => {
     vi.stubGlobal('WebSocket', FakeActivityWebSocket);
     const primera = await crearMonitor();

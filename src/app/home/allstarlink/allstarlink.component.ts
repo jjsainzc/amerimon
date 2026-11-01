@@ -1248,7 +1248,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       return;
     }
     const result = response as {
-      status?: unknown; data?: unknown; message?: unknown; server_nodes?: unknown; connections?: unknown
+      status?: unknown; data?: unknown; message?: unknown; server_nodes?: unknown; connections?: unknown; sip_connections?: unknown
     };
     if (result.status !== 'success' || !Array.isArray(result.data)) {
       console.error('No se pudo actualizar la actividad AllStarLink en tiempo real.', result.message);
@@ -1264,13 +1264,13 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     );
     this.actualizarActividadTiempoReal(activities, Array.isArray(result.server_nodes)
       ? result.server_nodes.filter((node): node is string => typeof node === 'string')
-      : [], result.connections);
+      : [], result.connections, result.sip_connections);
   }
 
-  private actualizarActividadTiempoReal(activities: AllstarlinkActivity[], servers: string[], connections?: unknown): void {
+  private actualizarActividadTiempoReal(activities: AllstarlinkActivity[], servers: string[], connections?: unknown, sipConnections?: unknown): void {
     this.actividadTiempoReal.set(activities);
     this.servidoresConCOSTiempoReal.set(servers);
-    this.actualizarConexionesTiempoReal(connections);
+    this.actualizarConexionesTiempoReal(connections, sipConnections);
     const activos = this.nodos().filter(nodo => this.estaTransmitiendo(nodo));
     if (activos.length === 0) { return; }
     const secuencia = ++this.secuenciaActividad;
@@ -1283,22 +1283,32 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     });
   }
 
-  private actualizarConexionesTiempoReal(connections: unknown): void {
-    if (typeof connections !== 'object' || connections === null || Array.isArray(connections)) { return; }
-    for (const [local, remoteNodes] of Object.entries(connections)) {
-      if (!/^\d+$/.test(local) || !Array.isArray(remoteNodes) ||
-          !remoteNodes.every((node): node is string => typeof node === 'string' && this.esNodoRemotoValido(node.trim()))) {
-        continue;
-      }
-      const snapshot = JSON.stringify([...new Set(remoteNodes.map(node => node.trim()))].sort());
-      if (this.ultimasConexionesTiempoReal.get(local) === snapshot) { continue; }
-      this.ultimasConexionesTiempoReal.set(local, snapshot);
+  private actualizarConexionesTiempoReal(connections: unknown, sipConnections: unknown): void {
+    const servidoresActualizados = new Set<string>();
+    for (const [tipo, conexiones] of [['rpt', connections], ['sip', sipConnections]] as const) {
+      if (typeof conexiones !== 'object' || conexiones === null || Array.isArray(conexiones)) { continue; }
+      for (const [local, remoteNodes] of Object.entries(conexiones)) {
+        if (!/^\d+$/.test(local) || !Array.isArray(remoteNodes) ||
+            !remoteNodes.every((node): node is string => typeof node === 'string' &&
+              (tipo === 'sip' ? !!node.trim() : this.esNodoRemotoValido(node.trim())))) {
+          console.error('La actualización de conexiones AllStarLink es inválida.', tipo, local);
+          continue;
+        }
+        const snapshot = JSON.stringify([...new Set(remoteNodes.map(node => node.trim()))].sort());
+        const clave = `${tipo}:${local}`;
+        if (this.ultimasConexionesTiempoReal.get(clave) === snapshot) { continue; }
+        this.ultimasConexionesTiempoReal.set(clave, snapshot);
 
-      const currentConnections = this.nodos()
-        .filter(node => node.nodo_local === local && node.protocolo?.trim().toLowerCase() !== 'sip')
-        .map(node => node.nodo.trim())
-        .sort();
-      if (JSON.stringify([...new Set(currentConnections)]) === snapshot) { continue; }
+        const currentConnections = this.nodos()
+          .filter(node => node.nodo_local === local && (node.protocolo?.trim().toLowerCase() === 'sip') === (tipo === 'sip'))
+          .map(node => node.nodo.trim())
+          .sort();
+        if (JSON.stringify([...new Set(currentConnections)]) !== snapshot) {
+          servidoresActualizados.add(local);
+        }
+      }
+    }
+    for (const local of servidoresActualizados) {
       if (this.tablasLocales().some(tabla => tabla.nodo_local === local)) {
         this.consultarServidor(local, true);
       } else {
@@ -1332,7 +1342,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
             return;
           }
           if (this.socketActividad?.readyState !== WebSocket.OPEN && this.intervaloMs() === -1) {
-            this.actualizarActividadTiempoReal(response.data ?? [], response.server_nodes ?? [], response.connections);
+            this.actualizarActividadTiempoReal(response.data ?? [], response.server_nodes ?? [], response.connections, response.sip_connections);
           }
         },
         error: error => console.error('Falló la consulta de actividad reciente de AllStarLink.', error)

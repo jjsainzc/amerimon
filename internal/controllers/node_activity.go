@@ -50,10 +50,11 @@ type AllStarLinkNodeActivity struct {
 }
 
 type allStarLinkReceiveState struct {
-	ObservedAt  time.Time
-	COS         bool
-	Links       []AllStarLinkNodeActivity
-	Connections []string
+	ObservedAt     time.Time
+	COS            bool
+	Links          []AllStarLinkNodeActivity
+	Connections    []string
+	SIPConnections []string
 }
 
 var allStarLinkReceiveStates = struct {
@@ -67,6 +68,7 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 	activities := make([]AllStarLinkNodeActivity, 0)
 	servers := make([]string, 0)
 	connections := make(map[string][]string)
+	sipConnections := make(map[string][]string)
 	allStarLinkReceiveStates.RLock()
 	for node, state := range allStarLinkReceiveStates.byNode {
 		if now.Sub(state.ObservedAt) > 3*time.Second {
@@ -74,6 +76,9 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 		}
 		activities = append(activities, state.Links...)
 		connections[node] = state.Connections
+		if state.SIPConnections != nil {
+			sipConnections[node] = state.SIPConnections
+		}
 		if state.COS {
 			servers = append(servers, node)
 		}
@@ -88,11 +93,12 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 	})
 	return map[string]any{
 		"status": "success", "data": activities, "server_nodes": servers, "connections": connections,
+		"sip_connections": sipConnections,
 	}
 }
 
 // pollAllStarLinkReceiveState actualiza el estado de recepción de un nodo StarLink específico.
-// Consulta NodeStat para obtener COS y SawStat para obtener los enlaces de recepción, y almacena los resultados en el estado global.
+// Consulta COS, enlaces RPT y canales SIP activos, y almacena los resultados en el estado global.
 func pollAllStarLinkReceiveState(instance allmonInstance) {
 	state := allStarLinkReceiveState{
 		Links:       make([]AllStarLinkNodeActivity, 0),
@@ -120,6 +126,16 @@ func pollAllStarLinkReceiveState(instance allmonInstance) {
 			state.Links = links
 			state.Connections = connections
 		}
+	}
+	channels, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, "core show channels concise", 2*time.Second)
+	if err != nil {
+		log.Printf("allstarlink activity: canales SIP para nodo %s falló: %v", instance.Node, err)
+	} else {
+		state.SIPConnections = make([]string, 0)
+		for endpoint := range parseActiveSIPEndpoints(channels) {
+			state.SIPConnections = append(state.SIPConnections, endpoint)
+		}
+		sort.Strings(state.SIPConnections)
 	}
 	state.ObservedAt = time.Now().UTC()
 	allStarLinkReceiveStates.Lock()
