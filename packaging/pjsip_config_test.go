@@ -291,12 +291,49 @@ func TestPJSIPConfigurationVerifiesActiveUDPTransport(t *testing.T) {
 	if !strings.Contains(output, "[transport-udp] está activo en 0.0.0.0:5060/UDP") {
 		t.Fatalf("active UDP transport was not verified: %s", output)
 	}
+	if strings.Contains(output, "se intenta recargar res_pjsip.so") {
+		t.Fatalf("active UDP transport should not trigger a module reload: %s", output)
+	}
 
 	output = string(runPJSIPConfiguration(t, dir, dir,
-		"PJSIP_TEST_LOG="+logPath,
-		"PJSIP_TEST_STATE="+stateDir))
-	if !strings.Contains(output, "no confirmó [transport-udp] activo") {
-		t.Fatalf("inactive UDP transport was not reported: %s", output)
+		"PJSIP_TEST_LOG="+filepath.Join(dir, "socket-missing.log"),
+		"PJSIP_TEST_STATE="+stateDir,
+		"PJSIP_TEST_TRANSPORT_ACTIVE=yes",
+		"PJSIP_TEST_SOCKET_INACTIVE=yes"))
+	if !strings.Contains(output, "incluso después de intentar module reload res_pjsip.so") {
+		t.Fatalf("configured transport without a UDP listener was not reloaded and reported: %s", output)
+	}
+
+	reloadStateDir := filepath.Join(dir, "reload-state")
+	if err := os.Mkdir(reloadStateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reloadLogPath := filepath.Join(dir, "reload.log")
+	output = string(runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_LOG="+filepath.Join(dir, "reload-modules.log"),
+		"PJSIP_TEST_RELOAD_LOG="+reloadLogPath,
+		"PJSIP_TEST_STATE="+reloadStateDir,
+		"PJSIP_TEST_TRANSPORT_AFTER_RELOAD=yes"))
+	if !strings.Contains(output, "está activo en 0.0.0.0:5060/UDP después de recargar res_pjsip.so") {
+		t.Fatalf("UDP transport was not verified after module reload: %s", output)
+	}
+	reloadLog, err := os.ReadFile(reloadLogPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(reloadLog), "reload:res_pjsip.so\n") {
+		t.Fatalf("module reload was not attempted: %s", reloadLog)
+	}
+
+	failedStateDir := filepath.Join(dir, "failed-state")
+	if err := os.Mkdir(failedStateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	output = string(runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_LOG="+filepath.Join(dir, "failed.log"),
+		"PJSIP_TEST_STATE="+failedStateDir))
+	if !strings.Contains(output, "incluso después de intentar module reload res_pjsip.so") {
+		t.Fatalf("inactive UDP transport was not reported after module reload: %s", output)
 	}
 }
 
@@ -320,7 +357,7 @@ func runPJSIPConfiguration(t *testing.T, astDir, moduleDir string, extraEnv ...s
 case "$2" in
     'core show version') printf 'Asterisk test\n' ;;
     'pjsip show transport transport-udp')
-        if [ "$PJSIP_TEST_TRANSPORT_ACTIVE" = yes ]; then
+        if [ "$PJSIP_TEST_TRANSPORT_ACTIVE" = yes ] || [ -f "$PJSIP_TEST_STATE/transport-active" ]; then
             printf 'Transport: transport-udp\nProtocol: UDP\nBind: 0.0.0.0:5060\n'
         else
             printf 'Unable to find object transport-udp\n'
@@ -358,10 +395,28 @@ case "$2" in
         esac
         : > "$PJSIP_TEST_STATE/$module"
         ;;
+    'module reload res_pjsip.so')
+        if [ -n "$PJSIP_TEST_RELOAD_LOG" ]; then
+            printf 'reload:res_pjsip.so\n' >> "$PJSIP_TEST_RELOAD_LOG"
+        fi
+        if [ "$PJSIP_TEST_TRANSPORT_AFTER_RELOAD" = yes ]; then
+            : > "$PJSIP_TEST_STATE/transport-active"
+        fi
+        printf "Module 'res_pjsip.so' reloaded successfully.\n"
+        ;;
     *) exit 1 ;;
 esac
 `
 	if err := os.WriteFile(filepath.Join(binDir, "asterisk"), []byte(mock), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	netstatMock := `#!/bin/sh
+if [ "$PJSIP_TEST_SOCKET_INACTIVE" != yes ] &&
+   { [ "$PJSIP_TEST_TRANSPORT_ACTIVE" = yes ] || [ -f "$PJSIP_TEST_STATE/transport-active" ]; }; then
+    printf 'udp        0      0 0.0.0.0:5060            0.0.0.0:*\n'
+fi
+`
+	if err := os.WriteFile(filepath.Join(binDir, "netstat"), []byte(netstatMock), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	command := exec.Command("sh", "configure-pjsip.sh")

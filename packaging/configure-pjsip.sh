@@ -327,14 +327,43 @@ if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev
     done
     echo "PJSIP: todos los módulos requeridos están en estado Running."
 
-    if transport_output=$(asterisk -rx 'pjsip show transport transport-udp' 2>&1) &&
-       printf '%s\n' "$transport_output" | grep -qi 'transport-udp' &&
-       printf '%s\n' "$transport_output" | grep -Eq '(^|[[:space:]])0\.0\.0\.0:5060([[:space:]]|$)'; then
+    if ! command -v netstat >/dev/null 2>&1; then
+        echo "Error: no se encontró netstat; instala el paquete net-tools para verificar el transporte UDP de PJSIP." >&2
+        exit 1
+    fi
+
+    transport_is_active() {
+        transport_output=$(asterisk -rx 'pjsip show transport transport-udp' 2>&1) || return 1
+        printf '%s\n' "$transport_output" | grep -qi 'transport-udp' &&
+            printf '%s\n' "$transport_output" | grep -Eq '(^|[[:space:]])0\.0\.0\.0:5060([[:space:]]|$)' || return 1
+        netstat_output=$(netstat -uln 2>&1) || return 1
+        printf '%s\n' "$netstat_output" | awk '$1 ~ /^udp/ && $4 ~ /:5060$/ { found = 1 } END { exit !found }'
+    }
+
+    reload_output=
+    reload_status=0
+    if transport_is_active; then
         echo "PJSIP: [transport-udp] está activo en 0.0.0.0:5060/UDP."
     else
-        echo "Aviso: Asterisk no confirmó [transport-udp] activo en 0.0.0.0:5060/UDP. La configuración se conservó; revisa 'pjsip show transport transport-udp' y si el transporte requiere reiniciar Asterisk." >&2
-        if [ -n "${transport_output:-}" ]; then
-            printf 'Respuesta de Asterisk: %s\n' "$transport_output" >&2
+        echo "PJSIP: el transporte UDP no está activo; se intenta recargar res_pjsip.so."
+        if reload_output=$(asterisk -rx 'module reload res_pjsip.so' 2>&1); then
+            reload_status=0
+        else
+            reload_status=$?
+        fi
+        if transport_is_active; then
+            echo "PJSIP: [transport-udp] está activo en 0.0.0.0:5060/UDP después de recargar res_pjsip.so."
+        else
+            echo "Aviso: Asterisk no confirmó [transport-udp] activo en 0.0.0.0:5060/UDP, incluso después de intentar module reload res_pjsip.so (código CLI $reload_status). La configuración se conservó; revisa 'pjsip show transport transport-udp' y la respuesta de Asterisk antes de reiniciar el servicio." >&2
+            if [ -n "$reload_output" ]; then
+                printf 'Respuesta de module reload: %s\n' "$reload_output" >&2
+            fi
+            if [ -n "${transport_output:-}" ]; then
+                printf 'Respuesta de Asterisk: %s\n' "$transport_output" >&2
+            fi
+            if [ -n "${netstat_output:-}" ]; then
+                printf 'Sockets UDP detectados: %s\n' "$netstat_output" >&2
+            fi
         fi
     fi
 else

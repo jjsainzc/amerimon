@@ -37,12 +37,13 @@ nfpms:
     license: Proprietary
     section: web
     priority: optional
-    # curl: astdb; getent + NSS/Avahi: nombres .local; nc: audio EAGI.
+    # curl: astdb; getent + NSS/Avahi: nombres .local; nc: audio EAGI; netstat: verifica UDP/5060 de PJSIP.
     dependencies:
       - curl
       - libc-bin
       - libnss-mdns
       - avahi-daemon
+      - net-tools
       - netcat-openbsd | netcat-traditional | ncat
     contents:
       - src: packaging/amerimon.service
