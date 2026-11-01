@@ -50,9 +50,10 @@ type AllStarLinkNodeActivity struct {
 }
 
 type allStarLinkReceiveState struct {
-	ObservedAt time.Time
-	COS        bool
-	Links      []AllStarLinkNodeActivity
+	ObservedAt  time.Time
+	COS         bool
+	Links       []AllStarLinkNodeActivity
+	Connections []string
 }
 
 var allStarLinkReceiveStates = struct {
@@ -65,12 +66,14 @@ var allStarLinkReceiveStates = struct {
 func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 	activities := make([]AllStarLinkNodeActivity, 0)
 	servers := make([]string, 0)
+	connections := make(map[string][]string)
 	allStarLinkReceiveStates.RLock()
 	for node, state := range allStarLinkReceiveStates.byNode {
 		if now.Sub(state.ObservedAt) > 3*time.Second {
 			continue
 		}
 		activities = append(activities, state.Links...)
+		connections[node] = state.Connections
 		if state.COS {
 			servers = append(servers, node)
 		}
@@ -83,13 +86,18 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 		}
 		return activities[i].LocalNode < activities[j].LocalNode
 	})
-	return map[string]any{"status": "success", "data": activities, "server_nodes": servers}
+	return map[string]any{
+		"status": "success", "data": activities, "server_nodes": servers, "connections": connections,
+	}
 }
 
 // pollAllStarLinkReceiveState actualiza el estado de recepción de un nodo StarLink específico.
 // Consulta NodeStat para obtener COS y SawStat para obtener los enlaces de recepción, y almacena los resultados en el estado global.
 func pollAllStarLinkReceiveState(instance allmonInstance) {
-	state := allStarLinkReceiveState{Links: make([]AllStarLinkNodeActivity, 0)}
+	state := allStarLinkReceiveState{
+		Links:       make([]AllStarLinkNodeActivity, 0),
+		Connections: make([]string, 0),
+	}
 	nodeStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "NodeStat", 2*time.Second)
 	if err != nil {
 		log.Printf("allstarlink activity: COS para nodo %s falló: %v", instance.Node, err)
@@ -105,11 +113,12 @@ func pollAllStarLinkReceiveState(instance allmonInstance) {
 	if err != nil {
 		log.Printf("allstarlink activity: recepción de enlaces para nodo %s falló: %v", instance.Node, err)
 	} else {
-		links, err := parseRPTReceivingLinks(sawStat, instance.Node, time.Now().UTC())
+		links, connections, err := parseRPTReceiveState(sawStat, instance.Node, time.Now().UTC())
 		if err != nil {
 			log.Printf("allstarlink activity: recepción de enlaces para nodo %s inválida: %v", instance.Node, err)
 		} else {
 			state.Links = links
+			state.Connections = connections
 		}
 	}
 	state.ObservedAt = time.Now().UTC()
@@ -141,7 +150,14 @@ func parseRPTCOS(nodeStat string) (bool, error) {
 // parseRPTReceivingLinks analiza la salida de SawStat para obtener los enlaces de recepción.
 // Devuelve una lista de actividades de recepción con el nodo local, nodo remoto y marca de tiempo.
 func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]AllStarLinkNodeActivity, error) {
+	activities, _, err := parseRPTReceiveState(sawStat, localNode, observedAt)
+	return activities, err
+}
+
+func parseRPTReceiveState(sawStat, localNode string, observedAt time.Time) ([]AllStarLinkNodeActivity, []string, error) {
 	activities := make([]AllStarLinkNodeActivity, 0)
+	connections := make([]string, 0)
+	seenConnections := make(map[string]struct{})
 	for _, line := range config.ParseAMIOutputToLines(sawStat) {
 		fields := strings.Fields(line)
 		if len(fields) == 0 || fields[0] != "Conn:" {
@@ -149,7 +165,11 @@ func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]
 		}
 		// SawStat: nodo, RX activo, segundos desde key y segundos desde unkey.
 		if len(fields) < 5 || !isValidRemoteNodeID(fields[1]) || (fields[2] != "0" && fields[2] != "1") {
-			return nil, fmt.Errorf("Conn de SawStat inválida")
+			return nil, nil, fmt.Errorf("Conn de SawStat inválida")
+		}
+		if _, exists := seenConnections[fields[1]]; !exists {
+			seenConnections[fields[1]] = struct{}{}
+			connections = append(connections, fields[1])
 		}
 		if fields[2] == "1" {
 			activities = append(activities, AllStarLinkNodeActivity{
@@ -157,7 +177,8 @@ func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]
 			})
 		}
 	}
-	return activities, nil
+	sort.Strings(connections)
+	return activities, connections, nil
 }
 
 // startAllStarLinkReceiveScheduler inicia un programador que periódicamente sondea el estado de recepción de todos los nodos StarLink configurados.

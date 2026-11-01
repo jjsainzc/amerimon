@@ -72,6 +72,10 @@ func TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime(t *testing.T) {
 	if _, err := parseRPTCOS("Response: Success"); err == nil {
 		t.Fatal("missing COS must report an error")
 	}
+	_, connections, err := parseRPTReceiveState("Conn: IAXRPT 0 0 0", "616265", time.Now().UTC())
+	if err != nil || len(connections) != 1 || connections[0] != "IAXRPT" {
+		t.Fatalf("inactive IAXRpt connection missing from snapshot: %v, %v", connections, err)
+	}
 }
 
 // TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey verifica que la actividad de los nodos StarLink reporte COS y se limpie al desactivar la clave.
@@ -104,9 +108,10 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 			t.Fatal(err)
 		}
 		var response struct {
-			Status  string                    `json:"status"`
-			Data    []AllStarLinkNodeActivity `json:"data"`
-			Servers []string                  `json:"server_nodes"`
+			Status      string                    `json:"status"`
+			Data        []AllStarLinkNodeActivity `json:"data"`
+			Servers     []string                  `json:"server_nodes"`
+			Connections map[string][]string       `json:"connections"`
 		}
 		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 			t.Fatal(err)
@@ -116,10 +121,12 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 		}
 		if active {
 			if len(response.Data) != 1 || response.Data[0].RemoteNode != "700001" ||
-				len(response.Servers) != 1 || response.Servers[0] != "616265" {
+				len(response.Servers) != 1 || response.Servers[0] != "616265" ||
+				len(response.Connections["616265"]) != 2 {
 				t.Fatalf("COS/RX not reported: %s", recorder.Body.String())
 			}
-		} else if len(response.Data) != 0 || len(response.Servers) != 0 {
+		} else if len(response.Data) != 0 || len(response.Servers) != 0 ||
+			len(response.Connections["616265"]) != 1 {
 			t.Fatalf("COS/RX still active after unkey: %s", recorder.Body.String())
 		}
 	}
@@ -132,7 +139,8 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 	allStarLinkReceiveStates.Lock()
 	allStarLinkReceiveStates.byNode["616265"] = allStarLinkReceiveState{
 		ObservedAt: now, COS: true,
-		Links: []AllStarLinkNodeActivity{{LocalNode: "616265", RemoteNode: "700001", UltimaActividad: now}},
+		Links:       []AllStarLinkNodeActivity{{LocalNode: "616265", RemoteNode: "700001", UltimaActividad: now}},
+		Connections: []string{"700001"},
 	}
 	allStarLinkReceiveStates.byNode["56502"] = allStarLinkReceiveState{
 		ObservedAt: now.Add(-30 * time.Second), COS: true,
@@ -153,13 +161,15 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 		t.Fatal(err)
 	}
 	var response struct {
-		Data    []AllStarLinkNodeActivity `json:"data"`
-		Servers []string                  `json:"server_nodes"`
+		Data        []AllStarLinkNodeActivity `json:"data"`
+		Servers     []string                  `json:"server_nodes"`
+		Connections map[string][]string       `json:"connections"`
 	}
 	if err := conn.ReadJSON(&response); err != nil {
 		t.Fatal(err)
 	}
-	if len(response.Data) != 1 || len(response.Servers) != 1 || response.Servers[0] != "616265" {
+	if len(response.Data) != 1 || len(response.Servers) != 1 || response.Servers[0] != "616265" ||
+		len(response.Connections["616265"]) != 1 || response.Connections["616265"][0] != "700001" {
 		t.Fatalf("incorrect receive snapshot: %+v", response)
 	}
 	allStarLinkReceiveStates.Lock()

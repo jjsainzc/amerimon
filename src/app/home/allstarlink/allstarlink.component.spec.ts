@@ -954,6 +954,55 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('refreshes only the server whose live connection snapshot adds a new IAXRpt row', async () => {
+    vi.stubGlobal('WebSocket', FakeActivityWebSocket);
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      component.cambiarIntervalo('-1');
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success',
+        data: [],
+        server_nodes: [],
+        connections: { '56502': ['1964'], '59201': ['1964'], '616262': ['1964'] }
+      });
+
+      const socket = FakeActivityWebSocket.instance;
+      socket?.open();
+      socket?.sendMessage(JSON.stringify({
+        status: 'success',
+        data: [],
+        connections: { '56502': ['1964'], '59201': ['1964'], '616262': ['1964', 'IAXRPT'] }
+      }));
+
+      const refresh = http.expectOne(`${nodesUrl}?local_node=616262`);
+      refresh.flush({
+        status: 'success',
+        data: {
+          count: 2,
+          tablas: [{ nodo_local: '616262', servidor_conectado: true, nodos_disponibles: [] }],
+          resultados: [
+            { nodo_local: '616262', nodo: '1964', protocolo: 'iax' },
+            { nodo_local: '616262', nodo: 'IAXRPT', protocolo: 'iax', categoria: 'iaxrpt' }
+          ]
+        }
+      });
+      expect(component.nodos()).toContainEqual(
+        expect.objectContaining({ nodo_local: '616262', nodo: 'IAXRPT', categoria: 'iaxrpt' })
+      );
+
+      socket?.sendMessage(JSON.stringify({
+        status: 'success',
+        data: [],
+        connections: { '56502': ['1964'], '59201': ['1964'], '616262': ['1964', 'IAXRPT'] }
+      }));
+      http.expectNone(`${nodesUrl}?local_node=616262`);
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('remembers real-time mode and reopens its socket when returning to the screen', async () => {
     vi.stubGlobal('WebSocket', FakeActivityWebSocket);
     const primera = await crearMonitor();
