@@ -17,6 +17,18 @@
           [placeholder]="'CIUDAD_CODIGO_POSTAL_O_LAT_LON' | translate" />
       </label>
       <p class="admin-page-note">{{ 'HEADER_WEATHER_LOCATION_NOTE' | translate }}</p>
+      <label>{{ 'ALLSTARLINK_REFRESH_DEFAULT' | translate }}
+        <select name="intervaloNodos" [(ngModel)]="intervaloNodos">
+          <option value="0">{{ 'DESACTIVADO' | translate }}</option>
+          <option value="-1">{{ 'TIEMPO_REAL' | translate }}</option>
+          <option value="5000">{{ '5_SEGUNDOS' | translate }}</option>
+          <option value="10000">{{ '10_SEGUNDOS' | translate }}</option>
+          <option value="15000">{{ '15_SEGUNDOS' | translate }}</option>
+          <option value="30000">{{ '30_SEGUNDOS' | translate }}</option>
+          <option value="60000">{{ '1_MINUTO' | translate }}</option>
+          <option value="300000">{{ '5_MINUTOS' | translate }}</option>
+        </select>
+      </label>
       @if (error()) { <p class="admin-page-error" role="alert">{{ error() | translate }}</p> }
       <div class="admin-page-actions">
         <a routerLink="/allstarlink">{{ 'CANCELAR' | translate }}</a>

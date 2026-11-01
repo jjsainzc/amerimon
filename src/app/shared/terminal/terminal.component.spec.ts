@@ -15,7 +15,7 @@ const terminalMock = vi.hoisted(() => ({
   } | null
 }));
 
-vi.mock('xterm', () => ({
+vi.mock('@xterm/xterm', () => ({
   Terminal: class {
     cols = 80;
     rows = 24;

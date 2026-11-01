@@ -57,6 +57,7 @@ fi
 "${SUDO[@]}" chown root:root /etc/amerimon/allmon.ini
 "${SUDO[@]}" install -d -m 0755 /usr/lib/amerimon /usr/share/amerimon
 "${SUDO[@]}" install -m 0644 packaging/listen-live-dialplan.awk /usr/lib/amerimon/listen-live-dialplan.awk
+"${SUDO[@]}" install -m 0644 packaging/merge-allstar-public.awk /usr/lib/amerimon/merge-allstar-public.awk
 "${SUDO[@]}" install -m 0644 packaging/configure-pjsip.sh /usr/lib/amerimon/configure-pjsip.sh
 "${SUDO[@]}" install -m 0644 packaging/merge-pjsip-modules.awk /usr/lib/amerimon/merge-pjsip-modules.awk
 "${SUDO[@]}" install -m 0755 packaging/audio_eagi.sh /usr/local/bin/audio_eagi.sh
@@ -64,7 +65,7 @@ fi
 "${SUDO[@]}" install -m 0755 scripts/limpiar_canales_listen_live.sh /usr/local/bin/limpiar_canales_listen_live.sh
 "${SUDO[@]}" install -m 0755 packaging/configure-nginx.sh /usr/lib/amerimon/configure-nginx.sh
 "${SUDO[@]}" install -m 0644 packaging/apache-amerimon.conf.example packaging/nginx-amerimon.conf.example /usr/share/amerimon/
-"${SUDO[@]}" install -m 0644 packaging/pjsip-modules-patch.conf packaging/pjsip-extensions-sip-phones-patch.conf /usr/share/amerimon/
+"${SUDO[@]}" install -m 0644 packaging/pjsip-modules-patch.conf packaging/pjsip-extensions-sip-phones-patch.conf packaging/extensions-allstar-public-patch.conf /usr/share/amerimon/
 "${SUDO[@]}" install -m 0644 packaging/amerimon-astdb.service packaging/amerimon-astdb.timer /etc/systemd/system/
 "${SUDO[@]}" install -m 0644 packaging/amerimon.service /etc/systemd/system/amerimon.service
 "${SUDO[@]}" sh packaging/postinstall.sh

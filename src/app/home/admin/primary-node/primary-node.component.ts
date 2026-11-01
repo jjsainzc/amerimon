@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { CopyValueDirective } from '../../../shared/copy-value/copy-value.directive';
 import { timeout } from 'rxjs';
-import { NodeAccessDocument, NodeAccessEntry, PrimaryAMIConfig, PrimaryNodeService, isNodeAccessDocument } from '../../../core/services/primary-node.service';
+import { NodeAccessDocument, NodeAccessEntry, PrimaryAMIConfig, PrimaryNodeService, PublicCallsignEntry, isNodeAccessDocument } from '../../../core/services/primary-node.service';
 import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
 import { NetCalculatorPopupComponent } from '../../../shared/net-calculator-popup/net-calculator-popup.component';
@@ -90,6 +90,11 @@ export class PrimaryNodeComponent implements OnInit {
   readonly entradaRed = signal('');
   readonly redCalculada = signal<string | null>(null);
   readonly popupCalculadoraAbierto = signal(false);
+  readonly indicativos = signal<PublicCallsignEntry[]>([]);
+  readonly cargandoIndicativos = signal(false);
+  readonly guardandoIndicativo = signal(false);
+  readonly errorIndicativos = signal('');
+  readonly avisoIndicativos = signal('');
 
   numero = '';
   indicativo = '';
@@ -108,11 +113,15 @@ export class PrimaryNodeComponent implements OnInit {
   tipo: NodeAccessEntry['type'] = 'allowlist';
   remoto = '';
   motivo = '';
+  callsign = '';
+  motivoIndicativo = '';
+  tipoIndicativo: PublicCallsignEntry['type'] = 'whitelist';
 
   ngOnInit(): void {
     this.cargar();
     this.cargarAcceso();
     this.cargarAMI();
+    this.cargarIndicativos();
   }
 
   aplicarRedCalculada(resultado: string | null): void {
@@ -260,6 +269,45 @@ export class PrimaryNodeComponent implements OnInit {
       error: (err: HttpErrorResponse) => {
         this.cargandoAcceso.set(false);
         this.errorAcceso.set(err.error?.message || this.translation.translate('PRIMARY_NODE_ACCESS_LOAD_FAILED'));
+      }
+    });
+  }
+
+  cargarIndicativos(): void {
+    if (this.cargandoIndicativos() || this.guardandoIndicativo()) { return; }
+    this.cargandoIndicativos.set(true);
+    this.errorIndicativos.set('');
+    this.service.listarIndicativos().pipe(timeout(15_000), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: respuesta => {
+        this.indicativos.set(respuesta.entries);
+        this.cargandoIndicativos.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.cargandoIndicativos.set(false);
+        this.errorIndicativos.set(err.error?.message || this.translation.translate('PUBLIC_CALLSIGN_ACCESS_LOAD_ERROR'));
+      }
+    });
+  }
+
+  cambiarIndicativo(entry: PublicCallsignEntry, eliminar = false): void {
+    if (this.guardandoIndicativo() || this.cargandoIndicativos()) { return; }
+    this.guardandoIndicativo.set(true);
+    this.errorIndicativos.set('');
+    this.avisoIndicativos.set('');
+    const request = eliminar ? this.service.eliminarIndicativo(entry) : this.service.guardarIndicativo(entry);
+    request.subscribe({
+      next: () => {
+        this.guardandoIndicativo.set(false);
+        this.avisoIndicativos.set(this.translation.translate('PUBLIC_CALLSIGN_ACCESS_UPDATED'));
+        if (!eliminar) {
+          this.callsign = '';
+          this.motivoIndicativo = '';
+        }
+        this.cargarIndicativos();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoIndicativo.set(false);
+        this.errorIndicativos.set(err.error?.message || this.translation.translate('PUBLIC_CALLSIGN_ACCESS_UPDATE_ERROR'));
       }
     });
   }

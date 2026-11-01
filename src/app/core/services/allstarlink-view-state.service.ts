@@ -9,6 +9,7 @@ export class AllstarlinkViewStateService {
   readonly campoOrden = signal<CampoOrden>('actividad');
   readonly direccionOrden = signal<'asc' | 'desc'>('desc');
   readonly intervaloMs = signal(15_000);
+  readonly intervaloSeleccionadoManualmente = signal(false);
   readonly panelAdminAbierto = signal(false);
   readonly tablasContraidas = signal<ReadonlySet<string>>(new Set());
 }

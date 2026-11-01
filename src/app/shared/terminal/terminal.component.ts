@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { Terminal } from 'xterm';
+import { Terminal } from '@xterm/xterm';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../core/environment';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';

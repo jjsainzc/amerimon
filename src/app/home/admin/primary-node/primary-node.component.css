@@ -17,6 +17,8 @@ button:disabled { opacity: .55; cursor: default; }
 .ami-redes ul { max-height: 9rem; overflow: auto; }
 .ami-redes textarea { box-sizing: border-box; width: 100%; padding: .5rem; border: 1px solid #455b68; border-radius: 5px; background: #14202a; color: #e5edf2; font: inherit; resize: vertical; }
 .acceso-tabla-scroll { overflow-x: auto; margin: .75rem 0; border: 1px solid #455b68; border-radius: 5px; }
+.access-card { min-width: 0; margin: 1rem 0; padding: 1rem; border: 1px solid #455b68; border-radius: 6px; background: #1a2630; }
+.access-card > summary { cursor: pointer; font-weight: 600; }
 .acceso-tabla { width: 100%; border-collapse: collapse; font-size: .875rem; text-align: left; }
 .acceso-tabla th, .acceso-tabla td { padding: .35rem .5rem; border-bottom: 1px solid #455b68; }
 .acceso-tabla thead { background: #1a2630; }

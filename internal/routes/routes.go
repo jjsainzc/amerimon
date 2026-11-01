@@ -77,6 +77,9 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.POST("/primary-node/access/clear", controllers.ClearPrimaryNodeAccess, jwt, admin)
 	privada.GET("/primary-node/access/export", controllers.ExportPrimaryNodeAccess, jwt, admin)
 	privada.POST("/primary-node/access/import", controllers.ImportPrimaryNodeAccess, jwt, admin)
+	privada.GET("/primary-node/public-access", controllers.GetPrimaryPublicAccess, jwt, admin)
+	privada.PUT("/primary-node/public-access", controllers.SavePrimaryPublicAccess, jwt, admin)
+	privada.DELETE("/primary-node/public-access", controllers.DeletePrimaryPublicAccess, jwt, admin)
 
 	privada.GET("/favoritos", controllers.ListFavoritos, jwt, admin)
 	privada.GET("/favoritos/astdb-search", controllers.BuscarAstdbFavorito, jwt, admin)

@@ -311,6 +311,70 @@ func TestPrimaryNodeAccessReadWriteAndDelete(t *testing.T) {
 	}
 }
 
+func TestPrimaryPublicAccessReadWriteDeleteAndValidation(t *testing.T) {
+	p, _, _ := primaryNodeFixture(t)
+	var commands []string
+	p.ami = func(command string) (string, error) {
+		commands = append(commands, command)
+		switch command {
+		case "database show whitelist":
+			return "Output: /whitelist/HC1LNM : JJSC\nOutput: 1 results found.\n", nil
+		case "database show blacklist":
+			return "Output: 0 results found.\n", nil
+		case `database put blacklist EA4ABC "Denied for testing"`:
+			return "Output: Updated database successfully\n", nil
+		case "database del whitelist HC1LNM":
+			return "Output: Database entry removed.\n", nil
+		default:
+			return "", fmt.Errorf("unexpected command: %s", command)
+		}
+	}
+
+	c, rec := nodeTestContext(http.MethodGet, nil)
+	if err := p.getPublicAccess(c); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rec.Body.String(), `"callsign":"HC1LNM"`) ||
+		!strings.Contains(rec.Body.String(), `"reason":"JJSC"`) {
+		t.Fatalf("unexpected public lists: %s", rec.Body)
+	}
+
+	c, _ = nodeTestContext(http.MethodPut, publicCallsignEntry{
+		Type: "blacklist", Callsign: "ea4abc", Reason: "Denied for testing",
+	})
+	if err := p.changePublicAccess(c, false); err != nil {
+		t.Fatal(err)
+	}
+	c, _ = nodeTestContext(http.MethodDelete, publicCallsignEntry{
+		Type: "whitelist", Callsign: "HC1LNM",
+	})
+	if err := p.changePublicAccess(c, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(commands, "\n"); !strings.Contains(got, `database put blacklist EA4ABC "Denied for testing"`) ||
+		!strings.Contains(got, "database del whitelist HC1LNM") {
+		t.Fatalf("unexpected AstDB commands: %s", got)
+	}
+
+	c, _ = nodeTestContext(http.MethodPut, publicCallsignEntry{
+		Type: "whitelist", Callsign: "BAD\nCALL", Reason: "unsafe",
+	})
+	if err := p.changePublicAccess(c, false); err == nil {
+		t.Fatal("invalid callsign should not reach AMI")
+	}
+}
+
+func TestPrimaryNodeWarningExplainsMissingNodesMapping(t *testing.T) {
+	p, _, _ := primaryNodeFixture(t)
+	if err := os.WriteFile(p.rptPath, []byte("[nodes]\n700001 = radio@192.0.2.1/700001,NONE\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := p.primary()
+	if err == nil || !strings.Contains(err.Error(), "[nodes]") || !strings.Contains(err.Error(), "41777 = radio@127.0.0.1/41777,NONE") {
+		t.Fatalf("missing actionable [nodes] warning: %v", err)
+	}
+}
+
 func TestPrimaryNodeDoesNotTreatAMICommandFailureAsSuccess(t *testing.T) {
 	p, _, _ := primaryNodeFixture(t)
 	p.ami = func(string) (string, error) { return "Permission denied", nil }

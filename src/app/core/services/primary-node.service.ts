@@ -25,6 +25,12 @@ export interface NodeAccessEntry {
   reason: string;
 }
 
+export interface PublicCallsignEntry {
+  type: 'whitelist' | 'blacklist';
+  callsign: string;
+  reason: string;
+}
+
 export interface NodeAccessDocument {
   format: 'amerimon-node-access';
   version: 1;
@@ -91,5 +97,17 @@ export class PrimaryNodeService {
 
   importarAcceso(primary_node: string, document: NodeAccessDocument) {
     return this.http.post<{ imported: number }>(`${this.url}/access/import`, { primary_node, document });
+  }
+
+  listarIndicativos() {
+    return this.http.get<{ entries: PublicCallsignEntry[] }>(`${this.url}/public-access`);
+  }
+
+  guardarIndicativo(entry: PublicCallsignEntry) {
+    return this.http.put(`${this.url}/public-access`, entry);
+  }
+
+  eliminarIndicativo(entry: PublicCallsignEntry) {
+    return this.http.delete(`${this.url}/public-access`, { body: entry });
   }
 }

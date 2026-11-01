@@ -113,6 +113,81 @@
     @if (avisoAMI()) { <app-dismissible-notice noticeKey="notice.primary.ami"><p class="ok" role="status">{{ avisoAMI() }}</p></app-dismissible-notice> }
   </section>
 
+  <details class="access-card">
+    <summary>{{ 'PUBLIC_CALLSIGN_ACCESS_TITLE' | translate }}</summary>
+    <p>{{ 'PUBLIC_CALLSIGN_ACCESS_HELP' | translate }}</p>
+    <div class="acciones">
+      <button type="button" (click)="cargarIndicativos()" [disabled]="cargandoIndicativos() || guardandoIndicativo()">
+        {{ 'RECARGAR_LISTA' | translate }}
+      </button>
+    </div>
+    @if (cargandoIndicativos()) { <p role="status">{{ 'CONSULTANDO_LISTAS_DE_ACCESO' | translate }}</p> }
+    @if (errorIndicativos()) { <p class="error" role="alert">{{ errorIndicativos() }}</p> }
+    @if (avisoIndicativos()) { <p class="ok" role="status">{{ avisoIndicativos() }}</p> }
+    <div class="acceso-tabla-scroll">
+      <table class="acceso-tabla" [attr.aria-label]="'PUBLIC_CALLSIGN_ACCESS_TITLE' | translate">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'LISTA' | translate }}</th>
+            <th scope="col">{{ 'PUBLIC_CALLSIGN_ACCESS_CALLSIGN' | translate }}</th>
+            <th scope="col">{{ 'MOTIVO' | translate }}</th>
+            <th scope="col" class="acceso-accion">{{ 'ACCION' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of indicativos(); track entry.type + ':' + entry.callsign) {
+            <tr>
+              <td [attr.data-label]="'LISTA' | translate">
+                {{ (entry.type === 'whitelist' ? 'PUBLIC_CALLSIGN_WHITELIST' : 'PUBLIC_CALLSIGN_BLACKLIST') | translate }}
+              </td>
+              <th scope="row" [attr.data-label]="'PUBLIC_CALLSIGN_ACCESS_CALLSIGN' | translate">
+                <span [appCopy]="entry.callsign">{{ entry.callsign }}</span>
+              </th>
+              <td class="acceso-motivo" [attr.data-label]="'MOTIVO' | translate">{{ entry.reason }}</td>
+              <td class="acceso-accion">
+                <button type="button" (click)="cambiarIndicativo(entry, true)"
+                  [disabled]="guardandoIndicativo() || cargandoIndicativos()"
+                  [attr.aria-label]="'PUBLIC_CALLSIGN_ACCESS_REMOVE' | translate: { callsign: entry.callsign }"
+                  [title]="'PUBLIC_CALLSIGN_ACCESS_REMOVE' | translate: { callsign: entry.callsign }">
+                  <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            @if (!cargandoIndicativos() && !errorIndicativos()) {
+              <tr><td colspan="4">{{ 'PUBLIC_CALLSIGN_ACCESS_EMPTY' | translate }}</td></tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <form #callsignForm="ngForm" (ngSubmit)="callsignForm.valid && cambiarIndicativo({
+      type: tipoIndicativo, callsign, reason: motivoIndicativo
+    })">
+      <fieldset [disabled]="cargandoIndicativos() || guardandoIndicativo()">
+        <label>{{ 'LISTA' | translate }}
+          <select name="tipoIndicativo" [(ngModel)]="tipoIndicativo">
+            <option value="whitelist">{{ 'PUBLIC_CALLSIGN_WHITELIST' | translate }}</option>
+            <option value="blacklist">{{ 'PUBLIC_CALLSIGN_BLACKLIST' | translate }}</option>
+          </select>
+        </label>
+        <label>{{ 'PUBLIC_CALLSIGN_ACCESS_CALLSIGN' | translate }}
+          <span class="clipboard-field" [appCopy]="callsign">
+            <input name="callsign" [(ngModel)]="callsign" required pattern="[A-Za-z0-9\x2F\x2D]{3,64}" maxlength="64" autocomplete="off" />
+          </span>
+        </label>
+        <label>{{ 'MOTIVO' | translate }}
+          <input name="motivoIndicativo" [(ngModel)]="motivoIndicativo" required maxlength="200" autocomplete="off" />
+        </label>
+        <button type="submit" [disabled]="callsignForm.invalid || guardandoIndicativo()">
+          {{ 'PUBLIC_CALLSIGN_ACCESS_ADD' | translate }}
+        </button>
+      </fieldset>
+    </form>
+  </details>
+
+  <details class="access-card" open>
+    <summary>{{ 'PRIMARY_NODE_ACCESS_TITLE' | translate }}</summary>
   <h3>{{ 'LISTA_DE_ACCESO_DEL_NODO_NODOACCESO_ACTUAL' | translate: { nodo: nodoAcceso() || actual() } }}</h3>
   <p>{{ 'NODO_LISTAS_ACCESO_AYUDA' | translate }}</p>
   <p>{{ 'AL_CAMBIAR_EL_NUMERO_DEL_NODO_SE_TRASLADAN_SUS_LISTAS_AL_NUEVO_NUMERO_SI_USAS_ALLMON3_REINICIALO_MANUALMENTE_TRAS_EL_CAMBIO' | translate }}</p>
@@ -209,6 +284,7 @@
       <button type="submit" [disabled]="accessForm.invalid || guardandoAcceso()">{{ 'AGREGAR_O_ACTUALIZAR_ENTRADA' | translate }}</button>
     </fieldset>
   </form>
+  </details>
 
   <!-- Pop-up de la calculadora de red -->
   <app-net-calculator-popup

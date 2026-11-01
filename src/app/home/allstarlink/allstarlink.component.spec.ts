@@ -9,6 +9,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
 import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
+import { SiteSettingsService } from '../../core/services/site-settings.service';
 import spanish from '../../../../public/assets/i18n/es.json';
 
 const nodesUrl = `${environment.apiUrl}/allstarlink/nodes`;
@@ -89,6 +90,21 @@ describe('Allstarlink connection target safety', () => {
     fixture.detectChanges();
     return { fixture, component, http, element: fixture.nativeElement as HTMLElement };
   }
+
+  it('uses the administrator initial refresh interval unless a user chooses another mode', async () => {
+    const settings = TestBed.inject(SiteSettingsService);
+    settings.settings.set({
+      ...settings.settings(), allstarlink_refresh_interval_ms: 60_000,
+    });
+    settings.settingsLoaded.set(true);
+    const { fixture, component, http } = await crearMonitor();
+    expect(component.intervaloMs()).toBe(60_000);
+    component.cambiarIntervalo('0');
+    settings.settings.set({ ...settings.settings(), allstarlink_refresh_interval_ms: -1 });
+    expect(component.intervaloMs()).toBe(0);
+    http.verify();
+    fixture.destroy();
+  });
 
   it('skips only a suppressed connection confirmation while still displaying backend errors', async () => {
     const { fixture, component, http } = await crearMonitor();

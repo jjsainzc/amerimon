@@ -15,7 +15,12 @@ func TestAudioModuleInstallation(t *testing.T) {
 	}
 	script := string(data)
 	start := strings.Index(script, `    MODULES_CONF=`)
-	end := strings.Index(script, `    EXTENSIONS_CONF=`)
+	end := -1
+	if start >= 0 {
+		if endRelative := strings.Index(script[start:], `    if [ -f "$EXTENSIONS_CONF" ]; then`); endRelative >= 0 {
+			end = start + endRelative
+		}
+	}
 	if start < 0 || end < start {
 		t.Fatal("module installation block missing")
 	}

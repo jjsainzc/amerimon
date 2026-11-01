@@ -132,7 +132,7 @@ func (p primaryNodeControl) clearAccess(c echo.Context) error {
 func (p primaryNodeControl) primary() (string, error) {
 	node, err := readPrimaryRPTNode(p.rptPath)
 	if err == nil && node == "" {
-		err = errors.New("no se encontró un nodo principal inequívoco en rpt.conf")
+		err = errors.New("falta la línea del nodo principal dentro de [nodes] en rpt.conf, por ejemplo: 41777 = radio@127.0.0.1/41777,NONE")
 	}
 	return node, err
 }

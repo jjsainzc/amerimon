@@ -24,6 +24,7 @@ func TestPrimaryNodeRoutesRequireAdministrator(t *testing.T) {
 		{"POST", "/mon/primary-node/access/clear"},
 		{"GET", "/mon/primary-node/access/export"},
 		{"POST", "/mon/primary-node/access/import"},
+		{"GET", "/mon/primary-node/public-access"}, {"PUT", "/mon/primary-node/public-access"}, {"DELETE", "/mon/primary-node/public-access"},
 	} {
 		for _, tc := range []struct {
 			name, token string

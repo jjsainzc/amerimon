@@ -14,7 +14,7 @@ describe('Admin profile settings', () => {
     TestBed.configureTestingModule({
       imports: [PerfilAdminComponent],
       providers: [
-        provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+        provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: 'allstarlink', children: [] }]),
         { provide: TranslationService, useValue: { revision: signal(0), translate: (key: string) => key } },
       ],
     });
@@ -43,6 +43,31 @@ describe('Admin profile settings', () => {
     expect(save.disabled).toBe(true);
     fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
     http.expectNone(url);
+    http.verify();
+  });
+
+  it('saves the default AllStarLink refresh mode with the profile', async () => {
+    const fixture = TestBed.createComponent(PerfilAdminComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const url = `${environment.apiUrl}/site-settings`;
+    http.expectOne(url).flush({
+      title: 'Amerimon', subtitle: '', weather_location: '', allstarlink_refresh_interval_ms: 15000,
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector('select[name="intervaloNodos"]');
+    select.value = '-1';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    const save = http.expectOne(url);
+    expect(save.request.method).toBe('PUT');
+    expect(save.request.body.allstarlink_refresh_interval_ms).toBe(-1);
+    save.flush({
+      title: 'Amerimon', subtitle: '', weather_location: '', allstarlink_refresh_interval_ms: -1,
+    });
+    await fixture.whenStable();
     http.verify();
   });
 

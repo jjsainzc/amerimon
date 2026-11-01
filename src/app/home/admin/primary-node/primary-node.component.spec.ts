@@ -34,6 +34,7 @@ describe('Primary node administration', () => {
     http.expectOne('./assets/i18n/es.json').flush(translations['es']);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ node: config.node, entries: [] });
+    http.expectOne(`${url}/public-access`).flush({ entries: [] });
     http.expectOne(`${url}/ami`).flush(amiResponse);
     await languageLoaded;
     fixture.detectChanges();
@@ -387,6 +388,7 @@ describe('Primary node administration', () => {
     http.expectOne('./assets/i18n/es.json').flush(translations['es']);
     http.expectOne(url).flush(config);
     http.expectOne(`${url}/access`).flush({ message: 'AMI no disponible' }, { status: 503, statusText: 'Unavailable' });
+    http.expectOne(`${url}/public-access`).flush({ entries: [] });
     http.expectOne(`${url}/ami`).flush({
       user: 'amerimon', secret: 'ami_secret', secret_set: true, bind_address: '127.0.0.1', permit: [], deny: []
     });

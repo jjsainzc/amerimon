@@ -11,9 +11,9 @@
 
 - [x] 5. Quitar personalizar cabecera y hacer un perfil de usuario admin para configuraciones generales, poner ahi las opciones de la personalizacion de la cabecera.
 
-- [ ] 6. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch, esa stanza si va a encontrar ahi, solo hay que modificarla y agregarle el chequeo en la base de datos de asterisk que esta en el patch.
+- [x] 6. En packaging hay un file llamado  extensions-allstar-public-patch.conf, en el postinstall.sh buscar esa stanza en /etc/asterisk/extensions.conf y aplicar el patch, esa stanza si va a encontrar ahi, solo hay que modificarla y agregarle el chequeo en la base de datos de asterisk que esta en el patch.
 
-- [ ] 7. En la parte de admin, nodo principal, primeramente chequear si no se puede determinar linea que identifica al node (que tiene este formato, por ejemplo, `41777 = radio@127.0.0.1/41777,NONE`), que esta dentro de la stanza `[nodes]`, si es asi emitir una advertencia de que falta la linea correspondiente en el lugar adecuado, etc etc. Posteriormente agregar mantenimiento para esa stanza `[allstar-public]` , CRUD para los indicativos en `whitelist/blacklist` que tiene el chequeo en la base de datos de asterisk, en la misma forma en que se hizo la de permitidos/denegados, el formato en la base para el chequeo en esta stanza es:
+- [x] 7. En la parte de admin, nodo principal, primeramente chequear si no se puede determinar linea que identifica al node (que tiene este formato, por ejemplo, `41777 = radio@127.0.0.1/41777,NONE`), que esta dentro de la stanza `[nodes]`, si es asi emitir una advertencia de que falta la linea correspondiente en el lugar adecuado, etc etc. Posteriormente agregar mantenimiento para esa stanza `[allstar-public]` , CRUD para los indicativos en `whitelist/blacklist` que tiene el chequeo en la base de datos de asterisk, en la misma forma en que se hizo la de permitidos/denegados, el formato en la base para el chequeo en esta stanza es:
 
 ```
 /whitelist/HC1LNM                             : JJSC
@@ -70,8 +70,8 @@ protocol=udp    ;udp,tcp,tls,ws,wss,flow
 bind=0.0.0.0
 ``` 
 
-- [ ] 16. Agregar en el perfil del administrador la forma inicial en que se consultan los nodos, si denegado, en tiempo real o por intervalo definido en el combo que ya existe.
+- [x] 16. Agregar en el perfil del administrador la forma inicial en que se consultan los nodos, si denegado, en tiempo real o por intervalo definido en el combo que ya existe.
 
-- [ ] 17. Actualizar la terminal ssh con el el import del node a `@xterm/xterm` si no es muy problemático el ccambio.
+- [x] 17. Actualizar la terminal ssh con el el import del node a `@xterm/xterm` si no es muy problemático el ccambio.
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes

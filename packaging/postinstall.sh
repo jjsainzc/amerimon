@@ -119,6 +119,38 @@ fi
 # preserve existing Asterisk configuration; no Asterisk restart is performed.
 AST_DIR=/etc/asterisk
 if [ -d "$AST_DIR" ]; then
+    EXTENSIONS_CONF="$AST_DIR/extensions.conf"
+    ALLSTAR_PUBLIC_PATCH=/usr/share/amerimon/extensions-allstar-public-patch.conf
+    ALLSTAR_PUBLIC_MERGER=/usr/lib/amerimon/merge-allstar-public.awk
+    if [ -f "$EXTENSIONS_CONF" ]; then
+        if [ -r "$ALLSTAR_PUBLIC_PATCH" ] && [ -r "$ALLSTAR_PUBLIC_MERGER" ]; then
+            merged=$(mktemp "${EXTENSIONS_CONF}.allstar-public.XXXXXX")
+            if awk -v patch="$ALLSTAR_PUBLIC_PATCH" -f "$ALLSTAR_PUBLIC_MERGER" "$EXTENSIONS_CONF" > "$merged"; then
+                if ! cmp -s "$EXTENSIONS_CONF" "$merged"; then
+                    [ -e "$EXTENSIONS_CONF.bak-allstar-public" ] || cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-allstar-public"
+                    chmod --reference="$EXTENSIONS_CONF" "$merged"
+                    chown --reference="$EXTENSIONS_CONF" "$merged"
+                    mv "$merged" "$EXTENSIONS_CONF"
+                else
+                    rm -f "$merged"
+                fi
+            else
+                status=$?
+                rm -f "$merged"
+                if [ "$status" -eq 3 ]; then
+                    echo "Aviso: no se encontró [allstar-public] en $EXTENSIONS_CONF; no se aplicó el control de indicativos." >&2
+                else
+                    echo "Error: no se pudo aplicar el parche [allstar-public] a $EXTENSIONS_CONF." >&2
+                    exit 1
+                fi
+            fi
+        else
+            echo "Aviso: falta el parche o el aplicador de [allstar-public]; no se modificó $EXTENSIONS_CONF." >&2
+        fi
+    else
+        echo "Aviso: no existe $EXTENSIONS_CONF; no se aplicó el control [allstar-public]." >&2
+    fi
+
     if [ -r /usr/lib/amerimon/configure-pjsip.sh ]; then
         sh /usr/lib/amerimon/configure-pjsip.sh
     else

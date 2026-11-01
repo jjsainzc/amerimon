@@ -20,10 +20,12 @@ func TestLocalInstallerAppliesListenLiveMigration(t *testing.T) {
 	}
 	for _, resource := range []string{
 		"packaging/listen-live-dialplan.awk",
+		"packaging/merge-allstar-public.awk",
 		"packaging/configure-pjsip.sh",
 		"packaging/merge-pjsip-modules.awk",
 		"packaging/pjsip-modules-patch.conf",
 		"packaging/pjsip-extensions-sip-phones-patch.conf",
+		"packaging/extensions-allstar-public-patch.conf",
 		"packaging/audio_eagi.sh",
 		"packaging/astdb.sh",
 		"scripts/limpiar_canales_listen_live.sh",
@@ -49,7 +51,7 @@ func TestListenLiveDialplanInstallation(t *testing.T) {
 	if !strings.Contains(string(postinstall), "app_verbose.so") {
 		t.Fatal("Verbose and Log require app_verbose.so in the installed module list")
 	}
-	start := strings.Index(string(postinstall), `    EXTENSIONS_CONF="$AST_DIR/extensions.conf"`)
+	start := strings.LastIndex(string(postinstall), `    EXTENSIONS_CONF="$AST_DIR/extensions.conf"`)
 	end := strings.Index(string(postinstall), `        if command -v asterisk`)
 	if start < 0 || end < start {
 		t.Fatal("Listen Live installation block not found")

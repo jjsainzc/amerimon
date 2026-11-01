@@ -24,13 +24,14 @@ export class PerfilAdminComponent implements OnInit {
   protected titulo = '';
   protected subtitulo = '';
   protected ubicacionClima = '';
+  protected intervaloNodos = '15000';
   protected readonly cargando = signal(true);
   protected readonly guardando = signal(false);
   protected readonly error = signal('');
   protected readonly cambios = new FormChanges();
 
   protected datosFormulario(): string[] {
-    return [this.titulo, this.subtitulo, this.ubicacionClima];
+    return [this.titulo, this.subtitulo, this.ubicacionClima, this.intervaloNodos];
   }
 
   ngOnInit(): void {
@@ -39,6 +40,7 @@ export class PerfilAdminComponent implements OnInit {
         this.titulo = settings.title;
         this.subtitulo = settings.subtitle;
         this.ubicacionClima = settings.weather_location ?? '';
+        this.intervaloNodos = String(settings.allstarlink_refresh_interval_ms ?? 15000);
         this.cambios.reset(this.datosFormulario());
         this.cargando.set(false);
       },
@@ -53,7 +55,9 @@ export class PerfilAdminComponent implements OnInit {
     if (this.guardando() || this.cargando() || !this.cambios.changed(this.datosFormulario())) { return; }
     this.guardando.set(true);
     this.error.set('');
-    this.settingsService.guardar(this.titulo, this.subtitulo, this.ubicacionClima).subscribe({
+    this.settingsService.guardar(
+      this.titulo, this.subtitulo, this.ubicacionClima, Number(this.intervaloNodos)
+    ).subscribe({
       next: () => {
         this.guardando.set(false);
         void this.router.navigateByUrl('/allstarlink');

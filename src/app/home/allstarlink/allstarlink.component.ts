@@ -27,6 +27,7 @@ import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
 import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
 import { NoticePreferenceComponent } from '../../shared/notice-preference/notice-preference.component';
+import { SiteSettingsService } from '../../core/services/site-settings.service';
 
 type SolicitudConexion = Readonly<SupermonCommandRequest & {
   remote_node: string;
@@ -48,6 +49,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
   private readonly noticePreferences = inject(NoticePreferencesService);
+  private readonly siteSettings = inject(SiteSettingsService);
   readonly noMostrarConfirmacion = signal(false);
 
   // Para hacer translate dentro de los ts
@@ -281,6 +283,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     this.programarActualizacion();
   }
 
+  private readonly aplicarIntervaloInicial = effect(() => {
+    if (!this.siteSettings.settingsLoaded() || this.estadoVista.intervaloSeleccionadoManualmente()) { return; }
+    this.intervaloMs.set(this.siteSettings.settings().allstarlink_refresh_interval_ms ?? 15_000);
+    this.programarActualizacion();
+  });
+
   // Los comandos de administración se piden cuando hay sesión de admin, incluso si inicia después.
   /** Solicita las operaciones administrativas cuando la sesión tiene permisos de admin. */
   private readonly cargaComandosAdmin = effect(() => {
@@ -300,6 +308,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   cambiarIntervalo(valor: string): void {
     const intervalo = Number(valor);
     this.intervaloMs.set(Number.isFinite(intervalo) && (intervalo === -1 || intervalo >= 0) ? intervalo : 0);
+    this.estadoVista.intervaloSeleccionadoManualmente.set(true);
     this.programarActualizacion();
   }
 
