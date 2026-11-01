@@ -206,9 +206,35 @@ If Asterisk is already running, the hook attempts to load these modules and run 
 
 ### PJSIP for SIP phones
 
+Post-install enables and starts `amerimon-pjsip-firewall.service` with `systemctl enable --now` and checks that it is active before configuring PJSIP. Its normal state is `active (exited)` because it is a `oneshot` unit with `RemainAfterExit=yes`. If already active, the updated script verifies the rules again without restarting the unit or Asterisk. Startup or status-check failures abort configuration with a diagnostic directing the administrator to the service journal.
+
 The post-install script also merges `packaging/pjsip-modules-patch.conf` and `packaging/pjsip-extensions-sip-phones-patch.conf`. If either configuration file is missing, it creates `modules.conf` with `[modules]` and `autoload=yes`, or creates `extensions.conf`. It adds every missing module directive regardless of whether the `.so` file is present. For modules enabled by the patch, it converts `noload` to `load` and removes duplicates. Other modules and custom settings are preserved, and the patch's `noload` directives are added when no directive already exists for those modules. In `pjsip.conf`, it adds `[transport-udp]` (`type=transport`, `protocol=udp`) bound to a private IPv4 on an active interface. It prefers an RFC1918 address on the default-route interface, otherwise the first address in `10/8`, `172.16/12`, or `192.168/16`, including VPNs and tunnels. It replaces existing `0.0.0.0` binds, preserving the port, and adds a missing bind; specific binds and commented examples are preserved. Changed files are backed up as `pjsip.conf.bak-pjsip`. It uses `0.0.0.0` only if no private IPv4 is available, and aborts without enabling PJSIP if no usable address is found. This step does not download Asterisk packages.
 
 Before loading PJSIP, `pjsip-network.sh protect` verifies rules blocking UDP/5060 to non-private local IPv4 addresses. It reuses running firewalld, otherwise installed iptables. If only stopped firewalld exists, it enables it; if neither exists, it installs iptables through APT. It never flushes rules or changes default policies or other ports. The `AMERIMON-PJSIP` chain in `raw/PREROUTING` permits RFC1918, loopback, and link-local destinations and drops other `LOCAL` destinations before established-connection ACCEPT rules. This covers new public addresses on physical interfaces, VPNs, and tunnels without a fixed IP list and does not affect forwarded traffic. Firewalld receives runtime and permanent rules. `amerimon-pjsip-firewall.service` reapplies and verifies protection at boot, after networking and before Asterisk, which requires the service; failure blocks configuration or dependent startup. Removing Amerimon disables the service without deleting existing firewall rules. If the public IP belongs to a NAT router, also disable UDP/5060 port-forwarding there: the server sees the translated private destination, and a private bind cannot prevent it.
+
+#### Check the firewall and bind after installation
+
+Run on the server:
+
+```bash
+systemctl status amerimon-pjsip-firewall.service --no-pager
+journalctl -u amerimon-pjsip-firewall.service -b --no-pager
+iptables -t raw -L -n -v
+iptables -t raw -S AMERIMON-PJSIP
+asterisk -rx 'pjsip show transport transport-udp'
+netstat -uln
+```
+
+With iptables, expect a UDP/5060 jump from `PREROUTING` to `AMERIMON-PJSIP`, private-destination `RETURN` rules, and a `DROP` for other local destinations. `DROP` counters show discarded traffic, not necessarily an attack. `iptables -L -v` without `-t raw` displays the `filter` table, which may be empty even when protection is working. With firewalld, use `firewall-cmd --direct --get-all-rules` and `firewall-cmd --permanent --direct --get-all-rules` instead.
+
+The service should be enabled and `active (exited)`. Older installations may show `inactive (dead)` because they applied rules by running the script directly; this does not remove existing rules. To activate and verify the unit without restarting Asterisk:
+
+```bash
+systemctl enable --now amerimon-pjsip-firewall.service
+systemctl status amerimon-pjsip-firewall.service --no-pager
+```
+
+Compare the bind in `pjsip.conf` with the active Asterisk transport and the `netstat` socket: these are separate checks. If Asterisk reports `allow_reload : false`, `Module 'res_pjsip.so' reloaded successfully` does not confirm that an existing transport changed its bind. Amerimon does not automatically enable `allow_reload` or restart Asterisk. If `0.0.0.0:5060` remains active, first verify the public-port block, then apply the private bind through a manual Asterisk restart during a maintenance window; restarting interrupts connections and listening sessions. This protection covers UDP/IPv4 on port 5060, not other transports, ports, or IPv6.
 
 The `[sip-phones]` context routes PJSIP calls through a Local channel before passing them to `app_rpt`, avoiding direct PJSIP dialplan handling that can cause Asterisk to fail:
 

@@ -206,9 +206,35 @@ Si Asterisk ya está activo, el hook intenta cargar esos módulos y ejecutar `di
 
 ### PJSIP para teléfonos SIP
 
+El postinstalador habilita e inicia `amerimon-pjsip-firewall.service` con `systemctl enable --now` y comprueba que esté activo antes de configurar PJSIP. Su estado normal es `active (exited)` porque es una unidad `oneshot` con `RemainAfterExit=yes`. Si ya estaba activa, vuelve a verificar las reglas con el script actualizado sin reiniciar la unidad ni Asterisk. Si falla el inicio o la comprobación, aborta con un diagnóstico para consultar el journal del servicio.
+
 El postinstalador también integra `packaging/pjsip-modules-patch.conf` y `packaging/pjsip-extensions-sip-phones-patch.conf`. Si falta alguno de los archivos, crea `modules.conf` con `[modules]` y `autoload=yes`, o crea `extensions.conf`. Agrega todas las directivas de módulos que faltan, sin condicionar su incorporación a la presencia del archivo `.so`. Para los módulos que el parche habilita, convierte `noload` en `load` y elimina duplicados. Conserva los demás módulos y ajustes personalizados e incluye las directivas `noload` del parche cuando no hay una directiva existente para esos módulos. En `pjsip.conf`, agrega `[transport-udp]` (`type=transport`, `protocol=udp`) con un bind a una IPv4 privada de una interfaz activa. Prefiere una dirección RFC1918 de la interfaz de la ruta predeterminada; si esa interfaz no tiene dirección privada, elige la primera dirección de `10/8`, `172.16/12` o `192.168/16` encontrada, incluidas VPN y túneles. Reemplaza los binds `0.0.0.0` existentes, conservando su puerto; agrega un bind si falta, pero no cambia binds específicos ni ejemplos comentados. Si modifica el archivo, guarda el original en `pjsip.conf.bak-pjsip`. Solo utiliza `0.0.0.0` si no hay IPv4 privada. Si no puede identificar ninguna dirección utilizable, aborta sin habilitar PJSIP. Este paso no descarga paquetes Asterisk.
 
 Antes de cargar PJSIP, `pjsip-network.sh protect` verifica reglas de bloqueo de UDP/5060 hacia direcciones IPv4 locales no privadas. Reutiliza firewalld activo; en su ausencia usa iptables instalado. Si solo existe firewalld detenido, lo habilita; si no hay ninguno, instala iptables con APT. No vacía reglas ni cambia políticas generales o puertos distintos de UDP/5060. La cadena `AMERIMON-PJSIP` en `raw/PREROUTING` permite destinos RFC1918, loopback y link-local, y descarta los demás destinos de tipo `LOCAL`, antes de cualquier ACCEPT de conexiones existentes. Así cubre nuevas IP públicas de interfaces físicas, VPN o túneles sin guardar una lista fija y no afecta al tráfico reenviado. Firewalld recibe reglas runtime y permanentes. `amerimon-pjsip-firewall.service` reaplica y verifica la protección al arrancar, después de la red y antes de Asterisk, que requiere ese servicio; un fallo bloquea la configuración o el arranque dependiente. Al desinstalar Amerimon se deshabilita el servicio, pero no se eliminan las reglas de firewall existentes. Si la IP pública está en un router NAT, también hay que cerrar allí el port-forward UDP/5060: el servidor ve el destino privado después de esa traducción y un bind privado no la impide.
+
+#### Comprobar el firewall y el bind después de instalar
+
+Ejecuta en el servidor:
+
+```bash
+systemctl status amerimon-pjsip-firewall.service --no-pager
+journalctl -u amerimon-pjsip-firewall.service -b --no-pager
+iptables -t raw -L -n -v
+iptables -t raw -S AMERIMON-PJSIP
+asterisk -rx 'pjsip show transport transport-udp'
+netstat -uln
+```
+
+Con iptables, debe existir el salto UDP/5060 desde `PREROUTING` hacia `AMERIMON-PJSIP`, los `RETURN` para destinos privados y el `DROP` para otros destinos locales. Los contadores de `DROP` muestran tráfico descartado, no necesariamente un ataque. `iptables -L -v` sin `-t raw` muestra la tabla `filter` y puede estar vacía aunque la protección esté funcionando. Si se usa firewalld, consulta `firewall-cmd --direct --get-all-rules` y `firewall-cmd --permanent --direct --get-all-rules` en su lugar.
+
+El servicio debe estar habilitado y `active (exited)`. En instalaciones anteriores puede estar `inactive (dead)` porque las reglas se aplicaron ejecutando directamente el script; esto no elimina las reglas que ya existen. Para activar la unidad y verificarla sin reiniciar Asterisk:
+
+```bash
+systemctl enable --now amerimon-pjsip-firewall.service
+systemctl status amerimon-pjsip-firewall.service --no-pager
+```
+
+Compara el bind del archivo `pjsip.conf` con el transporte activo reportado por Asterisk y el socket de `netstat`: son comprobaciones distintas. Si Asterisk informa `allow_reload : false`, una respuesta `Module 'res_pjsip.so' reloaded successfully` no confirma que se haya cambiado el bind del transporte existente. Amerimon no habilita automáticamente `allow_reload` ni reinicia Asterisk. Si sigue activo `0.0.0.0:5060`, verifica primero el bloqueo público y aplica el bind privado mediante un reinicio manual de Asterisk durante una ventana de mantenimiento; ese reinicio interrumpe conexiones y sesiones de escucha. La protección descrita cubre UDP/IPv4 en el puerto 5060, no otros transportes, puertos ni IPv6.
 
 La sección `[sip-phones]` enruta las llamadas PJSIP por un canal Local antes de entregarlas a `app_rpt`, para evitar el enrutamiento PJSIP directo que puede hacer que Asterisk falle:
 

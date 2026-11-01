@@ -20,7 +20,15 @@ transport_bind=$(sh "$PJSIP_NETWORK_HELPER" bind)
 echo "PJSIP: dirección seleccionada para transport-udp: $transport_bind."
 # Protege también un bind antiguo que siga activo hasta reiniciar Asterisk.
 systemctl daemon-reload
-systemctl enable amerimon-pjsip-firewall.service
+if ! systemctl enable --now amerimon-pjsip-firewall.service; then
+    echo "Error: no se pudo habilitar e iniciar amerimon-pjsip-firewall.service; PJSIP no se configurará. Revisa journalctl -u amerimon-pjsip-firewall.service." >&2
+    exit 1
+fi
+if ! systemctl is-active --quiet amerimon-pjsip-firewall.service; then
+    echo "Error: amerimon-pjsip-firewall.service no quedó activo; PJSIP no se configurará. Revisa journalctl -u amerimon-pjsip-firewall.service." >&2
+    exit 1
+fi
+# Si la unidad ya estaba activa, verifica igualmente las reglas con el helper actualizado.
 sh "$PJSIP_NETWORK_HELPER" protect
 
 MODULES_CONF="$AST_DIR/modules.conf"

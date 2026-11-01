@@ -66,6 +66,12 @@ El parche PJSIP enruta las llamadas del teléfono por un canal Local hasta `rpt-
 
 El postinstall agrega las directivas PJSIP que faltan en `modules.conf` aunque no encuentre los archivos `.so`, convierte `noload` en `load` para los módulos que el parche habilita e intenta cargarlos si Asterisk está activo. Carga primero la infraestructura y los recursos base, comprueba el estado `Running` y reintenta dependencias mientras haya progreso. Si faltan módulos requeridos, termina con error mostrando la respuesta de Asterisk, sin retirar la configuración. `res_pjsip_publish_asterisk.so` queda en `noload`: solo intercambia eventos PUBLISH entre servidores y no es necesario para extensiones SIP ni Listen Live. Así se evitan mensajes de carga fallida del módulo opcional. Si necesitas PUBLISH entre servidores, configura un Entity ID válido y cambia su directiva a `load` en `modules.conf`. No reinicia Asterisk; si está detenido, la configuración se aplica al próximo inicio. El dialplan de Listen Live requiere además los contextos `[listen-live-spy]` y `[listen-live-eagi]`, que el postinstall agrega si faltan. Los contextos existentes se conservan.
 
+### Bind privado y firewall persistente
+
+El instalador elige una IPv4 RFC1918 de una interfaz activa para `[transport-udp]`, prefiriendo la interfaz de la ruta predeterminada. Reemplaza binds `0.0.0.0`, preserva binds específicos y respalda los cambios; solo conserva el comodín si no encuentra una IPv4 privada. Antes de cargar PJSIP habilita e inicia `amerimon-pjsip-firewall.service`, verifica su estado `active (exited)` y bloquea UDP/5060 hacia IPv4 locales no privadas mediante firewalld existente o iptables. Si no existe ninguno, instala iptables. El bloqueo persiste tras reiniciar y cubre direcciones públicas de VPN o túneles sin modificar otros puertos.
+
+Con iptables, comprueba `iptables -t raw -L -n -v`: las reglas están en `raw/PREROUTING`, no en la tabla `filter` mostrada por `iptables -L` sin opciones. Con firewalld, comprueba las reglas directas runtime y permanentes. Una recarga exitosa de `res_pjsip.so` no garantiza que cambie el bind de un transporte con `allow_reload=false`; puede requerir un reinicio manual de Asterisk, que interrumpe enlaces y Listen Live. El instalador no lo realiza automáticamente. Si la IP pública pertenece a un router NAT, cierra también el port-forward UDP/5060 allí. Consulta **Comprobar el firewall y el bind después de instalar** en el [manual técnico](manual-tecnico) para los comandos y diagnósticos.
+
 ## Desconexiones y fin de sesión
 
 ```mermaid

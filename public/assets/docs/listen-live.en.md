@@ -66,6 +66,12 @@ The PJSIP patch routes calls from the phone through a Local channel to `rpt-inte
 
 Post-install adds missing PJSIP directives to `modules.conf` even when `.so` files are not found, converts `noload` to `load` for modules enabled by the patch, and attempts to load them if Asterisk is running. It loads infrastructure and base resources first, checks for `Running` status, and retries dependencies while progress continues. If required modules remain missing, it exits with an error displaying Asterisk's response without removing the configuration. `res_pjsip_publish_asterisk.so` is set to `noload`: it only exchanges PUBLISH events between servers and is not required for SIP extensions or Listen Live. This avoids failed-load messages for the optional module. If inter-server PUBLISH is needed, configure a valid Entity ID and change its directive to `load` in `modules.conf`. The installer does not restart Asterisk; if it is stopped, settings take effect at the next start. Listen Live also requires `[listen-live-spy]` and `[listen-live-eagi]`, which post-install adds if missing. Existing contexts are preserved.
 
+### Private bind and persistent firewall
+
+The installer selects an RFC1918 IPv4 on an active interface for `[transport-udp]`, preferring the default-route interface. It replaces `0.0.0.0` binds, preserves specific binds, and backs up changes; the wildcard is retained only when no private IPv4 is available. Before loading PJSIP, it enables and starts `amerimon-pjsip-firewall.service`, verifies `active (exited)` status, and blocks UDP/5060 to non-private local IPv4 addresses using existing firewalld or iptables. If neither exists, it installs iptables. Protection persists across reboot and covers public VPN or tunnel addresses without changing other ports.
+
+With iptables, check `iptables -t raw -L -n -v`: rules are in `raw/PREROUTING`, not the `filter` table displayed by plain `iptables -L`. With firewalld, check runtime and permanent direct rules. A successful `res_pjsip.so` reload does not guarantee that a transport with `allow_reload=false` changes its bind; a manual Asterisk restart may be required, interrupting links and Listen Live. The installer does not restart it automatically. If the public IP belongs to a NAT router, also disable UDP/5060 port-forwarding there. See **Check the firewall and bind after installation** in the [technical operations manual](manual-tecnico) for commands and diagnostics.
+
 ## Disconnects and end of session
 
 ```mermaid

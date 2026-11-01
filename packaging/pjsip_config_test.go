@@ -324,6 +324,39 @@ func TestPJSIPConfigurationMigratesWildcardBindAndProtectsBeforeLoading(t *testi
 	}
 }
 
+func TestPJSIPConfigurationStartsAndVerifiesFirewallService(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "systemctl.log")
+	runPJSIPConfiguration(t, dir, dir, "PJSIP_TEST_SYSTEMCTL_LOG="+logPath)
+	log, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{
+		"daemon-reload\n",
+		"enable --now amerimon-pjsip-firewall.service\n",
+		"is-active --quiet amerimon-pjsip-firewall.service\n",
+	} {
+		if !strings.Contains(string(log), command) {
+			t.Fatalf("missing firewall service command %q: %s", command, log)
+		}
+	}
+	for _, failure := range []string{"start", "inactive"} {
+		t.Run(failure, func(t *testing.T) {
+			dir := t.TempDir()
+			output := runPJSIPConfiguration(t, dir, dir,
+				"PJSIP_TEST_EXPECT_FAILURE=yes", "PJSIP_TEST_SERVICE_FAIL="+failure)
+			if !strings.Contains(string(output), "Error:") ||
+				!strings.Contains(string(output), "amerimon-pjsip-firewall.service") {
+				t.Fatalf("service failure must be reported explicitly: %s", output)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "pjsip.conf")); !os.IsNotExist(err) {
+				t.Fatal("service failure must abort before configuring PJSIP")
+			}
+		})
+	}
+}
+
 func TestPJSIPConfigurationVerifiesActiveUDPTransport(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "pjsip.conf"),
@@ -486,7 +519,23 @@ esac
 	if err := os.WriteFile(filepath.Join(binDir, "ip"), []byte(ipMock), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(binDir, "systemctl"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+	systemctlMock := `#!/bin/sh
+if [ -n "$PJSIP_TEST_SYSTEMCTL_LOG" ]; then
+    printf '%s\n' "$*" >> "$PJSIP_TEST_SYSTEMCTL_LOG"
+fi
+case "$*" in
+    'daemon-reload') exit 0 ;;
+    'enable --now amerimon-pjsip-firewall.service')
+        [ "$PJSIP_TEST_SERVICE_FAIL" != start ] || exit 1
+        /bin/sh "$PJSIP_NETWORK_HELPER" protect
+        ;;
+    'is-active --quiet amerimon-pjsip-firewall.service')
+        [ "$PJSIP_TEST_SERVICE_FAIL" != inactive ]
+        ;;
+    *) exit 1 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(binDir, "systemctl"), []byte(systemctlMock), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	for _, tool := range []string{"iptables", "firewall-cmd"} {
