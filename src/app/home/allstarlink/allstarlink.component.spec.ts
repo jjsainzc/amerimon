@@ -1054,6 +1054,72 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('highlights only receiving SIP audio and its server, clearing both on silence while the call remains connected', async () => {
+    vi.stubGlobal('WebSocket', FakeActivityWebSocket);
+    const { fixture, component, http } = await crearMonitor();
+    try {
+      const sip = { nodo_local: '616262', nodo: 'phone-portal', protocolo: 'sip' };
+      const otherSIP = { ...sip, nodo_local: '56502' };
+      const iax = { ...sip, protocolo: 'iax' };
+      const numericSIP = { nodo_local: '616262', nodo: '700001', protocolo: 'sip' };
+      component.nodos.set([sip, otherSIP, iax, numericSIP]);
+      component.cambiarIntervalo('-1');
+      http.expectOne(`${environment.apiUrl}/allstarlink/activity?recent=true`).flush({
+        status: 'success',
+        data: [{ local_node: '616262', remote_node: 'SIP/phone-portal', ultima_actividad: new Date().toISOString() }],
+        sip_connections: {
+          '616262': ['phone-portal', '700001'], '56502': ['phone-portal']
+        }
+      });
+      fixture.detectChanges();
+      expect(component.estaTransmitiendo(sip)).toBe(true);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(1);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(1);
+
+      const socket = FakeActivityWebSocket.instance;
+      socket?.open();
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [] }));
+      fixture.detectChanges();
+      expect(component.estaTransmitiendo(sip)).toBe(false);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(0);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(0);
+
+      const receive = (local: string, remote: string) => {
+        socket?.sendMessage(JSON.stringify({
+          status: 'success',
+          data: [{ local_node: local, remote_node: remote, ultima_actividad: new Date().toISOString() }]
+        }));
+        fixture.detectChanges();
+      };
+      receive('616262', 'SIP/phone-portal');
+      expect(component.estaTransmitiendo(sip)).toBe(true);
+      expect(component.estaTransmitiendo(otherSIP)).toBe(false);
+      expect(component.estaTransmitiendo(iax)).toBe(false);
+      expect(component.grupos().find(grupo => grupo.nodoLocal === '616262')?.audioActivo).toBe(true);
+      expect(component.grupos().find(grupo => grupo.nodoLocal === '56502')?.audioActivo).toBe(false);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(1);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(1);
+      receive('56502', 'SIP/phone-portal');
+      expect(component.estaTransmitiendo(sip)).toBe(false);
+      expect(component.estaTransmitiendo(otherSIP)).toBe(true);
+      receive('616262', 'phone-portal');
+      expect(component.estaTransmitiendo(sip)).toBe(false);
+      expect(component.estaTransmitiendo(iax)).toBe(true);
+
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [], server_nodes: ['700001'] }));
+      expect(component.estaTransmitiendo(numericSIP)).toBe(false);
+      socket?.sendMessage(JSON.stringify({ status: 'success', data: [] }));
+      fixture.detectChanges();
+      expect(component.nodos()).toContainEqual(sip);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-nodo-audio-activo')).toHaveLength(0);
+      expect(fixture.nativeElement.querySelectorAll('.allstarlink-grupo-audio-indicador')).toHaveLength(0);
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('remembers real-time mode and reopens its socket when returning to the screen', async () => {
     vi.stubGlobal('WebSocket', FakeActivityWebSocket);
     const primera = await crearMonitor();

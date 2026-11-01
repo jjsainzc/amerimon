@@ -317,6 +317,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   estaTransmitiendo(nodo: AllstarlinkNode): boolean {
     if (this.intervaloMs() !== -1) { return false; }
     const remoto = nodo.nodo.trim();
+    if (nodo.protocolo?.trim().toLowerCase() === 'sip') {
+      return this.paresConAudioTiempoReal().has(`${nodo.nodo_local.trim()}\u0000SIP/${remoto}`);
+    }
     return this.paresConAudioTiempoReal().has(`${nodo.nodo_local.trim()}\u0000${remoto}`) ||
       this.servidoresConCOSTiempoReal().includes(remoto);
   }

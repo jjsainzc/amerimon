@@ -34,12 +34,19 @@ func setupReceiveActivityTest(t *testing.T) {
 	previousStates := allStarLinkReceiveStates.byNode
 	allStarLinkReceiveStates.byNode = make(map[string]allStarLinkReceiveState)
 	allStarLinkReceiveStates.Unlock()
+	sipReceiveActivity.Lock()
+	previousSIP := sipReceiveActivity.byServer
+	sipReceiveActivity.byServer = make(map[sipActivityServer]map[string]sipTalkingChannel)
+	sipReceiveActivity.Unlock()
 	t.Cleanup(func() {
 		config.App = previous
 		database.Close()
 		allStarLinkReceiveStates.Lock()
 		allStarLinkReceiveStates.byNode = previousStates
 		allStarLinkReceiveStates.Unlock()
+		sipReceiveActivity.Lock()
+		sipReceiveActivity.byServer = previousSIP
+		sipReceiveActivity.Unlock()
 	})
 }
 
@@ -55,6 +62,8 @@ func TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime(t *testing.T) {
 		{"never keyed", "Conn: 700001 0 -1 -1", 0, false},
 		{"invalid rx", "Conn: 700001 2 0 0", 0, true},
 		{"truncated", "Conn: 700001", 0, true},
+		{"sip PTT is not voice", "Conn: SIP/phone-portal 1 0 -1", 0, false},
+		{"sip idle", "Conn: SIP/phone-portal 0 0 0", 0, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			links, err := parseRPTReceivingLinks(test.raw, "616265", time.Now().UTC())
@@ -75,6 +84,12 @@ func TestRPTReceiveStateUsesCOSAndRXNotLastKeyTime(t *testing.T) {
 	_, connections, err := parseRPTReceiveState("Conn: IAXRPT 0 0 0", "616265", time.Now().UTC())
 	if err != nil || len(connections) != 1 || connections[0] != "IAXRPT" {
 		t.Fatalf("inactive IAXRpt connection missing from snapshot: %v, %v", connections, err)
+	}
+	links, connections, err := parseRPTReceiveState(
+		"Conn: SIP/phone-portal 1 0 -1\nConn: IAXRPT 0 0 0", "616265", time.Now().UTC())
+	if err != nil || len(links) != 0 ||
+		len(connections) != 1 || connections[0] != "IAXRPT" {
+		t.Fatalf("SIP RX lost or mixed into RPT connections: links=%v connections=%v error=%v", links, connections, err)
 	}
 }
 
@@ -133,9 +148,9 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 		}
 		if fields["Command"] == "SawStat" {
 			if keyed.Load() {
-				return "Response: Success\r\nConn: 700001 1 90 -1\r\nConn: 56502 0 0 0\r\n\r\n"
+				return "Response: Success\r\nConn: 700001 1 90 -1\r\nConn: 56502 0 0 0\r\nConn: SIP/phone-portal 1 0 -1\r\n\r\n"
 			}
-			return "Response: Success\r\nConn: 700001 0 0 0\r\n\r\n"
+			return "Response: Success\r\nConn: 700001 0 0 0\r\nConn: SIP/phone-portal 0 0 0\r\n\r\n"
 		}
 		if fields["Command"] == "core show channels concise" {
 			if keyed.Load() {
@@ -149,6 +164,13 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 	for _, active := range []bool{true, false} {
 		keyed.Store(active)
 		pollAllStarLinkReceiveState(instance)
+		event := "ChannelTalkingStop"
+		if active {
+			event = "ChannelTalkingStart"
+		}
+		updateSIPTalkingEvent(sipActivityServer{host, port, "test", "test"}, map[string]string{
+			"Event": event, "Channel": "PJSIP/phone-portal-00000001", "Uniqueid": "call1", "Exten": "616265",
+		})
 		recorder := httptest.NewRecorder()
 		context := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/activity?recent=true", nil), recorder)
 		if err := GetAllStarLinkNodeActivity(context); err != nil {
@@ -168,7 +190,8 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 			t.Fatalf("unexpected response: %s", recorder.Body.String())
 		}
 		if active {
-			if len(response.Data) != 1 || response.Data[0].RemoteNode != "700001" ||
+			if len(response.Data) != 2 || response.Data[0].RemoteNode != "700001" ||
+				response.Data[1].RemoteNode != "SIP/phone-portal" ||
 				len(response.Servers) != 1 || response.Servers[0] != "616265" ||
 				len(response.Connections["616265"]) != 2 {
 				t.Fatalf("COS/RX not reported: %s", recorder.Body.String())
@@ -189,10 +212,14 @@ func TestGetAllStarLinkNodeActivityReportsCOSAndClearsOnUnkey(t *testing.T) {
 func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.T) {
 	setupReceiveActivityTest(t)
 	now := time.Now().UTC()
+	amiServer := sipActivityServer{host: "test", port: "5038"}
 	allStarLinkReceiveStates.Lock()
 	allStarLinkReceiveStates.byNode["616265"] = allStarLinkReceiveState{
+		Server:     amiServer,
 		ObservedAt: now, COS: true,
-		Links:          []AllStarLinkNodeActivity{{LocalNode: "616265", RemoteNode: "700001", UltimaActividad: now}},
+		Links: []AllStarLinkNodeActivity{
+			{LocalNode: "616265", RemoteNode: "700001", UltimaActividad: now},
+		},
 		Connections:    []string{"700001"},
 		SIPConnections: []string{"phone-portal"},
 	}
@@ -201,6 +228,9 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 		Links: []AllStarLinkNodeActivity{{LocalNode: "56502", RemoteNode: "700001", UltimaActividad: now}},
 	}
 	allStarLinkReceiveStates.Unlock()
+	updateSIPTalkingEvent(amiServer, map[string]string{
+		"Event": "ChannelTalkingStart", "Channel": "PJSIP/phone-portal-00000001", "Uniqueid": "call1", "Exten": "616265",
+	})
 	e := echo.New()
 	e.GET("/activity/live", StreamAllStarLinkNodeActivity)
 	server := httptest.NewServer(e)
@@ -223,7 +253,8 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 	if err := conn.ReadJSON(&response); err != nil {
 		t.Fatal(err)
 	}
-	if len(response.Data) != 1 || len(response.Servers) != 1 || response.Servers[0] != "616265" ||
+	if len(response.Data) != 2 || response.Data[1].RemoteNode != "SIP/phone-portal" ||
+		len(response.Servers) != 1 || response.Servers[0] != "616265" ||
 		len(response.Connections["616265"]) != 1 || response.Connections["616265"][0] != "700001" {
 		t.Fatalf("incorrect receive snapshot: %+v", response)
 	}
@@ -232,7 +263,7 @@ func TestStreamAllStarLinkNodeActivityPublishesAndClearsReceiveState(t *testing.
 	}
 	allStarLinkReceiveStates.Lock()
 	allStarLinkReceiveStates.byNode["616265"] = allStarLinkReceiveState{
-		ObservedAt: time.Now().UTC(), SIPConnections: []string{},
+		Server: amiServer, ObservedAt: time.Now().UTC(), SIPConnections: []string{},
 	}
 	allStarLinkReceiveStates.Unlock()
 	if err := conn.SetReadDeadline(time.Now().Add(750 * time.Millisecond)); err != nil {

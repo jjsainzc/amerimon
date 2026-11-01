@@ -243,14 +243,20 @@ The `[sip-phones]` context routes PJSIP calls through a Local channel before pas
 exten => _X.,1,Ringing()
 exten => _X.,2,Answer(3000)
 exten => _X.,3,Set(__NODE=${EXTEN})
-exten => _X.,4,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))
-exten => _X.,5,Hangup()
+exten => _X.,4,Set(__AMERIMON_SIP_ENDPOINT=${CHANNEL(endpoint)})
+exten => _X.,5,Set(TALK_DETECT(set)=250)
+exten => _X.,6,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))
+exten => _X.,7,Hangup()
 
 [rpt-internal]
-exten => _X.,1,Rpt(${NODE},Pv)
+exten => _X.,1,GotoIf($["${AMERIMON_SIP_ENDPOINT}" = ""]?legacy)
+exten => _X.,2,Rpt(${NODE},Pv,SIP/${AMERIMON_SIP_ENDPOINT})
+exten => _X.,3,Hangup()
+exten => _X.,4(legacy),Rpt(${NODE},Pv)
+exten => _X.,5,Hangup()
 ```
 
-If either context already exists without an `_X.` route, the installer adds the patch routes inside that context. If a context already has an `_X.` route, it leaves the route unchanged and does not add another priority; it logs a warning so the administrator can review the custom integration manually. Before changing existing files, it creates `modules.conf.bak-pjsip` and/or `extensions.conf.bak-pjsip` if those backups do not already exist. Newly created files are not backed up.
+If either context already exists without an `_X.` route, the installer adds the patch routes inside that context. The two exact routes from the previous patch are migrated to identify SIP RX. Custom `_X.` routes are left unchanged without duplicate priorities, with a warning if manual integration is needed. Before changing existing files, it creates `modules.conf.bak-pjsip` and/or `extensions.conf.bak-pjsip` if those backups do not already exist. Newly created files are not backed up.
 
 If Asterisk is running, post-install loads Sorcery, PJPROJECT, and RTP first, followed by base PJSIP resources and finally the channel driver. Only modules with status `Running`, not `Not Running`, count as active. It automatically retries pending modules while other loads resolve dependencies, without a two-pass limit. If progress stops with required modules missing, it exits with an error and displays Asterisk's response; it does not report successful activation or remove configuration or backups. It verifies `[transport-udp]` in Asterisk and confirms the UDP socket for the configured address and port with `netstat`. If the bind changed or either check fails, it runs `module reload res_pjsip.so` and checks again. If the expected socket remains absent, it reports Asterisk's response without restarting the service; some transports require a manual restart to change their bind. The Debian package includes `net-tools`, `iproute2`, and the alternative `iptables | firewalld`. `res_pjsip_publish_asterisk.so` is disabled with `noload`: it exchanges PUBLISH events between servers and is not required for SIP extensions, PJSIP phones, or Listen Live. This prevents failed-load messages for the optional module during installation and Asterisk startup. If your installation needs inter-server PUBLISH, first configure a valid Asterisk Entity ID, then change its `noload` directive to `load` in `modules.conf`; diagnose any load failure with `asterisk -rx 'core show settings'` and the Asterisk log. If Asterisk is stopped, persistent directives take effect at the next start. Dialplan directives are added during post-install; review any warnings when a custom route exists.
 
@@ -270,6 +276,10 @@ In the AllStarLink monitor, the primary node's table appears first; the rest are
 Under **Update every → Real time**, the browser opens `/mon/allstarlink/activity/live` on the same server and port as Amerimon's other WebSockets. A shared AMI poller checks local COS (`NodeStat`, `SignalOnInput`) and each link's active reception (`SawStat`, RX flag) every 250 ms; queries for a server do not overlap or block other servers. The WebSocket publishes state every 250 ms. If it cannot connect, the view polls the same state over HTTP every 500 ms. The state also includes connected nodes observed by `SawStat`; when it detects a change, the view refreshes only the affected server's table to show new IAX/IAXRpt connections or remove disconnected ones. Row highlights and blinking green header indicators turn off on the next update detecting inactive COS/RX, without waiting for history to expire. Configured nodes with active COS are also highlighted in tables where they are connected. Latency includes AMI and network response times; states not refreshed expire after three seconds. Last-activity history is maintained separately. Selecting another interval stops monitoring in the view.
 
 The real-time poller also queries `core show channels concise` and publishes PJSIP endpoints with channels in the `Up` state in `sip_connections`, over both WebSocket and HTTP. Starting or ending a SIP call refreshes the affected server's table even when its IAX links have not changed. A registered contact without an active call does not trigger a SIP connection. If the channel query fails, the error is logged and that server's SIP state is omitted from the update rather than interpreted as a disconnect.
+
+SIP row highlights and the server indicator use `TALK_DETECT` events `ChannelTalkingStart`/`ChannelTalkingStop`, not the `Up` state, silence RTP packets or `SawStat` PTT (which does not reflect phone VOX in app_rpt 3.10.8). The patch enables `TALK_DETECT(set)=250` on the PJSIP channel before `Dial(Local/...)`, publishing voice stop after 250 ms of silence with Asterisk's default voice threshold. One shared AMI session per server receives channel events, identifies the PJSIP endpoint and destination node (`Exten`), and publishes `SIP/<endpoint>` activity over HTTP and WebSocket. Indicators clear on silence, Hangup, connection expiry or loss of the AMI session. Concurrent calls are tracked by channel and Uniqueid.
+
+Installation and upgrades migrate only exact routes from previous patches (anonymous or named endpoint), backing up to `extensions.conf.bak-pjsip`. Custom routes are preserved with a warning if the detector is missing. The module patch loads `func_talkdetect.so`; AMI needs `call` read permission for voice and Hangup events. Custom AMI permissions are not changed automatically. The Local channel, Pv mode and RTP configuration are retained. After applying the dialplan and loading the module, reload with `asterisk -rx 'dialplan reload'`, restart only Amerimon if its backend was updated, and reconnect the phone. Verify that speaking and silence add and remove `SIP/<endpoint>` activity in `/mon/allstarlink/activity?recent=true`. Calls opened before the detector was enabled must reconnect; after AMI reconnects, detection resumes on the next voice start.
 
 In real-time mode, the last active link stays first in its table after audio stops, without retaining the highlight or blinking indicator. New activity takes priority; the selected sort field breaks ties. Leaving real-time mode restores the selected sort order.
 

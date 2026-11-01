@@ -17,6 +17,15 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+func TestSIPRXLinksAreNotIAXConnections(t *testing.T) {
+	connections := parseRPTConnections(
+		"Conn: SIP/phone-portal 127.0.0.1 0 IN 00:01:00 ESTABLISHED\nConn: 700001 127.0.0.1 0 IN 00:01:00 ESTABLISHED",
+		"Conn: SIP/phone-portal 1 0 -1")
+	if len(connections) != 1 || connections[0].Node != "700001" {
+		t.Fatalf("named SIP link leaked into IAX table/actions/history: %+v", connections)
+	}
+}
+
 func TestAllStarLinkDiscoveryDoesNotConnectToAMI(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

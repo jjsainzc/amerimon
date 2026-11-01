@@ -72,7 +72,9 @@ func TestPJSIPConfigurationPreservesExistingSettings(t *testing.T) {
 			"exten => 200,1,NoOp(keep)",
 			"exten => _X.,1,Ringing()",
 			"[rpt-internal]",
-			"exten => _X.,1,Rpt(${NODE},Pv)",
+			"exten => _X.,2,Rpt(${NODE},Pv,SIP/${AMERIMON_SIP_ENDPOINT})",
+			"exten => _X.,4(legacy),Rpt(${NODE},Pv)",
+			"Set(__AMERIMON_SIP_ENDPOINT=${CHANNEL(endpoint)})",
 		} {
 			if !strings.Contains(extensionText, required) {
 				t.Fatalf("missing or changed dialplan configuration %q:\n%s", required, extensionText)
@@ -124,6 +126,95 @@ func TestPJSIPConfigurationDoesNotOverrideConflictingCustomRoute(t *testing.T) {
 	}
 	if !strings.Contains(string(extensions), "[rpt-internal]") {
 		t.Fatalf("a non-conflicting PJSIP context was not added:\n%s", extensions)
+	}
+}
+
+func TestPJSIPConfigurationMigratesOnlyKnownLegacyRXRoutes(t *testing.T) {
+	legacy := `[sip-phones]
+exten => _X.,1,Ringing()
+exten => _X.,2,Answer(3000)
+exten => _X.,3,Set(__NODE=${EXTEN})
+exten => _X.,4,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))
+exten => _X.,5,Hangup()
+[rpt-internal]
+exten => _X.,1,Rpt(${NODE},Pv)
+[custom]
+exten => 100,1,NoOp(keep)
+`
+	for _, custom := range []bool{false, true} {
+		t.Run(map[bool]string{false: "managed", true: "custom"}[custom], func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "extensions.conf")
+			initial := legacy
+			if custom {
+				initial = strings.Replace(initial, "Answer(3000)", "Answer(1000)", 1)
+			}
+			if err := os.WriteFile(path, []byte(initial), 0o640); err != nil {
+				t.Fatal(err)
+			}
+			firstOutput := runPJSIPConfiguration(t, dir, dir)
+			first, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if custom {
+				if string(first) != initial || !strings.Contains(string(firstOutput), "rutas SIP personalizadas") {
+					t.Fatalf("custom routes changed or missing RX warning: %s\n%s", first, firstOutput)
+				}
+			} else {
+				for _, required := range []string{
+					"exten => _X.,4,Set(__AMERIMON_SIP_ENDPOINT=${CHANNEL(endpoint)})",
+					"exten => _X.,5,Set(TALK_DETECT(set)=250)",
+					"exten => _X.,6,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))",
+					"exten => _X.,7,Hangup()",
+					"exten => _X.,1,GotoIf($[\"${AMERIMON_SIP_ENDPOINT}\" = \"\"]?legacy)",
+					"exten => _X.,2,Rpt(${NODE},Pv,SIP/${AMERIMON_SIP_ENDPOINT})",
+					"exten => _X.,4(legacy),Rpt(${NODE},Pv)",
+					"exten => 100,1,NoOp(keep)",
+				} {
+					if !strings.Contains(string(first), required) {
+						t.Fatalf("migration missing %q:\n%s", required, first)
+					}
+				}
+				backup, err := os.ReadFile(path + ".bak-pjsip")
+				if err != nil || string(backup) != initial {
+					t.Fatalf("original dialplan backup lost: %v", err)
+				}
+				if !strings.Contains(string(firstOutput), "migradas para identificar el RX SIP") {
+					t.Fatalf("migration not reported: %s", firstOutput)
+				}
+			}
+			runPJSIPConfiguration(t, dir, dir)
+			second, err := os.ReadFile(path)
+			if err != nil || string(second) != string(first) {
+				t.Fatalf("migration is not idempotent: %v", err)
+			}
+		})
+	}
+}
+
+func TestPJSIPConfigurationAddsVoiceDetectorToNamedPatch(t *testing.T) {
+	patch, err := os.ReadFile("pjsip-extensions-sip-phones-patch.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	named := strings.ReplaceAll(string(patch), "exten => _X.,5,Set(TALK_DETECT(set)=250)\n", "")
+	named = strings.ReplaceAll(named, "exten => _X.,6,Dial(", "exten => _X.,5,Dial(")
+	named = strings.ReplaceAll(named, "exten => _X.,7,Hangup()", "exten => _X.,6,Hangup()")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "extensions.conf")
+	if err := os.WriteFile(path, []byte(named), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	runPJSIPConfiguration(t, dir, dir)
+	first, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(first), "Set(TALK_DETECT(set)=250)") {
+		t.Fatalf("named patch not migrated: %v\n%s", err, first)
+	}
+	runPJSIPConfiguration(t, dir, dir)
+	second, err := os.ReadFile(path)
+	if err != nil || string(second) != string(first) {
+		t.Fatalf("voice detector migration not idempotent: %v", err)
 	}
 }
 

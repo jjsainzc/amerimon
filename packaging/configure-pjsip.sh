@@ -77,6 +77,92 @@ if [ ! -e "$EXTENSIONS_CONF" ]; then
     extensions_created=1
 fi
 
+# Migra solo las dos rutas exactas del parche anterior, nunca rutas personalizadas.
+if awk '
+    BEGIN {
+        expected["sip-phones", 1] = "exten=>_X.,1,Ringing()"
+        expected["sip-phones", 2] = "exten=>_X.,2,Answer(3000)"
+        expected["sip-phones", 3] = "exten=>_X.,3,Set(__NODE=${EXTEN})"
+        expected["sip-phones", 4] = "exten=>_X.,4,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))"
+        expected["sip-phones", 5] = "exten=>_X.,5,Hangup()"
+        expected["rpt-internal", 1] = "exten=>_X.,1,Rpt(${NODE},Pv)"
+        named["sip-phones", 1] = expected["sip-phones", 1]
+        named["sip-phones", 2] = expected["sip-phones", 2]
+        named["sip-phones", 3] = expected["sip-phones", 3]
+        named["sip-phones", 4] = "exten=>_X.,4,Set(__AMERIMON_SIP_ENDPOINT=${CHANNEL(endpoint)})"
+        named["sip-phones", 5] = "exten=>_X.,5,Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))"
+        named["sip-phones", 6] = "exten=>_X.,6,Hangup()"
+        named["rpt-internal", 1] = "exten=>_X.,1,GotoIf($[\"${AMERIMON_SIP_ENDPOINT}\"=\"\"]?legacy)"
+        named["rpt-internal", 2] = "exten=>_X.,2,Rpt(${NODE},Pv,SIP/${AMERIMON_SIP_ENDPOINT})"
+        named["rpt-internal", 3] = "exten=>_X.,3,Hangup()"
+        named["rpt-internal", 4] = "exten=>_X.,4(legacy),Rpt(${NODE},Pv)"
+        named["rpt-internal", 5] = "exten=>_X.,5,Hangup()"
+    }
+    {
+        line = $0
+        sub(/[;].*$/, "", line)
+        gsub(/[[:space:]]/, "", line)
+        if (line ~ /^\[/) {
+            context = line
+            gsub(/[\[\]]/, "", context)
+        } else if (context == "sip-phones" || context == "rpt-internal") {
+            if (line ~ /^same=>/ || line ~ /^include=>/) invalid = 1
+            if (line ~ /^exten=>_X[.],/) {
+                count[context]++
+                if (line != expected[context, count[context]]) old_invalid[context] = 1
+                if (line != named[context, count[context]]) named_invalid[context] = 1
+            }
+        }
+    }
+    END {
+        sip_ok = (!old_invalid["sip-phones"] && count["sip-phones"] == 5) ||
+                 (!named_invalid["sip-phones"] && count["sip-phones"] == 6)
+        rpt_ok = (!old_invalid["rpt-internal"] && count["rpt-internal"] == 1) ||
+                 (!named_invalid["rpt-internal"] && count["rpt-internal"] == 5)
+        exit (invalid || !sip_ok || !rpt_ok)
+    }
+' "$EXTENSIONS_CONF"; then
+    migrated_extensions=$(mktemp "${EXTENSIONS_CONF}.pjsip-rx.XXXXXX")
+    if ! awk -v patch="$PJSIP_EXTENSIONS_PATCH" '
+        BEGIN {
+            while ((getline text < patch) > 0) {
+                if (text ~ /^\[/) {
+                    section = text
+                    gsub(/[\[\]]/, "", section)
+                } else if (text ~ /^exten => _X[.],/) {
+                    routes[section] = routes[section] text "\n"
+                }
+            }
+            close(patch)
+        }
+        /^[[:space:]]*\[/ {
+            context = $0
+            sub(/[;].*$/, "", context)
+            gsub(/[[:space:]\[\]]/, "", context)
+        }
+        {
+            line = $0
+            sub(/[;].*$/, "", line)
+            gsub(/[[:space:]]/, "", line)
+            if ((context == "sip-phones" || context == "rpt-internal") && line ~ /^exten=>_X[.],/) {
+                if (!replaced[context]++) printf "%s", routes[context]
+                next
+            }
+            print
+        }
+    ' "$EXTENSIONS_CONF" > "$migrated_extensions"; then
+        rm -f "$migrated_extensions"
+        echo "Error: no se pudo migrar el dialplan para la actividad SIP." >&2
+        exit 1
+    fi
+    if [ ! -e "$EXTENSIONS_CONF.bak-pjsip" ]; then
+        cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-pjsip"
+    fi
+    cat "$migrated_extensions" > "$EXTENSIONS_CONF"
+    rm -f "$migrated_extensions"
+    echo "PJSIP: rutas del parche anterior migradas para identificar el RX SIP."
+fi
+
 for context in sip-phones rpt-internal; do
     context_patch=$(mktemp "${EXTENSIONS_CONF}.pjsip-context.XXXXXX")
     if ! awk -v context="$context" '
@@ -108,7 +194,7 @@ for context in sip-phones rpt-internal; do
         ' "$EXTENSIONS_CONF"; then
             case "$context" in
                 sip-phones) expected_route='exten => _X.,1,Ringing()' ;;
-                rpt-internal) expected_route='exten => _X.,1,Rpt(' ;;
+                rpt-internal) expected_route='exten => _X.,1,GotoIf(' ;;
             esac
             if ! awk -v context="$context" -v expected_route="$expected_route" '
                 /^[[:space:]]*\[/ {
@@ -192,6 +278,11 @@ for context in sip-phones rpt-internal; do
         rm -f "$context_patch"
     fi
 done
+
+if ! grep -qF 'Rpt(${NODE},Pv,SIP/${AMERIMON_SIP_ENDPOINT})' "$EXTENSIONS_CONF" ||
+   ! grep -qF 'Set(TALK_DETECT(set)=250)' "$EXTENSIONS_CONF"; then
+    echo "Aviso: las rutas SIP personalizadas se conservaron; para el resaltado de voz integra TALK_DETECT y la identificación del endpoint del parche PJSIP." >&2
+fi
 
 PJSIP_CONF="$AST_DIR/pjsip.conf"
 pjsip_created=0

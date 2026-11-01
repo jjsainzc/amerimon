@@ -750,7 +750,7 @@ func parseRPTConnections(xstat, sawstat string) []rptConnection {
 			}
 			continue
 		}
-		if fields[0] != "Conn:" || !isValidRemoteNodeID(fields[1]) {
+		if fields[0] != "Conn:" || !isValidRemoteNodeID(fields[1]) || strings.HasPrefix(fields[1], "SIP/") {
 			continue
 		}
 		connection := rptConnection{Node: fields[1]}

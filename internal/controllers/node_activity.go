@@ -50,6 +50,7 @@ type AllStarLinkNodeActivity struct {
 }
 
 type allStarLinkReceiveState struct {
+	Server         sipActivityServer
 	ObservedAt     time.Time
 	COS            bool
 	Links          []AllStarLinkNodeActivity
@@ -83,6 +84,7 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 			servers = append(servers, node)
 		}
 	}
+	activities = append(activities, currentSIPReceiveActivity(now, allStarLinkReceiveStates.byNode)...)
 	allStarLinkReceiveStates.RUnlock()
 	sort.Strings(servers)
 	sort.Slice(activities, func(i, j int) bool {
@@ -101,6 +103,7 @@ func currentAllStarLinkReceiveActivity(now time.Time) map[string]any {
 // Consulta COS, enlaces RPT y canales SIP activos, y almacena los resultados en el estado global.
 func pollAllStarLinkReceiveState(instance allmonInstance) {
 	state := allStarLinkReceiveState{
+		Server:      sipActivityServer{instance.Host, instance.Port, instance.User, instance.Secret},
 		Links:       make([]AllStarLinkNodeActivity, 0),
 		Connections: make([]string, 0),
 	}
@@ -180,14 +183,19 @@ func parseRPTReceiveState(sawStat, localNode string, observedAt time.Time) ([]Al
 			continue
 		}
 		// SawStat: nodo, RX activo, segundos desde key y segundos desde unkey.
-		if len(fields) < 5 || !isValidRemoteNodeID(fields[1]) || (fields[2] != "0" && fields[2] != "1") {
+		if len(fields) < 5 || (fields[2] != "0" && fields[2] != "1") {
 			return nil, nil, fmt.Errorf("Conn de SawStat inválida")
 		}
-		if _, exists := seenConnections[fields[1]]; !exists {
+		sipEndpoint, sip := strings.CutPrefix(fields[1], "SIP/")
+		if (sip && !sipUserName.MatchString(sipEndpoint)) || (!sip && !isValidRemoteNodeID(fields[1])) {
+			return nil, nil, fmt.Errorf("Conn de SawStat inválida")
+		}
+		// Los enlaces SIP nombrados publican RX, pero sus conexiones se descubren por PJSIP.
+		if _, exists := seenConnections[fields[1]]; !exists && !sip {
 			seenConnections[fields[1]] = struct{}{}
 			connections = append(connections, fields[1])
 		}
-		if fields[2] == "1" {
+		if fields[2] == "1" && !sip {
 			activities = append(activities, AllStarLinkNodeActivity{
 				LocalNode: localNode, RemoteNode: fields[1], UltimaActividad: observedAt,
 			})
@@ -202,6 +210,7 @@ func parseRPTReceiveState(sawStat, localNode string, observedAt time.Time) ([]Al
 func startAllStarLinkReceiveScheduler() {
 	go func() {
 		var inFlight sync.Map
+		watchers := make(map[sipActivityServer]context.CancelFunc)
 		ticker := time.NewTicker(liveActivityPollInterval)
 		defer ticker.Stop()
 		for {
@@ -210,7 +219,15 @@ func startAllStarLinkReceiveScheduler() {
 				log.Printf("allstarlink activity: no se pudieron cargar servidores para COS: %v", err)
 			} else {
 				configured := make(map[string]bool, len(instances))
+				servers := make(map[sipActivityServer]bool)
 				for _, instance := range instances {
+					server := sipActivityServer{instance.Host, instance.Port, instance.User, instance.Secret}
+					servers[server] = true
+					if _, watching := watchers[server]; !watching {
+						ctx, cancel := context.WithCancel(context.Background())
+						watchers[server] = cancel
+						go watchSIPReceiveActivity(ctx, server)
+					}
 					configured[instance.Node] = true
 					if _, busy := inFlight.LoadOrStore(instance.Node, true); busy {
 						continue
@@ -219,6 +236,12 @@ func startAllStarLinkReceiveScheduler() {
 						defer inFlight.Delete(instance.Node)
 						pollAllStarLinkReceiveState(instance)
 					}(instance)
+				}
+				for server, cancel := range watchers {
+					if !servers[server] {
+						cancel()
+						delete(watchers, server)
+					}
 				}
 				allStarLinkReceiveStates.Lock()
 				for node := range allStarLinkReceiveStates.byNode {
