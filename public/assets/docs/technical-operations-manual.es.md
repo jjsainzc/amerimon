@@ -97,6 +97,27 @@ Las configuraciones `amerimon.env` y `amerimon.yaml` se instalan como `config|no
 
 Las actualizaciones no reemplazan `/etc/amerimon/allmon.ini`: el instalador lo crea solo si falta. El editor de nodos Allmon conserva las secciones que no administra y genera una copia `.amerimon.bak` antes de guardar.
 
+### Control de acceso: nodos e indicativos
+
+Los contextos del dialplan tienen funciones diferentes:
+
+- **`[radio-secure]`:** controla conexiones entre nodos. Consulta `allowlist/<destino>/<nodo-origen>` y `denylist/<destino>/<nodo-origen>`, usando `${EXTEN}` como destino y `${CALLERID(num)}` como nodo de origen. El patch de `allstar-public` no modifica este contexto.
+- **`[allstar-public]`:** atiende clientes como IAX Web Transceiver, Repeater Phone y QSO One. Primero autentica el indicativo mediante AllStarLink; una autenticación inválida termina la llamada. Aquí `${CALLSIGN}` es el indicativo autenticado y `${NODENUM}`, obtenido de `${CALLERID(num)}`, es el nodo de destino, no un nodo de origen.
+
+Después de autenticar, `allstar-public` aplica este orden:
+
+Para las comparaciones obtiene `CALLSIGN_BASE`: elimina todo desde el primer `-` o `/` y convierte a mayúsculas. Por ejemplo, `HC1LNM-P`, `HC1LNM/RPT` y `HC1LNM-P/RPT` se comparan como `HC1LNM`. Guarda las entradas de acceso con el indicativo puro, sin sufijos. El indicativo completo autenticado se conserva en la identidad de la conexión y en los mensajes del dialplan; una base vacía se rechaza. Esta normalización no afecta a los números de nodo ni a `[radio-secure]`.
+
+1. Si existe `allowlist/${NODENUM}/${CALLSIGN_BASE}`, conecta directamente.
+2. Si no existe esa entrada, consulta `denylist/${NODENUM}/${CALLSIGN_BASE}`. Si existe, bloquea la llamada.
+3. Si el indicativo no aparece en ninguna de esas dos listas del destino, pasa al filtro global `whitelist/${CALLSIGN_BASE}` y `blacklist/${CALLSIGN_BASE}`. Tener otras entradas en `allowlist/<destino>` no impide este respaldo.
+
+Las decisiones del primer filtro son definitivas: una coincidencia en `allowlist` tiene prioridad sobre `denylist` y no consulta las listas globales; una coincidencia en `denylist` tampoco puede ser anulada por la `whitelist` global.
+
+El filtro global conserva la política del patch: con ambas listas vacías permite el acceso; una coincidencia en `whitelist` permite el acceso incluso si también está en `blacklist`; sin coincidencia en `whitelist`, una coincidencia en `blacklist` bloquea. Si al menos una lista global tiene entradas y el indicativo no coincide en ninguna, también bloquea, incluso cuando solo está poblada `blacklist`.
+
+En **Admin → Nodo principal**, las tarjetas separan las listas del nodo (`allowlist/denylist`) de las listas globales por indicativo (`whitelist/blacklist`). Las entradas globales no llevan número de nodo y sus cambios mediante AMI se aplican inmediatamente. Ejecutar `./install.sh` instala el patch en la stanza existente `[allstar-public]` y recarga el dialplan, sin modificar `[radio-secure]`.
+
 ### Configuración del nodo principal
 
 En **Admin → Nodo principal** están disponibles las funciones equivalentes a las opciones **1 Node number**, **2 Node Password**, **3 Node callsign** y **7 Node access list** de `node-setup`.

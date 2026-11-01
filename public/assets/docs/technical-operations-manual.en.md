@@ -97,6 +97,27 @@ By default, `sources.privatenodes_path` uses `/var/lib/asterisk/privatenodes.txt
 
 Upgrades do not replace `/etc/amerimon/allmon.ini`: the installer creates it only if it is missing. The Allmon node editor preserves sections it does not manage and creates an `.amerimon.bak` copy before saving.
 
+### Access control: nodes and callsigns
+
+The dialplan contexts serve different purposes:
+
+- **`[radio-secure]`:** controls node-to-node connections. It checks `allowlist/<destination>/<source-node>` and `denylist/<destination>/<source-node>`, using `${EXTEN}` as the destination and `${CALLERID(num)}` as the source node. The `allstar-public` patch does not modify this context.
+- **`[allstar-public]`:** handles clients such as IAX Web Transceiver, Repeater Phone, and QSO One. It first authenticates the callsign through AllStarLink; invalid authentication ends the call. Here `${CALLSIGN}` is the authenticated callsign and `${NODENUM}`, taken from `${CALLERID(num)}`, is the destination node, not a source node.
+
+After authentication, `allstar-public` applies this order:
+
+For comparisons, it derives `CALLSIGN_BASE`: everything from the first `-` or `/` onward is removed, and the result is uppercased. For example, `HC1LNM-P`, `HC1LNM/RPT`, and `HC1LNM-P/RPT` are compared as `HC1LNM`. Store access entries using the base callsign without suffixes. The full authenticated callsign is retained in the connection identity and dialplan messages; an empty base is rejected. This normalization does not affect node numbers or `[radio-secure]`.
+
+1. If `allowlist/${NODENUM}/${CALLSIGN_BASE}` exists, connect directly.
+2. Otherwise, check `denylist/${NODENUM}/${CALLSIGN_BASE}`. If it exists, block the call.
+3. If the callsign appears in neither destination-scoped list, fall back to the global `whitelist/${CALLSIGN_BASE}` and `blacklist/${CALLSIGN_BASE}` filter. Other entries in `allowlist/<destination>` do not prevent this fallback.
+
+First-filter decisions are final: an `allowlist` match takes precedence over `denylist` and skips the global lists; a `denylist` match cannot be overridden by the global `whitelist`.
+
+The global filter preserves the patch's policy: both lists empty means access is allowed; a `whitelist` match allows access even if also present in `blacklist`; without a `whitelist` match, a `blacklist` match blocks access. If either global list contains entries and the callsign matches neither, access is also blocked, even when only `blacklist` is populated.
+
+In **Admin → Primary Node**, separate cards distinguish node-scoped lists (`allowlist/denylist`) from global callsign lists (`whitelist/blacklist`). Global entries have no node-number scope, and changes through AMI take effect immediately. Running `./install.sh` installs the patch in the existing `[allstar-public]` stanza and reloads the dialplan without modifying `[radio-secure]`.
+
 ### Primary node configuration
 
 **Admin → Primary Node** provides functionality equivalent to options **1 Node number**, **2 Node Password**, **3 Node callsign**, and **7 Node access list** in `node-setup`.
