@@ -13,6 +13,7 @@ for tool in npm go systemctl getent; do
 	command -v "$tool" >/dev/null 2>&1 || { echo "No se encontró $tool." >&2; exit 1; }
 done
 command -v netstat >/dev/null 2>&1 || { echo "No se encontró netstat; instala net-tools." >&2; exit 1; }
+command -v ip >/dev/null 2>&1 || { echo "No se encontró ip; instala iproute2." >&2; exit 1; }
 
 cd "$ROOT_DIR"
 npm ci
@@ -60,6 +61,8 @@ fi
 "${SUDO[@]}" install -m 0644 packaging/listen-live-dialplan.awk /usr/lib/amerimon/listen-live-dialplan.awk
 "${SUDO[@]}" install -m 0644 packaging/merge-allstar-public.awk /usr/lib/amerimon/merge-allstar-public.awk
 "${SUDO[@]}" install -m 0644 packaging/configure-pjsip.sh /usr/lib/amerimon/configure-pjsip.sh
+"${SUDO[@]}" install -m 0644 packaging/pjsip-network.sh /usr/lib/amerimon/pjsip-network.sh
+"${SUDO[@]}" install -m 0644 packaging/amerimon-pjsip-firewall.service /etc/systemd/system/amerimon-pjsip-firewall.service
 "${SUDO[@]}" install -m 0644 packaging/merge-pjsip-modules.awk /usr/lib/amerimon/merge-pjsip-modules.awk
 "${SUDO[@]}" install -m 0755 packaging/audio_eagi.sh /usr/local/bin/audio_eagi.sh
 "${SUDO[@]}" install -m 0755 packaging/astdb.sh /usr/local/bin/astdb.sh

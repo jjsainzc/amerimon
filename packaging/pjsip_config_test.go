@@ -199,7 +199,7 @@ func TestPJSIPConfigurationCreatesMissingFilesAndIsIdempotent(t *testing.T) {
 
 func TestPJSIPConfigurationPreservesExistingTransportAndCustomSettings(t *testing.T) {
 	dir := t.TempDir()
-	initial := "[global]\nuser_agent=Customer PBX\n\n[transport-udp]\ntype=transport\nlocal_net=192.168.1.0/24\n"
+	initial := "[global]\nuser_agent=Customer PBX\n\n[transport-udp]\ntype=transport\nbind=192.168.1.20\nlocal_net=192.168.1.0/24\n"
 	pjsipPath := filepath.Join(dir, "pjsip.conf")
 	if err := os.WriteFile(pjsipPath, []byte(initial), 0o640); err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestPJSIPConfigurationAddsTransportWhenMissingOrCommented(t *testing.T) {
 				"[transport-udp]",
 				"type=transport",
 				"protocol=udp",
-				"bind=0.0.0.0",
+				"bind=192.168.1.10",
 			} {
 				if !strings.Contains(string(config), required) {
 					t.Fatalf("PJSIP configuration is missing %q:\n%s", required, config)
@@ -277,8 +277,59 @@ func TestPJSIPConfigurationAddsTransportWhenMissingOrCommented(t *testing.T) {
 	}
 }
 
+func TestPJSIPConfigurationMigratesWildcardBindAndProtectsBeforeLoading(t *testing.T) {
+	for _, test := range []struct {
+		name, initial, want string
+		publicOnly          bool
+	}{
+		{"wildcard", "[transport-udp]\ntype=transport\nbind=0.0.0.0\n", "bind=192.168.1.10", false},
+		{"wildcard custom port", "[transport-udp]\ntype=transport\nbind = 0.0.0.0:5070 ; old bind\n", "bind=192.168.1.10:5070", false},
+		{"missing bind", "[transport-udp]\ntype=transport\n", "bind=192.168.1.10", false},
+		{"public fallback", "[global]\nuser_agent=Customer PBX\n", "bind=0.0.0.0", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "pjsip.conf")
+			if err := os.WriteFile(path, []byte(test.initial), 0o640); err != nil {
+				t.Fatal(err)
+			}
+			var env []string
+			if test.publicOnly {
+				env = append(env, "PJSIP_TEST_NETWORK_ADDRESSES=2: eth0 inet 203.0.113.2/24\n")
+			}
+			runPJSIPConfiguration(t, dir, dir, env...)
+			config, err := os.ReadFile(path)
+			if err != nil || !strings.Contains(string(config), test.want) {
+				t.Fatalf("incorrect bind: %v %s", err, config)
+			}
+			backup, err := os.ReadFile(path + ".bak-pjsip")
+			if err != nil || string(backup) != test.initial {
+				t.Fatalf("migration lost original backup: %v %s", err, backup)
+			}
+			runPJSIPConfiguration(t, dir, dir, env...)
+			repeated, err := os.ReadFile(path)
+			if err != nil || string(repeated) != string(config) {
+				t.Fatalf("bind migration must be idempotent: %v %s", err, repeated)
+			}
+		})
+	}
+	dir := t.TempDir()
+	output := runPJSIPConfiguration(t, dir, dir,
+		"PJSIP_TEST_EXPECT_FAILURE=yes", "PJSIP_TEST_FIREWALL_FAIL=yes")
+	if !strings.Contains(string(output), "dirección seleccionada") {
+		t.Fatalf("unexpected failure before firewall check: %s", output)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "pjsip.conf")); !os.IsNotExist(err) {
+		t.Fatal("failed protection must abort before creating the PJSIP configuration")
+	}
+}
+
 func TestPJSIPConfigurationVerifiesActiveUDPTransport(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pjsip.conf"),
+		[]byte("[transport-udp]\ntype=transport\nprotocol=udp\nbind=192.168.1.10\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
 	stateDir := filepath.Join(dir, "state")
 	if err := os.Mkdir(stateDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -288,7 +339,7 @@ func TestPJSIPConfigurationVerifiesActiveUDPTransport(t *testing.T) {
 		"PJSIP_TEST_LOG="+logPath,
 		"PJSIP_TEST_STATE="+stateDir,
 		"PJSIP_TEST_TRANSPORT_ACTIVE=yes"))
-	if !strings.Contains(output, "[transport-udp] está activo en 0.0.0.0:5060/UDP") {
+	if !strings.Contains(output, "[transport-udp] está activo en 192.168.1.10:5060/UDP") {
 		t.Fatalf("active UDP transport was not verified: %s", output)
 	}
 	if strings.Contains(output, "se intenta recargar res_pjsip.so") {
@@ -314,7 +365,7 @@ func TestPJSIPConfigurationVerifiesActiveUDPTransport(t *testing.T) {
 		"PJSIP_TEST_RELOAD_LOG="+reloadLogPath,
 		"PJSIP_TEST_STATE="+reloadStateDir,
 		"PJSIP_TEST_TRANSPORT_AFTER_RELOAD=yes"))
-	if !strings.Contains(output, "está activo en 0.0.0.0:5060/UDP después de recargar res_pjsip.so") {
+	if !strings.Contains(output, "está activo en 192.168.1.10:5060/UDP después de recargar res_pjsip.so") {
 		t.Fatalf("UDP transport was not verified after module reload: %s", output)
 	}
 	reloadLog, err := os.ReadFile(reloadLogPath)
@@ -358,7 +409,7 @@ case "$2" in
     'core show version') printf 'Asterisk test\n' ;;
     'pjsip show transport transport-udp')
         if [ "$PJSIP_TEST_TRANSPORT_ACTIVE" = yes ] || [ -f "$PJSIP_TEST_STATE/transport-active" ]; then
-            printf 'Transport: transport-udp\nProtocol: UDP\nBind: 0.0.0.0:5060\n'
+            printf 'Transport: transport-udp\nProtocol: UDP\nBind: 192.168.1.10:5060\n'
         else
             printf 'Unable to find object transport-udp\n'
         fi
@@ -413,10 +464,42 @@ esac
 	netstatMock := `#!/bin/sh
 if [ "$PJSIP_TEST_SOCKET_INACTIVE" != yes ] &&
    { [ "$PJSIP_TEST_TRANSPORT_ACTIVE" = yes ] || [ -f "$PJSIP_TEST_STATE/transport-active" ]; }; then
-    printf 'udp        0      0 0.0.0.0:5060            0.0.0.0:*\n'
+    printf 'udp        0      0 192.168.1.10:5060        0.0.0.0:*\n'
 fi
 `
 	if err := os.WriteFile(filepath.Join(binDir, "netstat"), []byte(netstatMock), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ipMock := `#!/bin/sh
+case "$*" in
+    '-o -4 addr show up')
+        if [ -n "$PJSIP_TEST_NETWORK_ADDRESSES" ]; then
+            printf '%s' "$PJSIP_TEST_NETWORK_ADDRESSES"
+        else
+            printf '2: eth0 inet 192.168.1.10/24 scope global eth0\n'
+        fi
+        ;;
+    '-4 route show default') printf 'default via 192.168.1.1 dev eth0\n' ;;
+    *) exit 1 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(binDir, "ip"), []byte(ipMock), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "systemctl"), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range []string{"iptables", "firewall-cmd"} {
+		mock := "#!/bin/sh\n[ \"$PJSIP_TEST_FIREWALL_FAIL\" != yes ]\n"
+		if tool == "firewall-cmd" {
+			mock = "#!/bin/sh\nexit 1\n"
+		}
+		if err := os.WriteFile(filepath.Join(binDir, tool), []byte(mock), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	networkHelper, err := filepath.Abs("pjsip-network.sh")
+	if err != nil {
 		t.Fatal(err)
 	}
 	command := exec.Command("sh", "configure-pjsip.sh")
@@ -426,6 +509,7 @@ fi
 		"PJSIP_MODULES_PATCH="+modulePatch,
 		"PJSIP_EXTENSIONS_PATCH="+extensionsPatch,
 		"PJSIP_MODULES_MERGER="+merger,
+		"PJSIP_NETWORK_HELPER="+networkHelper,
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 	)
 	command.Env = append(command.Env, extraEnv...)

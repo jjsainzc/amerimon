@@ -22,6 +22,8 @@ func TestLocalInstallerAppliesListenLiveMigration(t *testing.T) {
 		"packaging/listen-live-dialplan.awk",
 		"packaging/merge-allstar-public.awk",
 		"packaging/configure-pjsip.sh",
+		"packaging/pjsip-network.sh",
+		"packaging/amerimon-pjsip-firewall.service",
 		"packaging/merge-pjsip-modules.awk",
 		"packaging/pjsip-modules-patch.conf",
 		"packaging/pjsip-extensions-sip-phones-patch.conf",

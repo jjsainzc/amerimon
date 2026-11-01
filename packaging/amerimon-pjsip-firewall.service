@@ -1,0 +1,14 @@
+[Unit]
+Description=Protect PJSIP UDP/5060 on public IPv4 interfaces
+Wants=network-online.target
+After=network-online.target firewalld.service
+Before=asterisk.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /usr/lib/amerimon/pjsip-network.sh protect
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=asterisk.service

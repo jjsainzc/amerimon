@@ -44,6 +44,8 @@ nfpms:
       - libnss-mdns
       - avahi-daemon
       - net-tools
+      - iproute2
+      - iptables | firewalld
       - netcat-openbsd | netcat-traditional | ncat
     contents:
       - src: packaging/amerimon.service
@@ -80,6 +82,10 @@ nfpms:
         dst: /usr/share/amerimon/extensions-allstar-public-patch.conf
       - src: packaging/configure-pjsip.sh
         dst: /usr/lib/amerimon/configure-pjsip.sh
+      - src: packaging/pjsip-network.sh
+        dst: /usr/lib/amerimon/pjsip-network.sh
+      - src: packaging/amerimon-pjsip-firewall.service
+        dst: /lib/systemd/system/amerimon-pjsip-firewall.service
       - src: packaging/merge-pjsip-modules.awk
         dst: /usr/lib/amerimon/merge-pjsip-modules.awk
       - src: packaging/pjsip-modules-patch.conf
