@@ -8,6 +8,16 @@ This manual describes the current source-code tree. The reference published Debi
 
 Amerimon queries Asterisk through AMI. Its post-install script prepares the modules and contexts required for Listen Live. An administrator can explicitly change the primary node's identity and access lists, and manage IAX users and PJSIP extensions from their dedicated pages. Other nodes and telephony users are not reconfigured automatically.
 
+### Public password tools
+
+The **Password tools** link in the header opens a single page (`/password-tools`) with the generator and meter. The former `/password-generator` and `/password-meter` routes redirect to this page.
+
+The generator initially suggests a 12-character password and supports a minimum length of 8. You can combine uppercase letters, lowercase letters, numbers, and symbols; when selecting types manually, choose at least two. If none are selected, all four are used. Random selection uses the browser's cryptographic API and favors less-repeated characters to increase diversity. You can regenerate the password or copy it to the clipboard. The generated password is passed to the meter on the same page.
+
+The meter also accepts a password of up to 128 characters and lets you show or hide it. It displays a score, complexity, additions and deductions, Shannon entropy, and recommendations about length, diversity, character groups, repetitions, and predictable patterns. The stated minimum length is 8; recommendations suggest at least 12 characters.
+
+The displayed entropy is calculated from the observed character frequencies in the password. It describes the diversity of that sample; it is not a measure of the generator's cryptographic unpredictability or a guarantee that a password is secure. Generation and evaluation happen in the browser; these tools do not send or store the password in Amerimon's backend.
+
 ## 2. Components and ports
 
 | Component | Default address | Use |

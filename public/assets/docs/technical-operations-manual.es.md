@@ -8,6 +8,16 @@ Este manual describe el árbol de código actual. La versión Debian publicada d
 
 Amerimon consulta Asterisk mediante AMI. Su postinstalador prepara los módulos y contextos necesarios para Listen Live. El administrador puede cambiar explícitamente la identidad y las listas de acceso del nodo principal, así como administrar usuarios IAX y extensiones PJSIP desde sus páginas específicas. No se reconfiguran automáticamente los demás nodos ni los usuarios de telefonía.
 
+### Herramientas públicas de contraseñas
+
+El enlace **Herramientas de contraseñas** del encabezado abre una sola página (`/password-tools`) con el generador y el verificador. Las antiguas rutas `/password-generator` y `/password-meter` redirigen a esa página.
+
+El generador propone inicialmente una contraseña de 12 caracteres y admite un mínimo de 8. Puedes combinar mayúsculas, minúsculas, números y símbolos; al elegir tipos manualmente, selecciona al menos dos. Si no marcas ninguno, se usan los cuatro. La selección aleatoria usa la API criptográfica del navegador y favorece los caracteres menos repetidos para aumentar la diversidad. Puedes regenerar la clave o copiarla al portapapeles. La clave generada se envía al verificador de la misma página.
+
+El verificador también permite introducir una contraseña de hasta 128 caracteres y mostrarla u ocultarla. Presenta puntuación, complejidad, detalle de adiciones y deducciones, entropía de Shannon y recomendaciones sobre longitud, diversidad, grupos de caracteres, repeticiones y patrones predecibles. La longitud mínima indicada es 8; las recomendaciones sugieren al menos 12 caracteres.
+
+La entropía mostrada se calcula a partir de las frecuencias de caracteres observadas en la contraseña. Describe la diversidad de esa muestra; no es una medida de la imprevisibilidad criptográfica del generador ni una garantía de que una clave sea segura. La generación y evaluación se realizan en el navegador; estas herramientas no envían ni guardan la contraseña en el backend de Amerimon.
+
 ## 2. Componentes y puertos
 
 | Componente | Dirección predeterminada | Uso |
