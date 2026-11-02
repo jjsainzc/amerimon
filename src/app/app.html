@@ -44,6 +44,7 @@
     <nav class="enlaces" aria-label="Navegación principal">
       <a routerLink="/allstarlink" routerLinkActive="activo" (click)="cerrarMenu()">AllStarLink</a>
       <a routerLink="/listen-live" routerLinkActive="activo" (click)="cerrarMenu()">Listen Live</a>
+      <a routerLink="/password-tools" routerLinkActive="activo" (click)="cerrarMenu()">{{ 'PASSWORD_TOOLS_NAV' | translate }}</a>
       <button type="button" (click)="abrirEnlaces()" aria-haspopup="dialog" [attr.aria-expanded]="enlacesAbiertos()">{{ 'ENLACES_EXTERNOS' | translate }}</button>
     </nav>
 

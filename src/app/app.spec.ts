@@ -61,6 +61,18 @@ describe('App', () => {
       .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
   });
 
+  it('shows the combined password tools page in the public navigation', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    TestBed.inject(HttpTestingController).expectOne(`${environment.apiUrl}/site-settings`)
+      .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelectorAll('.enlaces a[href="/password-tools"]')).toHaveLength(1);
+    expect(element.querySelector('.enlaces a[href="/password-tools"]')?.textContent)
+      .toContain('PASSWORD_TOOLS_NAV');
+  });
+
   it('shows the Amerimon logo and remember-session checkbox in the login dialog', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();

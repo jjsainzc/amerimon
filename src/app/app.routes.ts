@@ -12,6 +12,12 @@ export const routes: Routes = [
     loadComponent: () => import('./home/monitorcall/monitorcall.component').then((m) => m.MonitorCallComponent),
   },
   {
+    path: 'password-tools',
+    loadComponent: () => import('./home/password-tools/password-tools.component').then((m) => m.PasswordToolsComponent),
+  },
+  { path: 'password-meter', pathMatch: 'full', redirectTo: 'password-tools' },
+  { path: 'password-generator', pathMatch: 'full', redirectTo: 'password-tools' },
+  {
     path: 'admin/allstarlink-historial',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/allstarlink-historial/allstarlink-historial.component').then((m) => m.AllstarlinkHistorialComponent),

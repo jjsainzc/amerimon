@@ -56,7 +56,23 @@ Organizar estas dos listas de permitidos/denegados y ponerlas en dos tarjetas co
     sudo asterisk -rx 'core show channels concise'
     ```
 
+  - En la captura de la falla, `pjsip show channelstats` devuelve `No objects found` y `core show channels concise` no contiene canales `PJSIP/` ni el canal Local de la llamada SIP. El enlace IAX y el nodo siguen activos. Esto confirma que Asterisk ya no tiene la llamada SIP; no demuestra que el telefono haya perdido su registro ni identifica quien termino la llamada.
+  - La desaparicion de la tabla Allstarlink es coherente con esa captura: solo se muestran contactos SIP con un canal PJSIP activo en estado `Up`. El telefono puede seguir registrado aunque la llamada haya terminado; el registro y la llamada son estados distintos.
+  - Antes de reiniciar Asterisk, comprobar el registro, el tiempo de actividad y los logs disponibles:
+
+    ```bash
+    sudo asterisk -rx 'pjsip list contacts'
+    sudo asterisk -rx 'core show uptime'
+    sudo asterisk -rx 'logger show channels'
+    sudo tail -n 200 /var/log/asterisk/full
+    ```
+
+    Si `full` no existe o no esta habilitado, revisar la salida de `logger show channels` para identificar el destino real de los logs. Buscar el intervalo de la falla y mensajes sobre cierre de la llamada, RTP, temporizadores SIP o errores de `Dial`/`Rpt`. Los logs posteriores pueden no conservar el motivo: la ausencia de mensajes no descarta ninguna causa.
+  - Consultar tambien `sudo asterisk -rx 'pjsip show endpoint <endpoint>'`, reemplazando `<endpoint>` por el nombre del telefono, para revisar los valores efectivos de `rtp_timeout`, `rtp_timeout_hold` y `timers` sin modificarlos. Un valor configurado no demuestra por si solo la causa. No compartir claves ni cabeceras de autenticacion al enviar diagnosticos.
+
+
   - Revisar tambien la coma adicional antes de `b(...)` en `Dial(Local/${NODE}@rpt-internal,,,b(sip-bridge^addheader^1))` del parche `packaging/pjsip-extensions-sip-phones-patch.conf`. Es una anomalia a investigar, no una causa demostrada de la perdida de audio.
+  No hay coma de mas, el comando Dial tiene 4 parametros, los que faltan aca ,,, son ,timeout,options,
   
 - [x] 13. Usemos el mismo websocket que tenemos para la terminal ssh y para el listen-live para determinar cual es la estacion que esta con audio en el momento, para mostrarlo en las tablas, mediante un highlight de la linea qie corresponde a la estacion y que se coloca en la primera posicion de la tabla, o sea si el nodo principal detecta un audio y este esta enlazado a otros server tambien iluminarlos y ponerlos en el tope de cada una, y esto solo se activaría si en el "Actualizar cada" del Allstarlink, se pone "Tiempo Real" (opcion nueva), esta funcionalidad la tiene el Supermon y el Allmon3
 
