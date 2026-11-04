@@ -750,12 +750,30 @@ func claimAudioPlayback(ctx context.Context, durationMS int64) (string, error) {
 		return "", err
 	}
 	defer tx.Rollback()
+	token, err := claimAudioPlaybackTx(ctx, tx, durationMS)
+	if err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func claimAudioPlaybackTx(ctx context.Context, tx *sql.Tx, durationMS int64) (string, error) {
+	if durationMS < 1 {
+		return "", errors.New("duración de audio inválida")
+	}
 	var busyUntil string
 	if err := tx.QueryRowContext(ctx, `SELECT busy_until FROM audio_playback_state WHERE id = 1`).Scan(&busyUntil); err != nil {
 		return "", err
 	}
 	now := time.Now().UTC()
-	if until, err := time.Parse(time.RFC3339Nano, busyUntil); err == nil && until.After(now) {
+	until, err := time.Parse(time.RFC3339Nano, busyUntil)
+	if err != nil {
+		return "", fmt.Errorf("estado de reproducción inválido: %w", err)
+	}
+	if until.After(now) {
 		return "", errAudioPlaybackBusy
 	}
 	var tokenBytes [16]byte
@@ -767,9 +785,6 @@ func claimAudioPlayback(ctx context.Context, durationMS int64) (string, error) {
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE audio_playback_state SET busy_until = ?, playback_token = ? WHERE id = 1`,
 		now.Add(busyFor).Format(time.RFC3339Nano), token); err != nil {
-		return "", err
-	}
-	if err := tx.Commit(); err != nil {
 		return "", err
 	}
 	return token, nil
@@ -824,12 +839,9 @@ func playAudioOnPrimary(filename string) (string, string, string, error) {
 	if err := prepareAudioFileForPlayback(filename); err != nil {
 		return "", primary, "", fmt.Errorf("no se pudo preparar el archivo para Asterisk: %w", err)
 	}
-	instance, found, err := findAllmonInstance(primary)
-	if err != nil || !found {
-		if err == nil {
-			err = errors.New("el nodo principal no está configurado en Allmon")
-		}
-		return "", primary, "", fmt.Errorf("no se pudo resolver el nodo principal en Allmon: %w", err)
+	instance, err := resolveAudioPrimaryInstance(primary)
+	if err != nil {
+		return "", primary, "", fmt.Errorf("no se pudo resolver el nodo principal para audio: %w", err)
 	}
 	command := fmt.Sprintf("rpt playback %s %s/%s", primary, audioSubdirectory, strings.TrimSuffix(filename, filepath.Ext(filename)))
 	output, err := config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
@@ -841,6 +853,24 @@ func playAudioOnPrimary(filename string) (string, string, string, error) {
 		return command, primary, output, err
 	}
 	return command, primary, output, nil
+}
+
+func resolveAudioPrimaryInstance(primary string) (allmonInstance, error) {
+	instances, err := allStarLinkActivityInstances()
+	if err != nil {
+		return allmonInstance{}, err
+	}
+	for _, instance := range instances {
+		if instance.Node != primary {
+			continue
+		}
+		if strings.TrimSpace(instance.Host) == "" || strings.TrimSpace(instance.Port) == "" ||
+			strings.TrimSpace(instance.User) == "" || strings.TrimSpace(instance.Secret) == "" {
+			return allmonInstance{}, errors.New("la configuración AMI del nodo principal está incompleta")
+		}
+		return instance, nil
+	}
+	return allmonInstance{}, errors.New("el nodo principal no está disponible en la configuración de nodos monitorizados")
 }
 
 func audioDuplexAllowsLinkedPlayback(value string, found bool) bool {

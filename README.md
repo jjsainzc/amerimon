@@ -28,6 +28,8 @@ La configuración de fragmento recuerda el inicio y el final por audio, tanto pa
 
 En **Conectar nodo remoto**, la casilla **Desconectar todos antes de conectar** está desmarcada por defecto. Si se activa, el componente consulta la lista actualizada del servidor local seleccionado y envía una desconexión individual por cada enlace RPT, incluidos los permanentes. Después vuelve a consultar hasta comprobar que no quedan enlaces y solo entonces solicita la nueva conexión con el nodo, modo, permanencia y timeout confirmados. No afecta a los demás servidores ni utiliza el filtro visual del monitor. Si una consulta o desconexión falla, o la lista no queda vacía en los 15 segundos posteriores a las desconexiones, no se inicia la nueva conexión y se muestra un error; los enlaces ya desconectados no se restauran automáticamente.
 
+Las emisiones por intervalos comprueban COS y recepción RPT/IAX/SIP, exigen observaciones de silencio separadas por al menos cinco segundos y vuelven a consultar después de preparar el audio. La programación y el bloqueo se reservan juntos antes del envío para evitar reclamar dos veces la misma emisión. El principal se resuelve desde la configuración del monitor, con nodos locales de `rpt.conf` y AMI cuando no existe Allmon. Son comprobaciones por sondeo: no impiden que una estación empiece a hablar después de iniciada la reproducción.
+
 ## Instalación
 
 ### Silenciar estaciones del servidor principal

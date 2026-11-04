@@ -15,7 +15,11 @@ import (
 
 var (
 	audioSchedulerOnce sync.Once
+	audioCycleMu       sync.Mutex
+	audioSilentSince   time.Time
 )
+
+const audioQuietPeriod = 5 * time.Second
 
 type audioNodeState struct {
 	instance allmonInstance
@@ -49,6 +53,16 @@ func StartAudioPlaybackScheduler() {
 }
 
 func runAudioPlaybackCycle(now time.Time) {
+	if !audioCycleMu.TryLock() {
+		return
+	}
+	defer audioCycleMu.Unlock()
+	confirmedSilence := false
+	defer func() {
+		if !confirmedSilence {
+			audioSilentSince = time.Time{}
+		}
+	}()
 	if config.App.DB == nil {
 		return
 	}
@@ -69,27 +83,40 @@ func runAudioPlaybackCycle(now time.Time) {
 		log.Printf("audio: no hay nodos configurados para evaluar las reproducciones")
 		return
 	}
-	states := make([]audioNodeState, 0, len(instances))
-	allSilent := true
-	for _, instance := range instances {
-		state, err := readAudioNodeState(instance)
-		if err != nil {
-			log.Printf("audio: no se pudo comprobar silencio en nodo local %s: %v", instance.Node, err)
-			return
-		}
-		states = append(states, state)
-		if state.busy {
-			allSilent = false
-		}
+	primary, err := newPrimaryNodeControl().primary()
+	if err != nil {
+		log.Printf("audio: no se pudo identificar el nodo principal para comprobar silencio: %v", err)
+		return
 	}
-	if !allSilent {
+	primaryMonitored := false
+	for _, instance := range instances {
+		primaryMonitored = primaryMonitored || instance.Node == primary
+	}
+	if !primaryMonitored {
+		log.Printf("audio: nodo principal %s ausente de la monitorización; no se emite", primary)
+		return
+	}
+	silent, err := audioNodesSilent(instances)
+	if err != nil {
+		log.Printf("audio: no se pudo comprobar silencio: %v", err)
+	}
+	if err != nil || !silent {
+		audioSilentSince = time.Time{}
+		return
+	}
+	confirmedSilence = true
+	if audioSilentSince.IsZero() {
+		audioSilentSince = time.Now().UTC()
+		return
+	}
+	if time.Since(audioSilentSince) < audioQuietPeriod {
 		return
 	}
 	for _, track := range tracks {
 		if !track.Enabled || track.PlaybackMode != "broadcast_silence" || track.NextPlayAt == nil || track.NextPlayAt.After(now) {
 			continue
 		}
-		token, claimErr := claimAudioPlayback(context.Background(), track.playbackDurationMS())
+		token, claimErr := claimScheduledAudioPlayback(context.Background(), track, now)
 		if errors.Is(claimErr, errAudioPlaybackBusy) {
 			continue
 		}
@@ -100,6 +127,17 @@ func runAudioPlaybackCycle(now time.Time) {
 		filename, playErr := prepareAudioTrackPlayback(track)
 		var command, localNode, amiOutput string
 		if playErr == nil {
+			silent, checkErr := audioNodesSilent(instances)
+			if checkErr != nil || !silent {
+				audioSilentSince = time.Time{}
+				if err := cancelScheduledAudioPlayback(context.Background(), track, token, now); err != nil {
+					log.Printf("audio: no se pudo cancelar reserva de pista %d: %v", track.ID, err)
+				}
+				if checkErr != nil {
+					log.Printf("audio: se aplaza emisión porque no se pudo confirmar silencio: %v", checkErr)
+				}
+				return
+			}
 			command, localNode, amiOutput, playErr = playAudioOnPrimary(filename)
 		}
 		result, details := "success", fmt.Sprintf("Audio %q enviado durante silencio total", track.Name)
@@ -119,7 +157,22 @@ func runAudioPlaybackCycle(now time.Time) {
 		if err := updateAudioScheduleAfterAttempt(context.Background(), track.ID, now, track.IntervalMinutes, playErr == nil); err != nil {
 			log.Printf("audio: no se pudo actualizar próxima reproducción de pista %d: %v", track.ID, err)
 		}
+		audioSilentSince = time.Time{}
+		return
 	}
+}
+
+func audioNodesSilent(instances []allmonInstance) (bool, error) {
+	for _, instance := range instances {
+		state, err := readAudioNodeState(instance)
+		if err != nil {
+			return false, fmt.Errorf("nodo %s: %w", instance.Node, err)
+		}
+		if state.busy {
+			return false, nil
+		}
+	}
+	return len(instances) > 0, nil
 }
 
 func readAudioNodeState(instance allmonInstance) (audioNodeState, error) {
@@ -135,14 +188,97 @@ func readAudioNodeState(instance allmonInstance) (audioNodeState, error) {
 	if err != nil {
 		return audioNodeState{}, fmt.Errorf("SawStat: %w", err)
 	}
-	activities, _, err := parseRPTReceiveState(sawStat, instance.Node, time.Now().UTC())
+	linksBusy, err := audioReceivingLinksBusy(sawStat, instance.Node)
 	if err != nil {
 		return audioNodeState{}, err
 	}
 	return audioNodeState{
 		instance: instance,
-		busy:     cos || len(activities) > 0,
+		busy:     cos || linksBusy,
 	}, nil
+}
+
+func audioReceivingLinksBusy(sawStat, node string) (bool, error) {
+	if _, _, err := parseRPTReceiveState(sawStat, node, time.Now().UTC()); err != nil {
+		return false, err
+	}
+	validResponse, busy := false, false
+	for _, line := range strings.Split(strings.ReplaceAll(sawStat, "\r\n", "\n"), "\n") {
+		key, value, ok := strings.Cut(line, ":")
+		if ok && strings.TrimSpace(key) == "Response" {
+			if strings.TrimSpace(value) != "Success" {
+				return false, fmt.Errorf("SawStat rechazado")
+			}
+			validResponse = true
+		}
+	}
+	for _, line := range config.ParseAMIOutputToLines(sawStat) {
+		fields := strings.Fields(line)
+		if len(fields) >= 5 && fields[0] == "Conn:" {
+			busy = busy || fields[2] == "1"
+		}
+	}
+	if !validResponse {
+		return false, fmt.Errorf("SawStat sin confirmación válida")
+	}
+	return busy, nil
+}
+
+func claimScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, now time.Time) (string, error) {
+	if track.NextPlayAt == nil || track.NextPlayAt.After(now) || track.IntervalMinutes < 1 {
+		return "", fmt.Errorf("programación inválida")
+	}
+	tx, err := config.App.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	next := now.Add(time.Duration(track.IntervalMinutes) * time.Minute).Format(time.RFC3339Nano)
+	result, err := tx.ExecContext(ctx, `
+		UPDATE audio_broadcast_schedules SET next_play_at = ?
+		WHERE audio_id = ? AND next_play_at = ? AND interval_minutes = ?
+		AND EXISTS (SELECT 1 FROM audio_tracks WHERE id = ? AND enabled = 1 AND playback_mode = 'broadcast_silence')`,
+		next, track.ID, track.NextPlayAt.Format(time.RFC3339Nano), track.IntervalMinutes, track.ID)
+	if err != nil {
+		return "", err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return "", err
+	}
+	if count != 1 {
+		return "", errAudioPlaybackBusy
+	}
+	token, err := claimAudioPlaybackTx(ctx, tx, track.playbackDurationMS())
+	if err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func cancelScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, token string, now time.Time) error {
+	tx, err := config.App.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE audio_broadcast_schedules SET next_play_at = ?
+		WHERE audio_id = ? AND next_play_at = ? AND interval_minutes = ?
+		AND EXISTS (SELECT 1 FROM audio_playback_state WHERE id = 1 AND playback_token = ?)`,
+		track.NextPlayAt.Format(time.RFC3339Nano), track.ID,
+		now.Add(time.Duration(track.IntervalMinutes)*time.Minute).Format(time.RFC3339Nano), track.IntervalMinutes, token); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE audio_playback_state SET busy_until = '1970-01-01T00:00:00Z', playback_token = ''
+		WHERE id = 1 AND playback_token = ?`, token); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func loadScheduledAudioTracks(ctx context.Context) ([]storedAudioTrack, error) {
@@ -180,11 +316,13 @@ func updateAudioScheduleAfterAttempt(ctx context.Context, id int64, now time.Tim
 	next := now.Add(time.Duration(intervalMinutes) * time.Minute).Format(time.RFC3339Nano)
 	if succeeded {
 		_, err := config.App.DB.ExecContext(ctx, `
-			UPDATE audio_broadcast_schedules SET last_played_at = ?, next_play_at = ? WHERE audio_id = ?`,
-			now.Format(time.RFC3339Nano), next, id)
+			UPDATE audio_broadcast_schedules SET last_played_at = ?,
+				next_play_at = CASE WHEN interval_minutes = ? THEN ? ELSE next_play_at END
+			WHERE audio_id = ?`,
+			now.Format(time.RFC3339Nano), intervalMinutes, next, id)
 		return err
 	}
 	_, err := config.App.DB.ExecContext(ctx, `
-		UPDATE audio_broadcast_schedules SET next_play_at = ? WHERE audio_id = ?`, next, id)
+		UPDATE audio_broadcast_schedules SET next_play_at = ? WHERE audio_id = ? AND interval_minutes = ?`, next, id, intervalMinutes)
 	return err
 }
