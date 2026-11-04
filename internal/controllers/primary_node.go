@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -31,6 +32,7 @@ type primaryNodeRequest struct {
 	Node        string `json:"node"`
 	Callsign    string `json:"callsign"`
 	Password    string `json:"password"`
+	Duplex      *int   `json:"duplex"`
 }
 
 type nodeAccessEntry struct {
@@ -148,6 +150,15 @@ func (p primaryNodeControl) get(c echo.Context) error {
 	if err != nil {
 		return primaryNodeError("No se pudo leer rpt.conf", err)
 	}
+	duplex := 0
+	if value, found, err := readRPTSectionSetting(p.rptPath, node, "duplex"); err != nil {
+		return primaryNodeError("No se pudo leer duplex del nodo principal", err)
+	} else if found {
+		duplex, err = strconv.Atoi(value)
+		if err != nil || duplex < 0 || duplex > 4 {
+			return primaryNodeError("El valor duplex del nodo principal debe estar entre 0 y 4", errors.New("valor duplex inválido"))
+		}
+	}
 	section := ""
 	callsign := ""
 	for _, line := range strings.Split(string(data), "\n") {
@@ -182,7 +193,7 @@ func (p primaryNodeControl) get(c echo.Context) error {
 	c.Response().Header().Set("Cache-Control", "no-store")
 	return c.JSON(http.StatusOK, echo.Map{
 		"node": node, "callsign": callsign, "password_set": password != "", "password": password,
-		"path": p.rptPath,
+		"duplex": duplex, "path": p.rptPath,
 	})
 }
 
@@ -207,6 +218,9 @@ func validatePrimaryNodeRequest(req primaryNodeRequest) error {
 	}
 	if req.Password != "" && !primaryPassword.MatchString(req.Password) {
 		return errors.New("La contraseña debe tener de 6 a 128 letras, números, _ o -")
+	}
+	if req.Duplex != nil && (*req.Duplex < 0 || *req.Duplex > 4) {
+		return errors.New("duplex debe ser un valor entre 0 y 4")
 	}
 	return nil
 }
@@ -303,10 +317,19 @@ func (p primaryNodeControl) save(c echo.Context) error {
 			return rollback(err)
 		}
 	}
+	output, err := p.ami("module reload app_rpt.so")
+	if err != nil {
+		return primaryNodeError("La configuración se guardó, pero Asterisk no confirmó module reload app_rpt.so. Revisa AMI y el estado del nodo", err)
+	}
+	lowerOutput := strings.ToLower(output)
+	if strings.Contains(lowerOutput, "no such command") || strings.Contains(lowerOutput, "no such module") ||
+		strings.Contains(lowerOutput, "unable to") || strings.Contains(lowerOutput, "failed") {
+		return apiError(http.StatusBadGateway, "La configuración se guardó, pero Asterisk rechazó module reload app_rpt.so. Revisa los registros de Asterisk")
+	}
 	log.Printf("primary node: configuración guardada nodo=%s anterior=%s", req.Node, old)
 	return c.JSON(http.StatusOK, echo.Map{
-		"status": "ok", "node": req.Node, "restart_required": true,
-		"message": "Configuración guardada con respaldo. Reinicia Asterisk manualmente desde Sistema para aplicar los cambios.",
+		"status": "ok", "node": req.Node, "restart_required": false,
+		"message": "Configuración guardada con respaldo y app_rpt.so recargado.",
 	})
 }
 
@@ -373,7 +396,7 @@ func rewritePrimaryFile(name, content, old string, req primaryNodeRequest) (stri
 		eol = "\r\n"
 	}
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
-	section, foundNode, foundRegistration, foundID := "", false, false, false
+	section, foundNode, foundRegistration, foundID, foundDuplex := "", false, false, false, false
 	for i, line := range lines {
 		if h := reAllmonHeader.FindStringSubmatch(line); h != nil {
 			section = strings.TrimSpace(h[1])
@@ -411,6 +434,9 @@ func rewritePrimaryFile(name, content, old string, req primaryNodeRequest) (stri
 		case name == "rpt.conf" && section == old && key == "idrecording":
 			lines[i] = m[1] + m[2] + m[3] + "|i" + req.Callsign + m[5]
 			foundID = true
+		case name == "rpt.conf" && section == old && key == "duplex" && req.Duplex != nil:
+			lines[i] = m[1] + m[2] + m[3] + strconv.Itoa(*req.Duplex) + m[5]
+			foundDuplex = true
 		case name == "rpt.conf" && section == "nodes" && m[2] == old:
 			value = regexp.MustCompile(`/`+regexp.QuoteMeta(old)+`([,/\s]|$)`).ReplaceAllString(value, "/"+req.Node+"$1")
 			lines[i] = m[1] + req.Node + m[3] + value + m[5]
@@ -427,6 +453,14 @@ func rewritePrimaryFile(name, content, old string, req primaryNodeRequest) (stri
 	if name == "rpt.conf" {
 		if !foundNode {
 			return "", errors.New("la sección principal debe estar definida directamente en rpt.conf")
+		}
+		if req.Duplex != nil && !foundDuplex {
+			for i, line := range lines {
+				if header := reAllmonHeader.FindStringSubmatch(line); header != nil && strings.TrimSpace(header[1]) == req.Node {
+					lines[i] += "\nduplex = " + strconv.Itoa(*req.Duplex)
+					break
+				}
+			}
 		}
 		if !foundID {
 			for i, line := range lines {

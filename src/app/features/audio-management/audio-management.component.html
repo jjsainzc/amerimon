@@ -1,0 +1,126 @@
+<section class="audio-page">
+  <header class="audio-heading">
+    <div>
+      <p class="audio-eyebrow">{{ 'ADMINISTRACION' | audioLabel }}</p>
+      <h1>{{ 'AUDIO_MANAGEMENT_TITLE' | audioLabel }}</h1>
+      <p>{{ 'AUDIO_MANAGEMENT_DESCRIPTION' | audioLabel }}</p>
+    </div>
+    <button class="audio-button audio-secondary" type="button" (click)="load()" [disabled]="loading()">
+      {{ 'AUDIO_REFRESH' | audioLabel }}
+    </button>
+  </header>
+
+  @if (error()) { <p class="audio-error" role="alert">{{ error() | audioLabel }}</p> }
+  @if (notice()) { <p class="audio-notice" role="status">{{ notice() | audioLabel }}</p> }
+
+  <form class="audio-form" (ngSubmit)="upload()">
+    <h2>{{ 'AUDIO_ADD_TITLE' | audioLabel }}</h2>
+    <div class="audio-form-grid">
+      <label>
+        {{ 'AUDIO_NAME' | audioLabel }}
+        <input name="name" [(ngModel)]="name" maxlength="100" required />
+      </label>
+      <label>
+        {{ 'AUDIO_FILE' | audioLabel }}
+        <input #audioFileInput name="file" type="file" accept=".wav,audio/wav" (change)="selectFile($event)" required />
+      </label>
+    </div>
+    <p class="audio-help">{{ 'AUDIO_WAV_REQUIREMENTS' | audioLabel }}</p>
+    <button class="audio-button" type="submit" [disabled]="saving() || !file || !name.trim()">
+      {{ (saving() ? 'AUDIO_SAVING' : 'AUDIO_UPLOAD') | audioLabel }}
+    </button>
+    @if (saving()) {
+      @if (uploadProgress() !== null) {
+        <progress class="audio-upload-progress" [value]="uploadProgress()" max="100" [attr.aria-label]="'AUDIO_UPLOAD_PROGRESS' | audioLabel"></progress>
+        <span class="audio-upload-progress-label">{{ uploadProgress() }}%</span>
+      } @else {
+        <span class="audio-upload-progress-label" role="status">{{ 'AUDIO_SAVING' | audioLabel }}</span>
+      }
+    }
+  </form>
+
+  <div class="audio-list-heading">
+    <h2>{{ 'AUDIO_LIBRARY_TITLE' | audioLabel }}</h2>
+    <span>{{ tracks().length }}</span>
+  </div>
+  @if (loading()) {
+    <p class="audio-state" role="status">{{ 'AUDIO_LOADING' | audioLabel }}</p>
+  } @else if (tracks().length === 0) {
+    <p class="audio-state">{{ 'AUDIO_EMPTY' | audioLabel }}</p>
+  } @else {
+    <div class="audio-list">
+      @for (track of tracks(); track track.id) {
+        <article class="audio-track">
+          <div class="audio-track-info">
+            <h3>{{ track.name }}</h3>
+            <p>{{ track.original_name }} · {{ track.sample_rate }} Hz · PCM {{ track.bits_per_sample }} bits · {{ (track.file_size / 1024) | number:'1.0-0' }} KB</p>
+            <label class="audio-track-mode">
+              {{ 'AUDIO_PLAYBACK_MODE' | audioLabel }}
+              <select [value]="draftFor(track).playbackMode" (change)="changeMode(track, $event)" [disabled]="savingTrackId() === track.id">
+                <option value="broadcast_once">{{ 'AUDIO_MODE_ONCE' | audioLabel }}</option>
+                <option value="broadcast_silence">{{ 'AUDIO_MODE_SILENCE' | audioLabel }}</option>
+              </select>
+            </label>
+            @if (draftFor(track).playbackMode === 'broadcast_silence') {
+              <label class="audio-track-interval">
+                {{ 'AUDIO_INTERVAL_MINUTES' | audioLabel }}
+                <input type="number" min="1" max="10080" [value]="draftFor(track).intervalMinutes" (input)="changeInterval(track, $event)" [disabled]="savingTrackId() === track.id" />
+              </label>
+              @if (track.playback_mode === 'broadcast_silence' && track.next_play_at) {
+                <p>{{ 'AUDIO_NEXT_PLAY' | audioLabel }}: {{ track.next_play_at | date:'short' }}</p>
+              }
+            }
+          </div>
+          <div class="audio-actions">
+            @if (hasUnsavedChanges(track)) {
+              <button class="audio-button" type="button" (click)="saveSettings(track)" [disabled]="!canSaveSettings(track) || savingTrackId() !== null" [attr.aria-busy]="savingTrackId() === track.id">
+                {{ (savingTrackId() === track.id ? 'AUDIO_SAVING_SETTINGS' : 'AUDIO_SAVE_SETTINGS') | audioLabel }}
+              </button>
+            }
+            <button
+              class="audio-button audio-state-toggle"
+              [class.audio-enable]="!track.enabled"
+              [class.audio-disable]="track.enabled"
+              type="button"
+              (click)="toggle(track)"
+              [disabled]="savingTrackId() !== null || hasUnsavedChanges(track)">
+              @if (track.enabled) {
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 12h8" /></svg>
+                {{ 'AUDIO_DISABLE' | audioLabel }}
+              } @else {
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></svg>
+                {{ 'AUDIO_ENABLE' | audioLabel }}
+              }
+            </button>
+            @if (track.playback_mode === 'broadcast_once') {
+              <button class="audio-button" type="button" (click)="play(track)" [disabled]="!track.enabled || playingId() === track.id">
+                {{ (playingId() === track.id ? 'AUDIO_PLAYING' : 'AUDIO_PLAY_NOW') | audioLabel }}
+              </button>
+            }
+            <button class="audio-button audio-danger" type="button" (click)="remove(track)">{{ 'AUDIO_DELETE' | audioLabel }}</button>
+          </div>
+          <p class="audio-mode">{{ modeLabel(track.playback_mode) | audioLabel }}</p>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+@if (pendingDelete()) {
+  <div class="audio-confirm-overlay">
+    <section class="audio-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="audio-confirm-title" aria-describedby="audio-confirm-message">
+      <div class="audio-confirm-icon" aria-hidden="true">!</div>
+      <div class="audio-confirm-content">
+        <h2 id="audio-confirm-title">{{ 'AUDIO_DELETE_CONFIRM_TITLE' | audioLabel }}</h2>
+        <p id="audio-confirm-message">{{ 'AUDIO_DELETE_CONFIRM' | audioLabel }}</p>
+        @if (error()) { <p class="audio-confirm-error" role="alert">{{ error() | audioLabel }}</p> }
+      </div>
+      <div class="audio-confirm-actions">
+        <button class="audio-confirm-cancel" type="button" (click)="cancelDelete()" [disabled]="deleting()">{{ 'AUDIO_CANCEL' | audioLabel }}</button>
+        <button class="audio-confirm-delete" type="button" (click)="confirmDelete()" [disabled]="deleting()" [attr.aria-busy]="deleting()">
+          {{ (deleting() ? 'AUDIO_DELETING' : 'AUDIO_CONFIRM_DELETE') | audioLabel }}
+        </button>
+      </div>
+    </section>
+  </div>
+}

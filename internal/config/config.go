@@ -35,6 +35,12 @@ type Config struct {
 	UseDB   bool
 	Sources SourcesConfig `yaml:"sources"`
 	AMI     AMIConfig     `yaml:"ami"`
+	Audio   AudioConfig   `yaml:"audio"`
+}
+
+type AudioConfig struct {
+	StorageDir   string `yaml:"storage_dir"`
+	PollInterval string `yaml:"poll_interval"`
 }
 
 type SourcesConfig struct {
@@ -76,6 +82,9 @@ func Load(path string) error {
 			ActivityPollInterval: "5s",
 			Host:                 "127.0.0.1",
 			Port:                 "5038",
+		},
+		Audio: AudioConfig{
+			PollInterval: "5s",
 		},
 	}
 

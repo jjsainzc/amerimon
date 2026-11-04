@@ -18,3 +18,8 @@ ami:
   port: "5038"
   user: ${AMI_USER}
   secret: ${AMI_SECRET}
+
+# Gestión de audios: el directorio debe ser accesible por Amerimon y Asterisk.
+audio:
+  # Por defecto se usa astdatadir/sounds según /etc/asterisk/asterisk.conf.
+  poll_interval: 5s

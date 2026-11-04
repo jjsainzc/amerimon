@@ -88,6 +88,7 @@ export class AsteriskLogsComponent {
       case 'requested': return 'AST_LOG_RESULT_REQUESTED';
       case 'scheduled': return 'AST_LOG_RESULT_SCHEDULED';
       case 'system_error': return 'AST_LOG_RESULT_SYSTEM_ERROR';
+      case 'unsupported': return 'AST_LOG_RESULT_UNSUPPORTED';
       default: return result;
     }
   }

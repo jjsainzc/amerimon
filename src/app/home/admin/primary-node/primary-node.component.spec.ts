@@ -12,7 +12,7 @@ import en from '../../../../../public/assets/i18n/en.json';
 
 const url = `${environment.apiUrl}/primary-node`;
 const translations: Record<string, Record<string, string>> = { es, en };
-const config = { node: '616265', callsign: 'TEST1', password_set: true, password: 'test_password', path: '/test/rpt.conf' };
+const config = { node: '616265', callsign: 'TEST1', password_set: true, password: 'test_password', duplex: 1, path: '/test/rpt.conf' };
 
 describe('Primary node administration', () => {
   beforeEach(() => {
@@ -52,6 +52,28 @@ describe('Primary node administration', () => {
     component.guardarAMI();
     http.expectNone(url);
     http.expectNone(`${url}/ami`);
+    const duplexSelect = element.querySelector<HTMLSelectElement>('select[name="duplex"]')!;
+    duplexSelect.selectedIndex = 2;
+    duplexSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(component.duplex).toBe(2);
+    expect(saves[0].disabled).toBe(false);
+    expect(element.textContent).toContain('Full duplex con tonos de telemetría y hang time. Se recomienda al conectar con un repetidor.');
+    expect(element.textContent).not.toContain('Para emitir audio global a nodos enlazados');
+    duplexSelect.selectedIndex = 1;
+    duplexSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    duplexSelect.selectedIndex = 0;
+    duplexSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Para emitir audio global a nodos enlazados, duplex debe ser distinto de 0');
+    duplexSelect.selectedIndex = 1;
+    duplexSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
     const callsign = element.querySelector<HTMLInputElement>('input[name="indicativo"]')!;
     callsign.value = 'TEST2';
     callsign.dispatchEvent(new Event('input'));
@@ -159,7 +181,7 @@ describe('Primary node administration', () => {
     await loading;
     fixture.detectChanges();
     expect(element.textContent).toContain('Access list for node 616265');
-    expect(element.textContent).toContain('The configuration for node 616265 will be saved as 616267.');
+    expect(element.textContent).toContain('The configuration for node 616265 will be saved as 616267 with duplex = 1, then app_rpt.so will be reloaded.');
     expect(element.textContent).toContain('The backend needs local AMI access.');
     expect(element.querySelector('button[title="Open advanced network calculator"]')).not.toBeNull();
     expect(element.textContent).not.toContain('{{');
@@ -352,10 +374,13 @@ describe('Primary node administration', () => {
     fixture.destroy();
   });
 
-  it('requires confirmation, preserves a blank password and never automatically restarts Asterisk', async () => {
+  it('requires confirmation, preserves a blank password and submits duplex for module reload', async () => {
     const { fixture, http, component, element } = await crear();
     component.numero = '616266';
     component.indicativo = 'NEW2';
+    const duplexSelect = element.querySelector<HTMLSelectElement>('select[name="duplex"]')!;
+    duplexSelect.selectedIndex = 2;
+    duplexSelect.dispatchEvent(new Event('change'));
     fixture.detectChanges();
     await fixture.whenStable();
     element.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
@@ -368,13 +393,14 @@ describe('Primary node administration', () => {
     const request = http.expectOne(url);
     expect(request.request.method).toBe('PUT');
     expect(request.request.body).toEqual({
-      current_node: '616265', node: '616266', callsign: 'NEW2', password: ''
+      current_node: '616265', node: '616266', callsign: 'NEW2', password: '', duplex: 2
     });
-    request.flush({ node: '616266', restart_required: true, message: 'Guardado. Reinicia desde Sistema.' });
-    http.expectOne(url).flush({ ...config, node: '616266', callsign: 'NEW2' });
+    request.flush({ node: '616266', restart_required: false, message: 'Configuración guardada y recargada.' });
+    http.expectOne(url).flush({ ...config, node: '616266', callsign: 'NEW2', duplex: 2 });
     http.expectOne(`${url}/access`).flush({ node: '616266', entries: [] });
     expect(component.actual()).toBe('616266');
-    expect(component.aviso()).toContain('Reinicia');
+    expect(component.duplex).toBe(2);
+    expect(component.aviso()).toContain('Configuración guardada');
     http.expectNone(`${environment.apiUrl}/system/control`);
     http.verify();
     fixture.destroy();

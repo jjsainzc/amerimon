@@ -170,6 +170,7 @@ func main() {
 
 	// iniciar el programador de actividad de todos los nodos StarLink
 	controllers.StartAllStarLinkActivityScheduler()
+	controllers.StartAudioPlaybackScheduler()
 
 	// iniciar el listener de audio
 	audioManager := config.NewAudioStreamManager()

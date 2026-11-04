@@ -61,7 +61,7 @@ func primaryNodeFixture(t *testing.T) (primaryNodeControl, nodeTestDB, map[strin
 		}
 	}
 	files := map[string]string{
-		"rpt.conf":                    "[616265](node-main)\nidrecording = |iOLD1\nrxchannel = SimpleUSB/616265\nstatpost_url = http://stats.example/\n[700001](node-main)\nidrecording = |iOTHER\n[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n700001 = radio@192.0.2.1/700001,NONE\n",
+		"rpt.conf":                    "[616265](node-main)\nidrecording = |iOLD1\nduplex = 1\nrxchannel = SimpleUSB/616265\nstatpost_url = http://stats.example/\n[700001](node-main)\nidrecording = |iOTHER\n[nodes]\n616265 = radio@127.0.0.1/616265,NONE\n700001 = radio@192.0.2.1/700001,NONE\n",
 		"rpt_http_registrations.conf": "[registrations]\nregister => 616265:old_password@register.allstarlink.org\nregister => 700001:other_password@register.allstarlink.org\n",
 		"iax.conf":                    "[general]\n;register => 616265:old_password@register.allstarlink.org\nbindport=4569\n[radio]\nsecret=unrelated\n",
 		"savenode.conf":               "NODE=616265\nPASSWORD=old_password\nENABLE=0\n",
@@ -83,7 +83,12 @@ func primaryNodeFixture(t *testing.T) (primaryNodeControl, nodeTestDB, map[strin
 	}
 	return primaryNodeControl{
 		rptPath: filepath.Join(dir, "rpt.conf"), allmonPaths: []string{filepath.Join(dir, "allmon.ini")},
-		managerPath: filepath.Join(dir, "manager.conf"), ami: db.command,
+		managerPath: filepath.Join(dir, "manager.conf"), ami: func(command string) (string, error) {
+			if command == "module reload app_rpt.so" {
+				return "Module 'app_rpt.so' reloaded successfully.", nil
+			}
+			return db.command(command)
+		},
 	}, db, files
 }
 
@@ -113,11 +118,12 @@ func TestPrimaryNodeReadReturnsOnlyPrimaryPasswordWithoutCaching(t *testing.T) {
 		Node, Callsign string
 		PasswordSet    bool   `json:"password_set"`
 		Password       string `json:"password"`
+		Duplex         int    `json:"duplex"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if got.Node != "616265" || got.Callsign != "OLD1" || !got.PasswordSet {
+	if got.Node != "616265" || got.Callsign != "OLD1" || !got.PasswordSet || got.Duplex != 1 {
 		t.Fatalf("unexpected response: %s", rec.Body)
 	}
 	if got.Password != "old_password" || strings.Contains(rec.Body.String(), "other_password") {
@@ -158,12 +164,24 @@ func TestPrimaryNodePasswordPrefersActiveHTTPAndFallsBackToIAX(t *testing.T) {
 
 func TestPrimaryNodeSaveRenamesAllReferencesAndMigratesAccess(t *testing.T) {
 	p, db, files := primaryNodeFixture(t)
-	c, rec := nodeTestContext(http.MethodPut, primaryNodeRequest{CurrentNode: "616265", Node: "616266", Callsign: "new2", Password: "new_password"})
+	reloads := 0
+	ami := p.ami
+	p.ami = func(command string) (string, error) {
+		if command == "module reload app_rpt.so" {
+			reloads++
+		}
+		return ami(command)
+	}
+	duplex := 2
+	c, rec := nodeTestContext(http.MethodPut, primaryNodeRequest{CurrentNode: "616265", Node: "616266", Callsign: "new2", Password: "new_password", Duplex: &duplex})
 	if err := p.save(c); err != nil {
 		t.Fatal(err)
 	}
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"restart_required":true`) {
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"restart_required":false`) {
 		t.Fatalf("save failed: %s", rec.Body)
+	}
+	if reloads != 1 {
+		t.Fatalf("expected one app_rpt reload, got %d", reloads)
 	}
 	dir := filepath.Dir(p.rptPath)
 	for name, original := range files {
@@ -177,7 +195,7 @@ func TestPrimaryNodeSaveRenamesAllReferencesAndMigratesAccess(t *testing.T) {
 			t.Fatalf("file permissions: %v", err)
 		}
 	}
-	assertNodeFile(t, dir, "rpt.conf", strings.NewReplacer("[616265]", "[616266]", "|iOLD1", "|iNEW2", "SimpleUSB/616265", "SimpleUSB/616266", "616265 = radio@127.0.0.1/616265", "616266 = radio@127.0.0.1/616266").Replace(files["rpt.conf"]))
+	assertNodeFile(t, dir, "rpt.conf", strings.NewReplacer("[616265]", "[616266]", "|iOLD1", "|iNEW2", "duplex = 1", "duplex = 2", "SimpleUSB/616265", "SimpleUSB/616266", "616265 = radio@127.0.0.1/616265", "616266 = radio@127.0.0.1/616266").Replace(files["rpt.conf"]))
 	assertNodeFile(t, dir, "rpt_http_registrations.conf", strings.ReplaceAll(files["rpt_http_registrations.conf"], "616265:old_password", "616266:new_password"))
 	assertNodeFile(t, dir, "iax.conf", strings.ReplaceAll(files["iax.conf"], "616265:old_password", "616266:new_password"))
 	assertNodeFile(t, dir, "savenode.conf", "NODE=616266\nPASSWORD=new_password\nENABLE=1\n")
@@ -261,12 +279,14 @@ func TestPrimaryNodeRejectsStaleStateAndExistingNumber(t *testing.T) {
 }
 
 func TestPrimaryNodeValidations(t *testing.T) {
+	outOfRange := 5
 	for _, req := range []primaryNodeRequest{
 		{Node: "1998", Callsign: "TEST1"},
 		{Node: "016265", Callsign: "TEST1"},
 		{Node: "616265", Callsign: "BAD\nCALL"},
 		{Node: "616265", Callsign: "TEST1", Password: "bad@secret"},
 		{Node: "616265", Callsign: "TEST1", Password: "short"},
+		{Node: "616265", Callsign: "TEST1", Duplex: &outOfRange},
 	} {
 		if err := validatePrimaryNodeRequest(req); err == nil {
 			t.Fatalf("accepted invalid configuration: node %s", req.Node)
@@ -282,6 +302,27 @@ func TestPrimaryNodeValidations(t *testing.T) {
 		if err := validateNodeAccess(entry, "616265"); err == nil {
 			t.Fatal("accepted invalid access entry")
 		}
+	}
+}
+
+func TestPrimaryNodeReportsRejectedAppRptReload(t *testing.T) {
+	p, db, _ := primaryNodeFixture(t)
+	p.ami = func(command string) (string, error) {
+		if command == "module reload app_rpt.so" {
+			return "Unable to reload module", nil
+		}
+		return db.command(command)
+	}
+	duplex := 3
+	c, rec := nodeTestContext(http.MethodPut, primaryNodeRequest{
+		CurrentNode: "616265", Node: "616265", Callsign: "OLD1", Duplex: &duplex,
+	})
+	if err := p.save(c); err == nil || !strings.Contains(err.Error(), "rechazó module reload") {
+		t.Fatalf("reload failure was reported as success: err=%v body=%s", err, rec.Body)
+	}
+	data, err := os.ReadFile(p.rptPath)
+	if err != nil || !strings.Contains(string(data), "duplex = 3") {
+		t.Fatalf("saved configuration is not explicit after reload failure: %v, %s", err, data)
 	}
 }
 
@@ -402,7 +443,17 @@ func TestPrimaryNodeAddsRegistrationAndDirectCallsignOverride(t *testing.T) {
 			t.Fatalf("%s: %q %v", tc.name, got, err)
 		}
 	}
+}
 
+func TestPrimaryNodeDuplexOverrideIsAddedForInheritedValue(t *testing.T) {
+	duplex := 3
+	got, err := rewritePrimaryFile("rpt.conf", "[node-main](!)\nduplex = 1\n[616265](node-main)\nidrecording = |iTEST1\n", "616265", primaryNodeRequest{
+		Node: "616265", Callsign: "TEST1", Duplex: &duplex,
+	})
+	if err != nil || !strings.Contains(got, "[616265](node-main)\nduplex = 3\n") ||
+		!strings.Contains(got, "[node-main](!)\nduplex = 1\n") {
+		t.Fatalf("inherited duplex was not overridden locally: %q %v", got, err)
+	}
 }
 
 func TestPrimaryNodeRejectsRemoteNumberAlreadyInNodesTable(t *testing.T) {

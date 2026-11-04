@@ -18,6 +18,21 @@ El verificador también permite introducir una contraseña de hasta 128 caracter
 
 La entropía mostrada se calcula a partir de las frecuencias de caracteres observadas en la contraseña. Describe la diversidad de esa muestra; no es una medida de la imprevisibilidad criptográfica del generador ni una garantía de que una clave sea segura. La generación y evaluación se realizan en el navegador; estas herramientas no envían ni guardan la contraseña en el backend de Amerimon.
 
+### Gestión y reproducción de audios
+
+**Administración → Gestión de audios** (`/admin/audio`) es una opción exclusiva del administrador. Permite conservar una biblioteca de audios WAV para activarlos o desactivarlos cuando sea necesario. Los archivos y estados se guardan en el backend y SQLite; cerrar sesión o cerrar la página no detiene la programación. Los audios permanecen hasta que el administrador los elimine explícitamente.
+
+- Formato aceptado: WAV PCM lineal, mono, 8 o 16 bits, 8000 Hz; máximo 25 MiB. Los archivos de 8 bits se convierten a PCM de 16 bits, formato necesario para la reproducción WAV de Asterisk.
+- `broadcast_once`: el administrador pulsa **Reproducir ahora**; Asterisk inicia una emisión al nodo principal y sus estaciones enlazadas. Esta acción es puntual y no se repite por el hecho de mantener el audio activado.
+- `broadcast_silence`: cada audio activado mantiene su propio intervalo, de 1 a 10080 minutos. El backend solo emite cuando puede confirmar silencio total en todos los nodos monitorizados; si el intervalo vence mientras hay actividad, conserva la emisión pendiente hasta que todos estén en silencio. Después de emitir, inicia el siguiente intervalo. Las emisiones se serializan con una reserva persistente que dura la duración medida del archivo más dos segundos. Si Asterisk rechaza una emisión, se registra el error y se reintenta al vencer el siguiente intervalo.
+- Para distribuir el audio desde el nodo principal hacia los nodos enlazados, `duplex` debe ser distinto de 0 (modos 1–4); Amerimon valida el valor efectivo, incluso si se hereda de una plantilla. La pantalla de configuración del nodo principal permite cambiar `duplex` y ejecuta automáticamente `module reload app_rpt.so` al guardar.
+
+La programación corre en el servicio Go, no en el navegador, y continúa tras cerrar sesión o reiniciar Amerimon. El estado de reproducción evita solapamientos tras un reinicio del backend. Por defecto, los WAV se guardan bajo `astdatadir/sounds/amerimon`, según `/etc/asterisk/asterisk.conf`; los instaladores local y Debian preparan esa carpeta como `root:asterisk` con modo `2750`. Al actualizar, los instaladores copian allí los audios que estuvieran en la ruta anterior sin borrar los originales. Se puede cambiar la raíz en `audio.storage_dir` de `amerimon.yaml`; debe estar dentro de una ruta de sonidos que Asterisk busque, ser legible por Asterisk y escribible por Amerimon. `audio.poll_interval` controla el sondeo (por defecto `5s`; se admite de 1 a 60 segundos). El AMI del nodo debe permitir ejecutar el comando `rpt playback`.
+
+La modalidad de bienvenida `on_connection` ya no está disponible porque la reproducción por enlace individual no está soportada de forma segura por `app_rpt`. La migración 0013 convierte las entradas existentes de esa modalidad a `broadcast_once`, sin eliminar audios ni archivos. Los audios PCM de 8 bits previamente guardados se convierten al formato de 16 bits cuando se reproducen por primera vez.
+
+El panel y todos sus errores y confirmaciones siguen el idioma de la cabecera. La interfaz Angular está encapsulada en `src/app/features/audio-management`; para reutilizarla en otra aplicación, consulta su README, proporciona la URL API, el traductor y una ruta con autorización administrativa.
+
 ## 2. Componentes y puertos
 
 | Componente | Dirección predeterminada | Uso |
@@ -52,6 +67,9 @@ El puerto `8086` debe estar libre al iniciar Amerimon. El proceso EAGI y la cone
 | `app_settings` | Título y subtítulo de cabecera |
 | `terminal_credentials` | Credenciales SSH cifradas por destino |
 | `asterisk_operation_logs` | Operaciones Asterisk, resultado y diagnóstico |
+| `audio_tracks` | Biblioteca, formato, activación y duración calculada de los audios |
+| `audio_broadcast_schedules` | Intervalo y próximas/últimas reproducciones programadas |
+| `audio_playback_state` | Reserva persistente para evitar solapamientos de audio |
 
 ## 4. Instalación Debian
 
@@ -135,6 +153,7 @@ En **Admin → Nodo principal** están disponibles las funciones equivalentes a 
 - **Número:** cambia el número público del nodo principal identificado en `rpt.conf`. Este monitor exige un nodo principal público (4 a 6 dígitos sin comenzar por 0 o 1); los nodos privados se administran como conexiones, no como principal. Se rechazan números ya configurados y formularios abiertos para un principal que haya cambiado.
 - **Contraseña:** es la contraseña de registro obtenida del portal AllStarLink, no la de Amerimon ni la de AMI. Solo el administrador puede recuperar la contraseña actual, que aparece oculta y puede mostrarse con el botón del ojo. Se prioriza el registro HTTP activo y, si falta, el registro IAX. La respuesta no se almacena en caché; la contraseña no se guarda en el almacenamiento del navegador ni en los registros. Utiliza HTTPS y un dispositivo de confianza. Dejar el campo sin cambios o vacío conserva la actual; una nueva contraseña admite entre 6 y 128 letras, números, guion y guion bajo.
 - **Indicativo:** actualiza `idrecording = |iINDICATIVO` directamente en la sección principal, conservando las plantillas. Un `idrecording` heredado o basado en un archivo de audio no se presenta como un indicativo editable: introduce el indicativo que quieras utilizar.
+- **Dúplex:** permite configurar `duplex` (0–4) directamente en la sección del nodo principal; si el valor se heredaba de una plantilla, se agrega una anulación local sin modificar la plantilla. Las opciones son: 0, semidúplex sin telemetría ni hang time (full duplex con `linktolink=yes`; recomendado para controlador externo multiport; comentar `idrecording` e `idtalkover` también suprime IDs); 1, semidúplex con telemetría y hang time, sin repetir audio (recomendado para nodo simplex); 2, full duplex con telemetría y hang time (recomendado para repetidor); 3, full duplex con telemetría y hang time, sin repetir audio; 4, full duplex con telemetría y hang time, repite audio solo con autopatch inactivo. Para emitir audio global a nodos enlazados, `duplex` debe ser distinto de 0 (modos 1–4).
 - **Acceso:** permite agregar, actualizar y eliminar números o indicativos en `allowlist/<principal>` y `denylist/<principal>` de AstDB, con un motivo opcional. Los cambios se aplican inmediatamente mediante AMI. Sin entradas no hay restricciones de estas listas. Una lista de permitidos limita los nodos admitidos; los bloqueados se rechazan. Los motivos admiten hasta 200 caracteres, sin comillas dobles, barras inversas ni caracteres de control.
 - **Acceso AMI:** antes de las listas de acceso se puede cambiar el `secret` del usuario AMI ya configurado en `ami.user`, la dirección `bindaddr` de `[general]` y, opcionalmente, añadir redes `permit`/`deny` a esa misma stanza. El secret aparece enmascarado y puede mostrarse con el botón del ojo. Las redes IPv4 aceptan IP/prefijo o IP/máscara; Amerimon calcula la red normalizada. Las reglas existentes son de solo conservación: la pantalla agrega, pero no elimina ni reemplaza opciones personalizadas. Se rechaza cualquier `deny` que abarque loopback o la dirección del backend y se agrega permiso explícito de loopback al restringir con `permit`. Si no se puede resolver la dirección AMI del backend, no se aplican cambios de ACL.
 - Esta edición crea respaldos `.amerimon.bak` de `manager.conf`, `amerimon.yaml` y `amerimon.env`; actualiza `ami.host`, `ami.user` y la referencia segura `ami.secret: ${AMI_SECRET}` en el YAML, y mantiene el valor secreto en el archivo de entorno con permisos existentes. El servicio instalado indica explícitamente la ruta `/etc/amerimon/amerimon.env`; en instalaciones personalizadas, define `AMERIMON_ENV_FILE` con la ruta del archivo de entorno usado por el proceso. Al usar un `bindaddr` concreto, el host AMI del YAML se sincroniza con esa dirección; con `0.0.0.0` o `::` se conserva el host actual. Luego ejecuta `manager reload` (sin reiniciar Asterisk) y comprueba una nueva conexión AMI. Si la autenticación falla, intenta restaurar los archivos y recargar la configuración previa. No reinicies Asterisk si se informa un fallo de restauración.
@@ -145,7 +164,7 @@ Las definiciones editadas deben estar directamente en esos archivos: no se reesc
 
 Antes de modificar archivos se generan respaldos adyacentes `*.amerimon.bak` con permisos `0600`; contienen contraseñas y no deben publicarse ni copiarse a ubicaciones accesibles por HTTP. Se conserva el último respaldo de cada archivo. Si falla el guardado o la migración de listas, se intenta restaurar la configuración anterior y se informa explícitamente si alguna restauración falla. No reinicies Asterisk si se ha notificado un fallo de restauración: revisa los respaldos primero.
 
-**Guardar no reinicia ni recarga Asterisk.** Tras verificar los datos, reinícialo manualmente desde **Sistema**. El reinicio interrumpe los enlaces y las escuchas activas. Si cambiaste el número y usas Allmon3, reinicia también Allmon3 manualmente. Durante el intervalo previo al reinicio, Asterisk aún utiliza su identidad anterior; aplica los cambios en una ventana de mantenimiento.
+**Guardar recarga `app_rpt.so` automáticamente** mediante AMI con `module reload app_rpt.so`; no reinicia Asterisk. La pantalla confirma el guardado solo si AMI acepta la recarga. Si la recarga falla, los archivos ya están guardados con sus respaldos `.amerimon.bak`; revisa los registros de Asterisk y no repitas cambios de identidad hasta confirmar qué configuración está activa. Si cambiaste el número y usas Allmon3, reinicia Allmon3 manualmente. Programa los cambios en una ventana de mantenimiento y considera su impacto en la operación del nodo.
 
 Los botones **Vaciar permitidos** y **Vaciar denegados** eliminan exclusivamente las entradas de la lista elegida del nodo principal, previa confirmación, sin tocar la otra lista ni otros nodos. El cambio es inmediato y no tiene deshacer. Vaciar permitidos elimina la restricción a los nodos autorizados; la lista de denegados sigue aplicándose. Si falla una eliminación, se informa que el vaciado puede ser parcial y debe recargarse la lista.
 
@@ -546,6 +565,12 @@ El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e *
 | `/mon/pjsip-users/:id` | Administrador | DELETE: eliminar endpoint y sus objetos auth/AOR exclusivos |
 | `/mon/asterisk/commands` | Administrador | Listar y ejecutar acciones Asterisk |
 | `/mon/asterisk/logs` | Administrador | Últimas 500 operaciones por defecto, máximo 2000 |
+| `/mon/audio/tracks` | Administrador | GET: biblioteca; POST: subir audio WAV |
+| `/mon/audio/tracks/:id` | Administrador | PATCH: editar modalidad/activación; DELETE: eliminar audio |
+| `/mon/audio/tracks/:id/play` | Administrador | Iniciar emisión única |
+| `/mon/audio/tracks` | Administrador | GET: biblioteca; POST: subir audio WAV |
+| `/mon/audio/tracks/:id` | Administrador | PATCH: editar modalidad/activación; DELETE: eliminar audio |
+| `/mon/audio/tracks/:id/play` | Administrador | Iniciar emisión única |
 | `/mon/allstarlink/connections/history` | Administrador | Historial de conexiones |
 | `/mon/system-info` | Administrador | Sistema, CPU, memoria, discos, red, temperatura, voltaje y Asterisk |
 | `/mon/site-settings` | GET público; PUT administrador | Título/subtítulo de cabecera |
@@ -566,6 +591,10 @@ sudo journalctl -u amerimon -f | grep 'asterisk:'
 No se guardan `AMI_SECRET`, contraseñas ni tokens. El endpoint y la página de registros están restringidos al administrador. La lista ofrece hasta 2000 eventos; no hay purga automática en la aplicación, así que la base debe incluirse en la política de respaldo/retención.
 
 Este historial cubre las acciones del panel de comandos/conexiones y los intentos de inicio/parada de Listen Live (`listen_start`, `listen_stop`), incluidos los errores AMI. Un inicio correcto indica que AMI aceptó `Originate`, no que ya llegue audio. No reemplaza los logs de Asterisk.
+
+La gestión de audios registra emisiones únicas y programadas y errores AMI. El tiempo de espera entre reproducciones se calcula de la duración WAV verificada y se mantiene en `audio_playback_state`.
+
+La gestión de audios registra emisiones únicas y programadas y errores AMI. El tiempo de espera entre reproducciones se calcula de la duración WAV verificada y se mantiene en `audio_playback_state`.
 
 ### Diagnóstico de Listen Live en Raspberry Pi (Debian 12 y 13)
 

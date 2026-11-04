@@ -37,6 +37,33 @@ chmod 600 "$OWN_INI"
 mkdir -p /var/lib/amerimon
 chown -R root:root /var/lib/amerimon
 chmod 750 /var/lib/amerimon
+
+# Store uploaded WAVs below Asterisk's configured sound tree. The setgid bit
+# lets files created by the root-run Amerimon service inherit Asterisk's group.
+ASTERISK_DATA_DIR=$(awk -F '=>' '
+    /^[[:space:]]*astdatadir[[:space:]]*=>/ {
+        value = $2
+        sub(/[;#].*$/, "", value)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value ~ /^\//) configured = value
+    }
+    END { print configured }
+' /etc/asterisk/asterisk.conf 2>/dev/null || true)
+case "$ASTERISK_DATA_DIR" in
+    /*) ;;
+    *) ASTERISK_DATA_DIR=/var/lib/asterisk ;;
+esac
+AUDIO_DIR="$ASTERISK_DATA_DIR/sounds/amerimon"
+LEGACY_AUDIO_DIR=/var/lib/asterisk/sounds/amerimon
+if getent group asterisk >/dev/null 2>&1; then
+    install -d -o root -g asterisk -m 2750 "$AUDIO_DIR"
+    if [ -d "$LEGACY_AUDIO_DIR" ] && [ "$LEGACY_AUDIO_DIR" != "$AUDIO_DIR" ]; then
+        cp -an "$LEGACY_AUDIO_DIR/." "$AUDIO_DIR/"
+    fi
+else
+    echo "Aviso: no existe el grupo asterisk; la reproducción de audio requiere configurar permisos en $AUDIO_DIR." >&2
+fi
+
 if [ ! -s /var/lib/amerimon/terminal-credentials.key ]; then
     umask 077
     head -c 32 /dev/urandom > /var/lib/amerimon/terminal-credentials.key

@@ -90,4 +90,17 @@ bind=0.0.0.0
 
 - [x] 17. Actualizar la terminal ssh con el el import del node a `@xterm/xterm` si no es muy problemático el ccambio.
 
+- [x] 18. Gestión modular de audios track y broadcast, con biblioteca persistente, activación/desactivación administrativa y programaciones en las tablas 0011 a 0013.
+  
+- [x] 19. Reproducción de audio administrada desde el módulo Angular reutilizable, con ejecución y programación en el backend independientes de la sesión web:
+  * Audio a ser reproducido para todas las estaciones, una sola vez bajo solicitud administrativa.
+  * Audio a ser reproducido para todas las estaciones con un intervalo de tiempo solamente si hay silencio total.
+  * Los audios programados pueden ser varios y no deben solaparse; conservar su configuración entre sesiones web y reinicios del servicio.
+  
+
+- [ ] 20. Grabacion de audio, sugiereme el mejor lugar para ponerlo, y que tenga start,pausa,resume y despues reproducir el audio y/o borrarlo.  
+
+ 
+  
+
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes

@@ -7,6 +7,7 @@ export interface PrimaryNodeConfig {
   callsign: string;
   password_set: boolean;
   password: string;
+  duplex: number;
   path: string;
 }
 
@@ -67,9 +68,9 @@ export class PrimaryNodeService {
     return this.http.put<{ status: string; message: string }>(`${this.url}/ami`, config);
   }
 
-  guardar(current_node: string, node: string, callsign: string, password: string) {
+  guardar(current_node: string, node: string, callsign: string, password: string, duplex: number) {
     return this.http.put<{ message: string; node: string; restart_required: boolean }>(
-      this.url, { current_node, node, callsign, password }
+      this.url, { current_node, node, callsign, password, duplex }
     );
   }
 

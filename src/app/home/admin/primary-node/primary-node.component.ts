@@ -59,6 +59,7 @@ export class PrimaryNodeComponent implements OnInit {
   readonly noMostrarGuardado = signal(false);
   readonly noMostrarImportacion = signal(false);
   readonly noMostrarVaciado = signal(false);
+  readonly duplexOptions = [0, 1, 2, 3, 4] as const;
 
   readonly actual = signal('');
   readonly ruta = signal('');
@@ -98,13 +99,18 @@ export class PrimaryNodeComponent implements OnInit {
 
   numero = '';
   indicativo = '';
+  duplex = 0;
   password = '';
   private passwordOriginal = '';
   readonly cambios = new FormChanges();
   readonly cambiosAMI = new FormChanges();
 
   datosFormulario(): string[] {
-    return [this.numero, this.indicativo, this.password];
+    return [this.numero, this.indicativo, this.password, String(this.duplex)];
+  }
+
+  duplexDescriptionKey(): string {
+    return `PRIMARY_NODE_DUPLEX_${this.duplex}_DESCRIPTION`;
   }
 
   datosAMI(): string[] {
@@ -209,6 +215,7 @@ export class PrimaryNodeComponent implements OnInit {
         this.passwordConfigurada.set(config.password_set);
         this.numero = config.node;
         this.indicativo = config.callsign;
+        this.duplex = config.duplex;
         this.password = config.password;
         this.passwordOriginal = config.password;
         this.cambios.reset(this.datosFormulario());
@@ -240,11 +247,11 @@ export class PrimaryNodeComponent implements OnInit {
     this.aviso.set('');
     // No cancelar un guardado por timeout: podría completarse en el servidor.
     const password = this.password === this.passwordOriginal ? '' : this.password;
-    this.service.guardar(this.actual(), this.numero, this.indicativo, password).subscribe({
-      next: respuesta => {
+    this.service.guardar(this.actual(), this.numero, this.indicativo, password, this.duplex).subscribe({
+      next: () => {
         this.guardando.set(false);
         this.password = '';
-        this.aviso.set(respuesta.message);
+        this.aviso.set(this.translation.translate('PRIMARY_NODE_CONFIG_SAVED_RELOADED'));
         this.cargar();
         this.cargarAcceso();
       },

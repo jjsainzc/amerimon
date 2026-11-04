@@ -36,6 +36,30 @@ fi
 "${SUDO[@]}" chmod 0600 /etc/amerimon/amerimon.env /etc/amerimon/jwt.secret
 "${SUDO[@]}" chmod 0644 /etc/amerimon/amerimon.yaml
 
+# Keep uploaded WAVs in the sound tree searched by Asterisk.
+ASTERISK_DATA_DIR="$("${SUDO[@]}" awk -F '=>' '
+	/^[[:space:]]*astdatadir[[:space:]]*=>/ {
+		value = $2
+		sub(/[;#].*$/, "", value)
+		gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+		if (value ~ /^\//) configured = value
+	}
+	END { print configured }
+' /etc/asterisk/asterisk.conf 2>/dev/null || true)"
+if [[ "$ASTERISK_DATA_DIR" != /* ]]; then
+	ASTERISK_DATA_DIR=/var/lib/asterisk
+fi
+AUDIO_DIR="$ASTERISK_DATA_DIR/sounds/amerimon"
+LEGACY_AUDIO_DIR=/var/lib/asterisk/sounds/amerimon
+if getent group asterisk >/dev/null 2>&1; then
+	"${SUDO[@]}" install -d -o root -g asterisk -m 2750 "$AUDIO_DIR"
+	if [[ -d "$LEGACY_AUDIO_DIR" && "$LEGACY_AUDIO_DIR" != "$AUDIO_DIR" ]]; then
+		"${SUDO[@]}" cp -an "$LEGACY_AUDIO_DIR/." "$AUDIO_DIR/"
+	fi
+else
+	echo "Aviso: no existe el grupo asterisk; no se podrán probar reproducciones hasta configurar permisos en $AUDIO_DIR." >&2
+fi
+
 if [[ -r /etc/asterisk/manager.conf ]]; then
 	AMI_USER="$(grep -E '^\s*\[.+\]' /etc/asterisk/manager.conf | grep -v '\[general\]' | head -n 1 | tr -d '[] ')"
 	AMI_SECRET="$(grep -E '^\s*secret\s*=' /etc/asterisk/manager.conf | head -n 1 | cut -d= -f2 | tr -d ' ')"

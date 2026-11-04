@@ -52,3 +52,6 @@ Thumbs.db
 
 # Doc
 TODO.md
+test-data/audio/asterisk_test_3s.wav
+test-data/audio/bamo_al_mambo.wav
+test-data/audio/bienvenida-prueba.wav

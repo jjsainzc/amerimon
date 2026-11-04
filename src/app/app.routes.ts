@@ -1,5 +1,10 @@
+import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
 import { adminGuard } from './core/guards/admin.guard';
+import { environment } from './core/environment';
+import { TranslationService } from './core/services/translation.service';
+import { AUDIO_MANAGEMENT_TRANSLATE } from './features/audio-management/audio-management.i18n';
+import { provideAudioManagement } from './features/audio-management/audio-management.providers';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'allstarlink' },
@@ -26,6 +31,21 @@ export const routes: Routes = [
     path: 'admin/asterisk-logs',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/asterisk-logs/asterisk-logs.component').then((m) => m.AsteriskLogsComponent),
+  },
+  {
+    path: 'admin/audio',
+    canActivate: [adminGuard],
+    providers: [
+      provideAudioManagement(`${environment.apiUrl}/audio`),
+      {
+        provide: AUDIO_MANAGEMENT_TRANSLATE,
+        useFactory: () => {
+          const translations = inject(TranslationService);
+          return (key: string) => translations.translate(key);
+        },
+      },
+    ],
+    loadComponent: () => import('./features/audio-management/audio-management.component').then((m) => m.AudioManagementComponent),
   },
   {
     path: 'admin/allmon',

@@ -1,0 +1,56 @@
+:host { display: block; }
+.audio-page { min-width: 0; padding: 1.25rem clamp(.75rem, 2vw, 1.5rem) 2rem; color: #dce5eb; }
+.audio-heading, .audio-list-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.audio-heading { margin: .5rem 0 1.25rem; }
+.audio-eyebrow { margin: 0 0 .25rem; color: #80cfd6; font-size: .72rem; font-weight: 750; }
+.audio-heading h1, .audio-list-heading h2, .audio-form h2 { margin: 0; color: #eef4f7; }
+.audio-heading h1 { font-size: 1.35rem; }
+.audio-heading p:last-child { margin: .25rem 0 0; color: #a9bac5; font-size: .86rem; }
+.audio-form { margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #354a56; border-radius: 7px; background: #1d2a34; }
+.audio-form h2, .audio-list-heading h2 { font-size: 1.05rem; }
+.audio-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: .85rem; margin: 1rem 0 .5rem; }
+.audio-form label, .audio-track-mode, .audio-track-interval { display: grid; gap: .35rem; color: #c4d2da; font-size: .85rem; }
+.audio-form input, .audio-form select, .audio-track select, .audio-track input { min-width: 0; padding: .5rem; border: 1px solid #506673; border-radius: 4px; background: #14212a; color: #eef4f7; }
+.audio-form input[type=file] { padding: .35rem; }
+.audio-help, .audio-track-info p { color: #9db0ba; font-size: .8rem; }
+.audio-button { padding: .5rem .75rem; border: 1px solid #338995; border-radius: 4px; background: #16616d; color: #f0fbfc; cursor: pointer; }
+.audio-button:disabled { opacity: .55; cursor: not-allowed; }
+.audio-secondary { border-color: #506673; background: #263944; }
+.audio-state-toggle { display: inline-flex; align-items: center; gap: .45rem; font-weight: 650; }
+.audio-state-toggle svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.audio-enable { border-color: #2b8a62; background: #14583e; color: #b7f4d2; }
+.audio-enable:hover:not(:disabled) { background: #1a704e; }
+.audio-disable { border-color: #a66a2c; background: #684018; color: #ffe0ad; }
+.audio-disable:hover:not(:disabled) { background: #81501d; }
+.audio-danger { border-color: #80533f; background: #633d32; }
+.audio-list-heading { align-items: center; margin-bottom: .7rem; }
+.audio-list-heading span { color: #a9bac5; }
+.audio-list { display: grid; gap: .75rem; }
+.audio-track { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem 1rem; padding: 1rem; border: 1px solid #354a56; border-radius: 7px; background: #1d2a34; }
+.audio-track-info h3 { margin: 0 0 .25rem; color: #eef4f7; }
+.audio-track-info p { margin: .25rem 0; }
+.audio-track-mode, .audio-track-interval { display: inline-grid; margin: .6rem .8rem 0 0; }
+.audio-actions { display: flex; align-items: flex-start; justify-content: flex-end; gap: .4rem; flex-wrap: wrap; }
+.audio-mode { grid-column: 1 / -1; margin: 0; color: #80cfd6; font-size: .78rem; }
+.audio-error, .audio-notice { padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
+.audio-notice { border-color: #347c69; background: #183c34; color: #9cddc2; }
+.audio-state { padding: 1rem 0; color: #a9bac5; }
+.audio-upload-progress { width: min(100%, 22rem); margin: .75rem .5rem 0 0; accent-color: #51b9c4; vertical-align: middle; }
+.audio-upload-progress-label { color: #a9bac5; font-size: .82rem; }
+.audio-confirm-overlay { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgba(11, 24, 32, .62); backdrop-filter: blur(3px); }
+.audio-confirm-dialog { width: min(100%, 440px); display: grid; grid-template-columns: 2.5rem 1fr; gap: .9rem 1rem; padding: 1.35rem; color: #e3ebef; background: #1d2a34; border: 1px solid #3b4d58; border-radius: 10px; box-shadow: 0 18px 60px rgba(0, 0, 0, .28); }
+.audio-confirm-icon { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; color: #ffaaa0; background: #442724; border: 1px solid #73403a; border-radius: 50%; font-size: 1.25rem; font-weight: 800; }
+.audio-confirm-content h2 { margin: .15rem 0 .45rem; color: #f0f5f7; font-size: 1.15rem; }
+.audio-confirm-content p { margin: 0; color: #bdc9d1; line-height: 1.5; overflow-wrap: anywhere; }
+.audio-confirm-content .audio-confirm-error { margin-top: .65rem; color: #ffaaa4; }
+.audio-confirm-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: .65rem; margin-top: .35rem; }
+.audio-confirm-actions button { min-height: 2.5rem; padding: .5rem .9rem; border: 1px solid transparent; border-radius: 6px; font: inherit; font-weight: 650; cursor: pointer; }
+.audio-confirm-cancel { color: #dce5eb; background: #30414b; border-color: #4a606c !important; }
+.audio-confirm-delete { color: #fff; background: #c33a30; }
+.audio-confirm-actions button:focus-visible { outline: 3px solid #51b9c4; outline-offset: 2px; }
+.audio-confirm-actions button:disabled { cursor: wait; opacity: .72; }
+@media (max-width: 650px) {
+  .audio-track { grid-template-columns: 1fr; }
+  .audio-actions { justify-content: flex-start; }
+  .audio-mode { grid-column: auto; }
+}

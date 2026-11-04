@@ -2,7 +2,7 @@
   <app-admin-volver />
   <h3>{{ 'CONFIGURACION_DEL_NODO_PRINCIPAL' | translate }}</h3>
   <p>{{ 'EQUIVALENTE_A_LAS_OPCIONES_1_2_3_Y_7_DE_NODE_SETUP_SOLO_MODIFICA_EL_NODO_PRINCIPAL_LOCAL' | translate }}</p>
-  <p>{{ 'NODO_CAMBIOS_CON_RESPALDO' | translate }} <strong>{{ 'SISTEMA' | translate }}</strong>{{ 'EL_REINICIO_INTERRUMPE_LAS_CONEXIONES_ACTIVAS' | translate }}</p>
+  <p>{{ 'NODO_CAMBIOS_CON_RESPALDO' | translate }}</p>
   @if (cargando()) { <p role="status">{{ 'CARGANDO_CONFIGURACION' | translate }}</p> }
   @if (ruta()) { <p>{{ 'CONFIGURACION' | translate }} <code>{{ ruta() }}</code></p> }
   <form #configForm="ngForm" (ngSubmit)="configForm.valid && solicitarGuardado()">
@@ -20,6 +20,16 @@
         <span class="clipboard-field" [appCopy]="indicativo"><input name="indicativo" [(ngModel)]="indicativo" required pattern="[A-Za-z0-9\x2F\x2D]{3,64}" maxlength="64" autocomplete="off" /></span>
       </label>
       <small>{{ 'SE_UTILIZA_PARA_LA_IDENTIFICACION_DE_ASTERISK_IDRECORDING' | translate }}</small>
+      <label for="primary-node-duplex">{{ 'PRIMARY_NODE_DUPLEX_LABEL' | translate }}</label>
+      <select id="primary-node-duplex" name="duplex" [(ngModel)]="duplex">
+        @for (value of duplexOptions; track value) {
+          <option [ngValue]="value">{{ 'PRIMARY_NODE_DUPLEX_OPTION' | translate: { mode: value } }}</option>
+        }
+      </select>
+      <small>{{ duplexDescriptionKey() | translate }}</small>
+      @if (duplex === 0) {
+        <small>{{ 'PRIMARY_NODE_DUPLEX_AUDIO_NOTICE' | translate }}</small>
+      }
       <div class="acciones">
         <button type="button" (click)="cargar()" [disabled]="guardando()">{{ 'RECARGAR_CONFIGURACION' | translate }}</button>
         <button type="submit" [disabled]="configForm.invalid || guardando() || guardandoAcceso() || !cambios.changed(datosFormulario())">{{ 'GUARDAR_CONFIGURACION' | translate }}</button>
@@ -28,7 +38,7 @@
   </form>
   @if (confirmando()) {
     <section class="confirmacion" role="group" [attr.aria-label]="'CONFIRMAR_CONFIGURACION' | translate">
-      <p>{{ 'NODO_CONFIRMAR_GUARDADO' | translate: { actual: actual(), nuevo: numero } }}</p>
+      <p>{{ 'NODO_CONFIRMAR_GUARDADO' | translate: { actual: actual(), nuevo: numero, duplex: duplex } }}</p>
       <app-notice-preference [checked]="noMostrarGuardado()" (checkedChange)="noMostrarGuardado.set($event)" />
       <button type="button" (click)="guardar()" [disabled]="configForm.invalid || guardando() || guardandoAcceso() || !cambios.changed(datosFormulario())">{{ 'CONFIRMAR_GUARDADO' | translate }}</button>
       <button type="button" (click)="confirmando.set(false)">{{ 'CANCELAR' | translate }}</button>
