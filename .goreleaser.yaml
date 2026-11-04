@@ -44,6 +44,7 @@ nfpms:
       - libnss-mdns
       - avahi-daemon
       - net-tools
+      - ffmpeg
       - iproute2
       - iptables | firewalld
       - netcat-openbsd | netcat-traditional | ncat

@@ -264,6 +264,20 @@ exten => _X.,1,NoOp(Listen Live rxchannel nodo ${EXTEN})
 EOF
         fi
 
+        if ! grep -qE '^[[:space:]]*\[amerimon-record-node\][[:space:]]*(;.*)?$' "$EXTENSIONS_CONF"; then
+            cat >> "$EXTENSIONS_CONF" <<'EOF'
+
+; --- Amerimon: mezcla del nodo y enlaces, solo escucha para grabacion ---
+[amerimon-record-node]
+exten => h,1,NoOp(Recording node channel ended)
+ same => n,Hangup()
+exten => _X.,1,NoOp(Recording node mix ${EXTEN})
+ same => n,Answer()
+ same => n,Rpt(${EXTEN},Pm)
+ same => n,Hangup()
+EOF
+        fi
+
         if ! grep -qE '^[[:space:]]*\[listen-live-spy\][[:space:]]*$' "$EXTENSIONS_CONF"; then
             cat >> "$EXTENSIONS_CONF" <<'EOF'
 

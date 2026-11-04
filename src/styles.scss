@@ -586,7 +586,7 @@ html:root .main-content .reloj-contenedor .info-datos dd {
   color: #d0dce4;
 }
 
-html:root .main-content :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+html:root .main-content :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
   border-color: #4a5a65;
   background-color: #15212a;
   color: #e5edf2;

@@ -50,6 +50,8 @@ type AudioTrack struct {
 	Enabled         bool       `json:"enabled"`
 	FileSize        int64      `json:"file_size"`
 	DurationMS      int64      `json:"duration_ms"`
+	StartMS         int64      `json:"start_ms"`
+	EndMS           int64      `json:"end_ms"`
 	SampleRate      int        `json:"sample_rate"`
 	BitsPerSample   int        `json:"bits_per_sample"`
 	IntervalMinutes int        `json:"interval_minutes,omitempty"`
@@ -257,7 +259,7 @@ func ListAudioTracks(c echo.Context) error {
 	rows, err := config.App.DB.QueryContext(c.Request().Context(), `
 		SELECT t.id, t.name, t.original_filename, t.playback_mode, t.enabled, t.file_size,
 			t.sample_rate, t.bits_per_sample, t.duration_ms, t.created_at,
-			COALESCE(s.interval_minutes, 0), s.last_played_at, s.next_play_at, t.stored_filename
+			COALESCE(s.interval_minutes, 0), s.last_played_at, s.next_play_at, t.stored_filename, t.start_ms, t.end_ms
 		FROM audio_tracks t
 		LEFT JOIN audio_broadcast_schedules s ON s.audio_id = t.id
 		ORDER BY t.created_at DESC, t.id DESC`)
@@ -275,7 +277,7 @@ func ListAudioTracks(c echo.Context) error {
 		if err := rows.Scan(
 			&track.ID, &track.Name, &track.OriginalName, &track.PlaybackMode, &enabled, &track.FileSize,
 			&track.SampleRate, &track.BitsPerSample, &track.DurationMS, &createdAt, &track.IntervalMinutes,
-			&lastPlayed, &nextPlay, &track.StoredFilename,
+			&lastPlayed, &nextPlay, &track.StoredFilename, &track.StartMS, &track.EndMS,
 		); err != nil {
 			log.Printf("audio: no se pudo interpretar un registro: %v", err)
 			return audioAPIError(c, http.StatusInternalServerError, "No se pudo leer la biblioteca de audio.")
@@ -316,6 +318,7 @@ func UploadAudioTrack(c echo.Context) error {
 		}
 		return audioAPIError(c, http.StatusBadRequest, "La solicitud de audio no es válida.")
 	}
+	defer c.Request().MultipartForm.RemoveAll()
 	name := strings.TrimSpace(c.FormValue("name"))
 	mode := strings.TrimSpace(c.FormValue("playback_mode"))
 	if !audioTrackNamePattern.MatchString(name) || !validAudioPlaybackMode(mode) {
@@ -331,12 +334,12 @@ func UploadAudioTrack(c echo.Context) error {
 	}
 	file, header, err := c.Request().FormFile("file")
 	if err != nil {
-		return audioAPIError(c, http.StatusBadRequest, "Selecciona un archivo WAV.")
+		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "code": "AUDIO_ERROR_AUDIO_REQUIRED"})
 	}
 	defer file.Close()
 	extension := strings.ToLower(filepath.Ext(filepath.Base(header.Filename)))
-	if extension != ".wav" {
-		return audioAPIError(c, http.StatusBadRequest, "El archivo debe tener extensión .wav.")
+	if _, ok := audioInputFormats[extension]; !ok {
+		return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "code": "AUDIO_ERROR_INPUT_FORMAT"})
 	}
 	if header.Size > audioMaxUploadBytes {
 		return audioAPIError(c, http.StatusRequestEntityTooLarge, "El archivo no puede superar 25 MiB.")
@@ -348,9 +351,19 @@ func UploadAudioTrack(c echo.Context) error {
 	if len(data) == 0 || len(data) > audioMaxUploadBytes {
 		return audioAPIError(c, http.StatusRequestEntityTooLarge, "El archivo está vacío o supera 25 MiB.")
 	}
-	data, duration, sampleRate, bitsPerSample, err := normalizeAudioWAV(data)
+	data, duration, sampleRate, bitsPerSample, err := convertUploadedAudio(c.Request().Context(), data, extension)
 	if err != nil {
-		return audioAPIError(c, http.StatusBadRequest, err.Error())
+		var conversion *audioConversionError
+		if errors.As(err, &conversion) {
+			log.Printf("audio: %s: %v", conversion.code, err)
+			status := http.StatusBadRequest
+			if conversion.code == "AUDIO_ERROR_CONVERTER_MISSING" || conversion.code == "AUDIO_ERROR_CONVERSION_BUSY" {
+				status = http.StatusServiceUnavailable
+			}
+			return c.JSON(status, echo.Map{"status": "error", "code": conversion.code})
+		}
+		log.Printf("audio: conversion failed: %v", err)
+		return audioAPIError(c, http.StatusBadRequest, "No se pudo leer el archivo de audio.")
 	}
 
 	originalName := filepath.Base(header.Filename)
@@ -474,6 +487,8 @@ func UpdateAudioTrack(c echo.Context) error {
 		PlaybackMode    *string `json:"playback_mode"`
 		Enabled         *bool   `json:"enabled"`
 		IntervalMinutes *int    `json:"interval_minutes"`
+		StartMS         *int64  `json:"start_ms"`
+		EndMS           *int64  `json:"end_ms"`
 	}
 	if err := c.Bind(&request); err != nil {
 		return audioAPIError(c, http.StatusBadRequest, "Solicitud inválida.")
@@ -481,15 +496,23 @@ func UpdateAudioTrack(c echo.Context) error {
 	var trackName, mode string
 	var enabled int
 	var oldInterval int
+	var startMS, endMS, durationMS int64
 	err = config.App.DB.QueryRowContext(c.Request().Context(), `
-		SELECT t.name, t.playback_mode, t.enabled, COALESCE(s.interval_minutes, 0)
+		SELECT t.name, t.playback_mode, t.enabled, COALESCE(s.interval_minutes, 0), t.start_ms, t.end_ms, t.duration_ms
 		FROM audio_tracks t LEFT JOIN audio_broadcast_schedules s ON s.audio_id = t.id WHERE t.id = ?`, id).
-		Scan(&trackName, &mode, &enabled, &oldInterval)
+		Scan(&trackName, &mode, &enabled, &oldInterval, &startMS, &endMS, &durationMS)
 	if errors.Is(err, sql.ErrNoRows) {
 		return audioAPIError(c, http.StatusNotFound, "El audio no existe.")
 	}
 	if err != nil {
 		return audioAPIError(c, http.StatusInternalServerError, "No se pudo leer el audio.")
+	}
+	if request.StartMS != nil || request.EndMS != nil {
+		if request.StartMS == nil || request.EndMS == nil ||
+			!validAudioSegment(*request.StartMS, *request.EndMS, durationMS) {
+			return c.JSON(http.StatusBadRequest, echo.Map{"status": "error", "code": "AUDIO_ERROR_SEGMENT"})
+		}
+		startMS, endMS = *request.StartMS, *request.EndMS
 	}
 	if request.Name != nil {
 		trackName = strings.TrimSpace(*request.Name)
@@ -530,8 +553,8 @@ func UpdateAudioTrack(c echo.Context) error {
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(c.Request().Context(), `
-		UPDATE audio_tracks SET name = ?, playback_mode = ?, enabled = ?, updated_at = ? WHERE id = ?`,
-		trackName, mode, enabled, now.Format(time.RFC3339Nano), id); err != nil {
+		UPDATE audio_tracks SET name = ?, playback_mode = ?, enabled = ?, updated_at = ?, start_ms = ?, end_ms = ? WHERE id = ?`,
+		trackName, mode, enabled, now.Format(time.RFC3339Nano), startMS, endMS, id); err != nil {
 		log.Printf("audio: no se pudo actualizar pista %d: %v", id, err)
 		return audioAPIError(c, http.StatusInternalServerError, "No se pudo actualizar el audio.")
 	}
@@ -659,8 +682,24 @@ func PlayAudioTrack(c echo.Context) error {
 	if track.PlaybackMode != "broadcast_once" {
 		return audioAPIError(c, http.StatusConflict, "La reproducción manual solo está disponible para audios de emisión única.")
 	}
+	var segment struct {
+		StartMS *int64 `json:"start_ms"`
+		EndMS   *int64 `json:"end_ms"`
+	}
+	if c.Request().ContentLength != 0 {
+		if err := c.Bind(&segment); err != nil {
+			return c.JSON(400, echo.Map{"status": "error", "code": "AUDIO_ERROR_SEGMENT"})
+		}
+	}
+	if segment.StartMS != nil || segment.EndMS != nil {
+		if segment.StartMS == nil || segment.EndMS == nil ||
+			!validAudioSegment(*segment.StartMS, *segment.EndMS, track.DurationMS) {
+			return c.JSON(400, echo.Map{"status": "error", "code": "AUDIO_ERROR_SEGMENT"})
+		}
+		track.StartMS, track.EndMS = *segment.StartMS, *segment.EndMS
+	}
 	started := time.Now()
-	token, err := claimAudioPlayback(c.Request().Context(), track.DurationMS)
+	token, err := claimAudioPlayback(c.Request().Context(), track.playbackDurationMS())
 	if errors.Is(err, errAudioPlaybackBusy) {
 		return audioAPIError(c, http.StatusConflict, "Otro audio está reproduciéndose. Inténtalo cuando termine.")
 	}
@@ -668,7 +707,15 @@ func PlayAudioTrack(c echo.Context) error {
 		log.Printf("audio: no se pudo reservar reproducción para pista %d: %v", id, err)
 		return audioAPIError(c, http.StatusInternalServerError, "No se pudo reservar la reproducción.")
 	}
-	command, localNode, amiOutput, err := playAudioOnPrimary(track.StoredFilename)
+	filename, err := prepareAudioTrackPlayback(track)
+	if err != nil {
+		log.Printf("audio: segment creation failed: %v", err)
+		if releaseErr := releaseAudioPlayback(c.Request().Context(), token); releaseErr != nil {
+			log.Printf("audio: segment reservation release failed: %v", releaseErr)
+		}
+		return c.JSON(500, echo.Map{"status": "error", "code": "AUDIO_ERROR_SEGMENT"})
+	}
+	command, localNode, amiOutput, err := playAudioOnPrimary(filename)
 	if err != nil {
 		if releaseErr := releaseAudioPlayback(c.Request().Context(), token); releaseErr != nil {
 			log.Printf("audio: no se pudo liberar reproducción fallida para pista %d: %v", id, releaseErr)
@@ -681,6 +728,9 @@ func PlayAudioTrack(c echo.Context) error {
 		return audioAPIError(c, http.StatusBadGateway, "No se pudo iniciar la reproducción del audio.")
 	}
 	details := fmt.Sprintf("Audio %q enviado a Asterisk", track.Name)
+	if track.EndMS != 0 {
+		details += fmt.Sprintf(" [%d-%d ms]", track.StartMS, track.EndMS)
+	}
 	if amiOutput != "" {
 		details += ": " + amiOutput
 	}
@@ -739,10 +789,11 @@ func loadAudioTrack(ctx context.Context, id int64) (storedAudioTrack, error) {
 	err := config.App.DB.QueryRowContext(ctx, `
 		SELECT t.id, t.name, t.original_filename, t.playback_mode, t.enabled, t.file_size,
 			t.sample_rate, t.bits_per_sample, t.duration_ms, t.created_at, t.stored_filename,
-			COALESCE(s.interval_minutes, 0)
+			COALESCE(s.interval_minutes, 0), t.start_ms, t.end_ms
 		FROM audio_tracks t LEFT JOIN audio_broadcast_schedules s ON s.audio_id = t.id WHERE t.id = ?`, id).
 		Scan(&track.ID, &track.Name, &track.OriginalName, &track.PlaybackMode, &enabled, &track.FileSize,
-			&track.SampleRate, &track.BitsPerSample, &track.DurationMS, &createdAt, &track.StoredFilename, &track.IntervalMinutes)
+			&track.SampleRate, &track.BitsPerSample, &track.DurationMS, &createdAt, &track.StoredFilename, &track.IntervalMinutes,
+			&track.StartMS, &track.EndMS)
 	if err != nil {
 		return storedAudioTrack{}, err
 	}

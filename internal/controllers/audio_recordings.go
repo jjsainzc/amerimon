@@ -302,6 +302,7 @@ func (p *AudioRecordingControl) Start(c echo.Context) error {
 	if err != nil {
 		return recordingError(c, 502, "AUDIO_RECORD_START_ERROR", err)
 	}
+	channel = strings.Replace(channel, "@amerimon-listen-node/", "@amerimon-record-node/", 1)
 	filename, err := newAudioFilename()
 	if err != nil {
 		return recordingError(c, 500, "AUDIO_RECORD_START_ERROR", err)

@@ -28,6 +28,7 @@ import { TranslationService } from '../../core/services/translation.service';
 import { NoticePreferencesService } from '../../core/services/notice-preferences.service';
 import { NoticePreferenceComponent } from '../../shared/notice-preference/notice-preference.component';
 import { SiteSettingsService } from '../../core/services/site-settings.service';
+import { IndependentWindowDirective } from '../../features/audio-management/independent-window.directive';
 
 type SolicitudConexion = Readonly<SupermonCommandRequest & {
   remote_node: string;
@@ -37,7 +38,7 @@ type SolicitudConexion = Readonly<SupermonCommandRequest & {
 @Component({
   selector: 'app-allstarlink',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective, TranslatePipe, NoticePreferenceComponent],
+  imports: [CommonModule, FormsModule, ScrollTopComponent, FavoritosPopupComponent, CopyValueDirective, TranslatePipe, NoticePreferenceComponent, IndependentWindowDirective],
   templateUrl: './allstarlink.component.html',
   styleUrl: './allstarlink.component.css'
 })

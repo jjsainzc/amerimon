@@ -46,6 +46,10 @@
               [disabled]="busy() || recording.in_library || recording.duration_ms === 0" [attr.aria-busy]="processing('library', recording.id)">
               {{ (processing('library', recording.id) ? 'AUDIO_RECORD_PROCESSING' : recording.in_library ? 'AUDIO_RECORD_IN_LIBRARY' : 'AUDIO_RECORD_TO_LIBRARY') | audioLabel }}
             </button>
+            <button audioIcon="download" class="audio-button audio-secondary" type="button" (click)="download(recording)"
+              [disabled]="busy() || recording.duration_ms === 0" [attr.aria-busy]="processing('download', recording.id)">
+              {{ (processing('download', recording.id) ? 'AUDIO_DOWNLOADING' : 'AUDIO_DOWNLOAD') | audioLabel }}
+            </button>
             <button audioIcon="delete" class="audio-button audio-danger" type="button" (click)="pendingDelete.set(recording)" [disabled]="busy()">
               {{ 'AUDIO_DELETE' | audioLabel }}
             </button>

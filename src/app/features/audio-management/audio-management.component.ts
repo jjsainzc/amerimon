@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
-import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Component, DestroyRef, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { Subscription, from, map, of, switchMap, tap } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe, DecimalPipe } from '@angular/common';
@@ -10,6 +10,10 @@ import { AudioManagementService } from './audio-management.service';
 import { AudioRecordingsComponent } from './audio-recordings.component';
 import { AudioPlayerComponent } from './audio-player.component';
 import { AudioIconButtonComponent } from './audio-icon-button.component';
+import { IndependentWindowDirective } from './independent-window.directive';
+import { AUDIO_MANAGEMENT_MONITOR_URL } from './audio-management.tokens';
+import { downloadAudioBlob } from './audio-download';
+import { audioSegmentBlob } from './audio-segment';
 
 interface AudioTrackDraft {
   playbackMode: AudioPlaybackMode;
@@ -19,12 +23,14 @@ interface AudioTrackDraft {
 @Component({
   selector: 'app-audio-management',
   standalone: true,
-  imports: [AudioManagementLabelPipe, DatePipe, DecimalPipe, FormsModule, AudioRecordingsComponent, AudioPlayerComponent, AudioIconButtonComponent],
+  imports: [AudioManagementLabelPipe, DatePipe, DecimalPipe, FormsModule, AudioRecordingsComponent, AudioPlayerComponent, AudioIconButtonComponent, IndependentWindowDirective],
   templateUrl: './audio-management.component.html',
   styleUrl: './audio-management.component.css',
 })
 export class AudioManagementComponent implements OnDestroy {
   private readonly service = inject(AudioManagementService);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly monitorUrl = inject(AUDIO_MANAGEMENT_MONITOR_URL);
   @ViewChild('audioFileInput') private audioFileInput?: ElementRef<HTMLInputElement>;
 
   readonly tracks = signal<AudioTrack[]>([]);
@@ -42,6 +48,15 @@ export class AudioManagementComponent implements OnDestroy {
   readonly notice = signal('');
   readonly preview = signal<{ id: number; url: string } | null>(null);
   readonly previewLoadingId = signal<number | null>(null);
+  readonly downloadingId = signal<number | null>(null);
+  readonly pendingPlayback = signal<AudioTrack | null>(null);
+  readonly savingSelection = signal(false);
+  readonly selectionPreview = signal<{ url: string; start: number; end: number } | null>(null);
+  readonly selectionLoading = signal(false);
+  private selectionRequest?: Subscription;
+  playbackComplete = true;
+  playbackStartMS = 0;
+  playbackEndMS = 0;
   private previewRequest?: Subscription;
 
   name = '';
@@ -190,16 +205,140 @@ export class AudioManagementComponent implements OnDestroy {
   }
 
   play(track: AudioTrack): void {
-    if (this.busy() || !track.enabled) { return; }
-    this.playingId.set(track.id);
+    if (this.busy() || !track.enabled || track.playback_mode !== 'broadcast_once') { return; }
+    this.editPlaybackSelection(track);
+  }
+
+  editPlaybackSelection(track: AudioTrack): void {
+    if (this.busy()) { return; }
+    this.clearSelectionPreview();
+    this.error.set('');
+    this.playbackComplete = !track.end_ms;
+    this.playbackStartMS = track.start_ms ?? 0;
+    this.playbackEndMS = track.end_ms || track.duration_ms;
+    this.pendingPlayback.set(track);
+  }
+
+  resetPlaybackSelection(): void {
+    if (this.busy()) { return; }
+    this.clearSelectionPreview();
+    this.playbackComplete = true;
+    this.playbackStartMS = 0;
+    this.playbackEndMS = this.pendingPlayback()?.duration_ms ?? 0;
+  }
+
+  selectionPreviewMatches(): boolean {
+    const preview = this.selectionPreview();
+    return !!preview && preview.start === (this.playbackComplete ? 0 : this.playbackStartMS) &&
+      preview.end === (this.playbackComplete ? this.pendingPlayback()?.duration_ms : this.playbackEndMS);
+  }
+
+  listenSelection(): void {
+    const track = this.pendingPlayback();
+    if (!track || this.busy() || this.selectionLoading() || (!this.playbackComplete && !this.validPlaybackSegment())) { return; }
+    this.clearSelectionPreview();
+    this.clearPreview();
+    const start = this.playbackComplete ? 0 : this.playbackStartMS;
+    const end = this.playbackComplete ? track.duration_ms : this.playbackEndMS;
+    const complete = this.playbackComplete;
+    this.error.set('');
+    this.selectionLoading.set(true);
+    this.selectionRequest = this.service.trackFile(track.id).pipe(
+      switchMap(blob => complete ? of(blob) : from(blob.arrayBuffer()).pipe(
+        map(buffer => audioSegmentBlob(buffer, start, end)),
+      )),
+    ).subscribe({
+      next: blob => {
+        this.selectionLoading.set(false);
+        this.selectionPreview.set({ url: URL.createObjectURL(blob), start, end });
+      },
+      error: error => {
+        this.selectionLoading.set(false);
+        console.error('Audio selection preview failed', error);
+        this.fail(error, 'AUDIO_PREVIEW_ERROR');
+      },
+    });
+  }
+
+  closePlaybackSelection(): void {
+    if (this.busy() || this.selectionLoading()) { return; }
+    this.clearSelectionPreview();
+    this.pendingPlayback.set(null);
+  }
+
+  private clearSelectionPreview(): void {
+    this.selectionRequest?.unsubscribe();
+    const preview = this.selectionPreview();
+    if (preview) { URL.revokeObjectURL(preview.url); }
+    this.selectionPreview.set(null);
+    this.selectionLoading.set(false);
+  }
+
+  changePlaybackStart(value: number): void {
+    if (this.busy()) { return; }
+    this.clearSelectionPreview();
+    this.playbackStartMS = Math.max(0, Math.min(value, this.playbackEndMS - 1));
+  }
+
+  changePlaybackEnd(value: number): void {
+    if (this.busy()) { return; }
+    this.clearSelectionPreview();
+    this.playbackEndMS = Math.min(this.pendingPlayback()?.duration_ms ?? 0, Math.max(value, this.playbackStartMS + 1));
+  }
+
+  setPlaybackSeconds(bound: 'start' | 'end', value: number | null): void {
+    if (this.busy()) { return; }
+    this.clearSelectionPreview();
+    const milliseconds = value !== null && Number.isFinite(value) ? Math.round(value * 1000) : -1;
+    if (bound === 'start') {
+      this.playbackStartMS = milliseconds;
+    } else {
+      this.playbackEndMS = milliseconds;
+    }
+  }
+
+  changePlaybackComplete(complete: boolean): void {
+    if (this.busy()) { return; }
+    this.clearSelectionPreview();
+    this.playbackComplete = complete;
+  }
+
+  validPlaybackSegment(): boolean {
+    const track = this.pendingPlayback();
+    return !!track && Number.isInteger(this.playbackStartMS) && Number.isInteger(this.playbackEndMS) &&
+      this.playbackStartMS >= 0 && this.playbackEndMS > this.playbackStartMS && this.playbackEndMS <= track.duration_ms;
+  }
+
+  confirmPlayback(emit = true): void {
+    const track = this.pendingPlayback();
+    if (!track || this.busy() || (!this.playbackComplete && !this.validPlaybackSegment())) { return; }
+    if (emit && (!track.enabled || track.playback_mode !== 'broadcast_once')) { return; }
+    this.playingId.set(emit ? track.id : null);
+    this.savingSelection.set(!emit);
     this.error.set('');
     this.notice.set('');
-    this.service.play(track.id).subscribe({
+    const selection = this.playbackComplete ? { start_ms: 0, end_ms: 0 } : {
+      start_ms: this.playbackStartMS, end_ms: this.playbackEndMS,
+    };
+    const changed = selection.start_ms !== (track.start_ms ?? 0) || selection.end_ms !== (track.end_ms ?? 0);
+    let selectionSaved = !changed;
+    const saved = changed ? this.service.update(track.id, selection).pipe(tap(() => {
+      selectionSaved = true;
+      this.pendingPlayback.set({ ...track, ...selection });
+      this.tracks.update(tracks => tracks.map(item => item.id === track.id ? { ...item, ...selection } : item));
+    })) : of(undefined);
+    saved.pipe(switchMap(() => emit ? this.service.play(track.id) : of(undefined))).subscribe({
       next: () => {
-        this.notice.set('AUDIO_PLAY_REQUESTED');
+        this.clearSelectionPreview();
+        this.pendingPlayback.set(null);
+        this.notice.set(emit ? 'AUDIO_PLAY_REQUESTED' : 'AUDIO_UPDATE_SUCCESS');
         this.playingId.set(null);
+        this.savingSelection.set(false);
       },
-      error: error => this.fail(error, 'AUDIO_PLAY_ERROR'),
+      error: error => {
+        this.savingSelection.set(false);
+        this.fail(error, selectionSaved && emit ? 'AUDIO_PLAY_ERROR' : 'AUDIO_UPDATE_ERROR');
+      },
     });
   }
 
@@ -228,7 +367,24 @@ export class AudioManagementComponent implements OnDestroy {
     this.preview.set(null);
   }
 
+  download(track: AudioTrack): void {
+    if (this.busy()) { return; }
+    this.error.set('');
+    this.downloadingId.set(track.id);
+    this.service.trackFile(track.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: blob => {
+        downloadAudioBlob(blob, track.name);
+        this.downloadingId.set(null);
+      },
+      error: error => {
+        this.downloadingId.set(null);
+        this.fail(error, 'AUDIO_DOWNLOAD_ERROR');
+      },
+    });
+  }
+
   ngOnDestroy(): void {
+    this.clearSelectionPreview();
     this.clearPreview();
   }
 

@@ -34,14 +34,33 @@
 .audio-track-mode, .audio-track-interval { display: inline-grid; margin: .6rem .8rem 0 0; }
 .audio-actions { display: flex; align-items: flex-start; justify-content: flex-end; gap: .4rem; flex-wrap: wrap; }
 .audio-mode { grid-column: 1 / -1; margin: 0; color: #80cfd6; font-size: .78rem; }
+.audio-fragment-badge { justify-self: start; padding: .4rem .6rem; border: 1px solid #a78039; border-radius: 5px; background: #44351d; color: #ffe0a3; }
 .audio-error, .audio-notice { padding: .7rem; border: 1px solid #713b3b; border-radius: 5px; background: #392729; color: #ffaaa4; }
 .audio-notice { border-color: #347c69; background: #183c34; color: #9cddc2; }
 .audio-state { padding: 1rem 0; color: #a9bac5; }
 .audio-confirm-overlay { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgba(11, 24, 32, .62); backdrop-filter: blur(3px); }
-.audio-confirm-dialog { width: min(100%, 440px); display: grid; grid-template-columns: 2.5rem 1fr; gap: .9rem 1rem; padding: 1.35rem; color: #e3ebef; background: #1d2a34; border: 1px solid #3b4d58; border-radius: 10px; box-shadow: 0 18px 60px rgba(0, 0, 0, .28); }
+.audio-confirm-dialog { width: min(100%, 440px); max-height: calc(100dvh - 2rem); overflow-y: auto; box-sizing: border-box; display: grid; grid-template-columns: 2.5rem 1fr; gap: .9rem 1rem; padding: 1.35rem; color: #e3ebef; background: #1d2a34; border: 1px solid #3b4d58; border-radius: 10px; box-shadow: 0 18px 60px rgba(0, 0, 0, .28); }
 .audio-confirm-icon { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; color: #ffaaa0; background: #442724; border: 1px solid #73403a; border-radius: 50%; font-size: 1.25rem; font-weight: 800; }
 .audio-confirm-content h2 { margin: .15rem 0 .45rem; color: #f0f5f7; font-size: 1.15rem; }
 .audio-confirm-content p { margin: 0; color: #bdc9d1; line-height: 1.5; overflow-wrap: anywhere; }
+.audio-playback-options { grid-column: 1 / -1; display: grid; gap: .75rem; }
+.audio-playback-options label { display: block; color: #dce5eb; }
+.audio-range-labels { display: flex; justify-content: space-between; gap: .75rem; font-size: .85rem; }
+.audio-range-labels label:last-child { text-align: right; }
+.audio-range { position: relative; height: 2rem; }
+.audio-range-rail { position: absolute; inset: calc(50% - 3px) 9px auto; height: 6px; border-radius: 3px; background: #506673; }
+.audio-range-rail span { position: absolute; height: 100%; background: #51b9c4; }
+.audio-range input { appearance: none; -webkit-appearance: none; position: absolute; inset: 0; width: 100%; height: 2rem; margin: 0; padding: 0; background: transparent; pointer-events: none; }
+.audio-range input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 18px; height: 24px; border: 2px solid #e3ebef; border-radius: 4px; background: #16616d; pointer-events: auto; cursor: ew-resize; }
+.audio-range input::-moz-range-thumb { width: 14px; height: 20px; border: 2px solid #e3ebef; border-radius: 4px; background: #16616d; pointer-events: auto; cursor: ew-resize; }
+.audio-range input:focus-visible { outline: none; z-index: 1; }
+.audio-range input:focus-visible::-webkit-slider-thumb { outline: 3px solid #51b9c4; outline-offset: 2px; }
+.audio-range input:focus-visible::-moz-range-thumb { outline: 3px solid #51b9c4; outline-offset: 2px; }
+.audio-range input:disabled { opacity: .55; }
+.audio-range input:disabled::-webkit-slider-thumb { cursor: not-allowed; }
+.audio-range input:disabled::-moz-range-thumb { cursor: not-allowed; }
+.audio-range-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.audio-range-values input { box-sizing: border-box; width: 100%; margin-top: .35rem; padding: .5rem; border: 1px solid #506673; border-radius: 4px; background: #14212a; color: #eef4f7; }
 .audio-confirm-content .audio-confirm-error { margin-top: .65rem; color: #ffaaa4; }
 .audio-confirm-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: .65rem; margin-top: .35rem; }
 .audio-confirm-actions button { min-height: 2.5rem; padding: .5rem .9rem; border: 1px solid transparent; border-radius: 6px; font: inherit; font-weight: 650; cursor: pointer; }

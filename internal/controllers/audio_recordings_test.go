@@ -34,7 +34,7 @@ func recordingFixture(t *testing.T) *AudioRecordingControl {
 	config.App.Audio.StorageDir = t.TempDir()
 	p := NewAudioRecordingControl(config.NewAudioStreamManager())
 	p.originate = func(channel, uuid string) error {
-		if channel != "Local/616265@amerimon-listen-node/n" {
+		if channel != "Local/616265@amerimon-record-node/n" {
 			t.Fatalf("wrong recording source: %s", channel)
 		}
 		p.manager.Broadcast(uuid, make([]byte, 320))

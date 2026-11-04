@@ -14,6 +14,7 @@ for tool in npm go systemctl getent; do
 done
 command -v netstat >/dev/null 2>&1 || { echo "No se encontró netstat; instala net-tools." >&2; exit 1; }
 command -v ip >/dev/null 2>&1 || { echo "No se encontró ip; instala iproute2." >&2; exit 1; }
+command -v ffmpeg >/dev/null 2>&1 || { echo "No se encontró ffmpeg; instala ffmpeg para convertir los audios." >&2; exit 1; }
 
 cd "$ROOT_DIR"
 npm ci

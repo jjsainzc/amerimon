@@ -69,7 +69,7 @@ export class AudioManagementService {
     }));
   }
 
-  update(id: number, patch: Partial<Pick<AudioTrack, 'name' | 'playback_mode' | 'enabled' | 'interval_minutes'>>): Observable<void> {
+  update(id: number, patch: Partial<Pick<AudioTrack, 'name' | 'playback_mode' | 'enabled' | 'interval_minutes' | 'start_ms' | 'end_ms'>>): Observable<void> {
     return this.track(this.http.patch<void>(`${this.tracksUrl}/${id}`, patch));
   }
 
@@ -77,8 +77,8 @@ export class AudioManagementService {
     return this.track(this.http.delete<void>(`${this.tracksUrl}/${id}`));
   }
 
-  play(id: number): Observable<void> {
-    return this.track(this.http.post<void>(`${this.tracksUrl}/${id}/play`, {}));
+  play(id: number, segment: { start_ms?: number; end_ms?: number } = {}): Observable<void> {
+    return this.track(this.http.post<void>(`${this.tracksUrl}/${id}/play`, segment));
   }
 
   trackFile(id: number): Observable<Blob> {

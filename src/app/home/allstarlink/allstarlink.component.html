@@ -6,6 +6,17 @@
       <p class="allstarlink-ayuda">{{ 'CONSULTA_EL_ESTADO_DE_LOS_ENLACES_Y_LOS_NODOS_CONECTADOS_AGRUPADOS_POR_SERVIDOR_LOCAL' | translate }}</p>
     </div>
     <div class="allstarlink-controles">
+      @if (esAdmin()) {
+        <button type="button" class="allstarlink-ventana accion-estandar" independentWindow="admin/audio"
+          (windowBlocked)="error.set('AUDIO_WINDOW_BLOCKED')"
+          [title]="'AUDIO_OPEN_AUDIO_WINDOW' | translate" [attr.aria-label]="'AUDIO_OPEN_AUDIO_WINDOW' | translate">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="16" rx="3" />
+            <circle cx="7" cy="12" r="2.5" fill="currentColor" stroke="none" />
+            <path d="m14 8 5 4-5 4Z" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+      }
       <label class="allstarlink-intervalo">
         <span>{{ 'ACTUALIZAR_CADA' | translate }}</span>
         <select [value]="intervaloMs()" (change)="cambiarIntervalo($any($event.target).value)">
@@ -34,7 +45,7 @@
   </header>
 
   @if (error()) {
-    <p class="allstarlink-error" role="alert">{{ error() }}</p>
+    <p class="allstarlink-error" role="alert">{{ error() === 'AUDIO_WINDOW_BLOCKED' ? ('AUDIO_WINDOW_BLOCKED' | translate) : error() }}</p>
   }
   @if (esAdmin()) {
     <section id="allstarlink-admin-panel" class="allstarlink-admin" aria-labelledby="allstarlink-admin-titulo">

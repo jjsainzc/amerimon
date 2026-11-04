@@ -3,6 +3,8 @@ export { AudioRecordingsComponent } from './audio-recordings.component';
 export { AudioLevelMeterComponent } from './audio-level-meter.component';
 export { AudioPlayerComponent } from './audio-player.component';
 export { AudioIconButtonComponent } from './audio-icon-button.component';
+export { IndependentWindowDirective } from './independent-window.directive';
+export { AUDIO_MANAGEMENT_MONITOR_URL } from './audio-management.tokens';
 export type { AudioRecording } from './audio-management.model';
 export { AudioManagementLabelPipe } from './audio-management-label.pipe';
 export type { AudioManagementTranslate } from './audio-management.i18n';

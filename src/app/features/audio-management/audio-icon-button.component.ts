@@ -1,8 +1,12 @@
 import { AfterContentChecked, Component, ElementRef, inject, input } from '@angular/core';
 
 const icons = {
+  monitor: 'M3 4h18v16H3V4m0 5h18M9 9v11M3 14h18',
+  segment: 'M4 5v14m16-14v14M4 12h16M8 8v8m8-8v8',
+  window: 'M14 3h7v7m0-7L10 14M10 3H3v18h18v-7',
   refresh: 'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 6M4 12l2 6a7 7 0 0 0 12-1',
   upload: 'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',
+  download: 'M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4',
   save: 'M4 3h13l4 4v14H3V3h1m3 0v7h10V3M7 21v-7h10v7',
   enable: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M8 12l3 3 5-6',
   disable: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18M8 12h8',

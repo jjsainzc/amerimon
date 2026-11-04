@@ -178,4 +178,25 @@ describe('Reusable node audio recordings', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('button[audioIcon="record"]').title).toBe(es.AUDIO_RECORD_START);
   });
+
+  it('downloads only saved recordings without broadcasting', async () => {
+    const component = await create();
+    component.download(recording);
+    http.expectNone(`${baseUrl}/1/file`);
+    const saved: AudioRecording = { ...recording, state: 'completed', duration_ms: 1000 };
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:saved');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function(this: HTMLAnchorElement) {
+      expect(this.download).toBe('QSO test.wav');
+    });
+    component.download(saved);
+    expect(component.busy()).toBe(true);
+    http.expectOne(`${baseUrl}/1/file`).flush(new Blob(['RIFF']));
+    expect(click).toHaveBeenCalledOnce();
+    expect(component.busy()).toBe(false);
+    http.expectNone('/api/audio/tracks/1/play');
+    component.ngOnDestroy();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(revoke).toHaveBeenCalledWith('blob:saved');
+  });
 });

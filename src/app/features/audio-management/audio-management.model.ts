@@ -8,6 +8,8 @@ export interface AudioTrack {
   enabled: boolean;
   file_size: number;
   duration_ms: number;
+  start_ms?: number;
+  end_ms?: number;
   sample_rate: number;
   bits_per_sample: number;
   interval_minutes?: number;

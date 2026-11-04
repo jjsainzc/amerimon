@@ -89,7 +89,7 @@ func runAudioPlaybackCycle(now time.Time) {
 		if !track.Enabled || track.PlaybackMode != "broadcast_silence" || track.NextPlayAt == nil || track.NextPlayAt.After(now) {
 			continue
 		}
-		token, claimErr := claimAudioPlayback(context.Background(), track.DurationMS)
+		token, claimErr := claimAudioPlayback(context.Background(), track.playbackDurationMS())
 		if errors.Is(claimErr, errAudioPlaybackBusy) {
 			continue
 		}
@@ -97,8 +97,15 @@ func runAudioPlaybackCycle(now time.Time) {
 			log.Printf("audio: no se pudo reservar reproducción programada para pista %d: %v", track.ID, claimErr)
 			continue
 		}
-		command, localNode, amiOutput, playErr := playAudioOnPrimary(track.StoredFilename)
+		filename, playErr := prepareAudioTrackPlayback(track)
+		var command, localNode, amiOutput string
+		if playErr == nil {
+			command, localNode, amiOutput, playErr = playAudioOnPrimary(filename)
+		}
 		result, details := "success", fmt.Sprintf("Audio %q enviado durante silencio total", track.Name)
+		if track.EndMS != 0 {
+			details += fmt.Sprintf(" [%d-%d ms]", track.StartMS, track.EndMS)
+		}
 		if playErr != nil {
 			if releaseErr := releaseAudioPlayback(context.Background(), token); releaseErr != nil {
 				log.Printf("audio: no se pudo liberar reproducción fallida para pista %d: %v", track.ID, releaseErr)
@@ -141,7 +148,7 @@ func readAudioNodeState(instance allmonInstance) (audioNodeState, error) {
 func loadScheduledAudioTracks(ctx context.Context) ([]storedAudioTrack, error) {
 	rows, err := config.App.DB.QueryContext(ctx, `
 		SELECT t.id, t.name, t.stored_filename, t.playback_mode, t.enabled,
-			t.duration_ms, s.interval_minutes, s.next_play_at
+			t.duration_ms, s.interval_minutes, s.next_play_at, t.start_ms, t.end_ms
 		FROM audio_tracks t
 		LEFT JOIN audio_broadcast_schedules s ON s.audio_id = t.id
 		WHERE t.playback_mode = 'broadcast_silence' AND t.enabled = 1
@@ -156,7 +163,7 @@ func loadScheduledAudioTracks(ctx context.Context) ([]storedAudioTrack, error) {
 		var enabled int
 		var next sql.NullString
 		if err := rows.Scan(&track.ID, &track.Name, &track.StoredFilename, &track.PlaybackMode, &enabled,
-			&track.DurationMS, &track.IntervalMinutes, &next); err != nil {
+			&track.DurationMS, &track.IntervalMinutes, &next, &track.StartMS, &track.EndMS); err != nil {
 			return nil, err
 		}
 		track.Enabled = enabled != 0

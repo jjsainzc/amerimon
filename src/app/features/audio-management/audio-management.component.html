@@ -5,9 +5,17 @@
       <h1>{{ 'AUDIO_MANAGEMENT_TITLE' | audioLabel }}</h1>
       <p>{{ 'AUDIO_MANAGEMENT_DESCRIPTION' | audioLabel }}</p>
     </div>
+    <div class="audio-actions">
+    @if (monitorUrl; as url) {
+      <button audioIcon="monitor" class="audio-button audio-secondary" type="button" [independentWindow]="url"
+        (windowBlocked)="error.set('AUDIO_WINDOW_BLOCKED')" [disabled]="busy()">
+        {{ 'AUDIO_OPEN_MONITOR_WINDOW' | audioLabel }}
+      </button>
+    }
     <button audioIcon="refresh" class="audio-button audio-secondary" type="button" (click)="load()" [disabled]="busy()" [attr.aria-busy]="loading() && savingTrackId() === null && togglingId() === null">
       {{ (loading() && savingTrackId() === null && togglingId() === null ? 'AUDIO_LOADING' : 'AUDIO_REFRESH') | audioLabel }}
     </button>
+    </div>
   </header>
 
   @if (error()) { <p class="audio-error" role="alert">{{ error() | audioLabel }}</p> }
@@ -24,7 +32,7 @@
       </label>
       <label>
         {{ 'AUDIO_FILE' | audioLabel }}
-        <input #audioFileInput name="file" type="file" accept=".wav,audio/wav" (change)="selectFile($event)" required [disabled]="busy()" />
+        <input #audioFileInput name="file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.oga,.opus,.m4a,.mp4,.aac,.wma,.aif,.aiff,.webm,.mka,.amr,.ape" (change)="selectFile($event)" required [disabled]="busy()" />
       </label>
     </div>
     <p class="audio-help">{{ 'AUDIO_WAV_REQUIREMENTS' | audioLabel }}</p>
@@ -90,14 +98,30 @@
               [disabled]="busy()" [attr.aria-busy]="previewLoadingId() === track.id">
               {{ (previewLoadingId() === track.id ? 'AUDIO_LOADING' : 'AUDIO_LISTEN_LOCAL') | audioLabel }}
             </button>
+            <button audioIcon="download" class="audio-button audio-secondary" type="button" (click)="download(track)"
+              [disabled]="busy()" [attr.aria-busy]="downloadingId() === track.id">
+              {{ (downloadingId() === track.id ? 'AUDIO_DOWNLOADING' : 'AUDIO_DOWNLOAD') | audioLabel }}
+            </button>
+            <button audioIcon="segment" class="audio-button audio-secondary" type="button" (click)="editPlaybackSelection(track)" [disabled]="busy()">
+              {{ 'AUDIO_SEGMENT_SETTINGS' | audioLabel }}
+            </button>
             @if (track.playback_mode === 'broadcast_once') {
-              <button audioIcon="broadcast" class="audio-button" type="button" (click)="play(track)" [disabled]="!track.enabled || busy()" [attr.aria-busy]="playingId() === track.id">
-                {{ (playingId() === track.id ? 'AUDIO_PLAYING' : 'AUDIO_PLAY_ASTERISK') | audioLabel }}
+              <button audioIcon="broadcast" class="audio-button" type="button" (click)="play(track)" [disabled]="!track.enabled || busy()">
+                {{ 'AUDIO_PLAY_ASTERISK' | audioLabel }}
               </button>
             }
             <button audioIcon="delete" class="audio-button audio-danger" type="button" (click)="remove(track)" [disabled]="busy()">{{ 'AUDIO_DELETE' | audioLabel }}</button>
           </div>
           <p class="audio-mode">{{ modeLabel(track.playback_mode) | audioLabel }}</p>
+          <p class="audio-mode" [class.audio-fragment-badge]="!!track.end_ms">
+            @if (track.end_ms) {
+              <strong>{{ 'AUDIO_FRAGMENT_SELECTED' | audioLabel }}</strong>:
+              {{ (track.start_ms ?? 0) / 1000 | number:'1.0-3' }} s - {{ track.end_ms / 1000 | number:'1.0-3' }} s
+              · {{ 'AUDIO_FRAGMENT_DURATION' | audioLabel }}: {{ (track.end_ms - (track.start_ms ?? 0)) / 1000 | number:'1.0-3' }} s
+            } @else {
+              {{ 'AUDIO_PLAY_COMPLETE' | audioLabel }}
+            }
+          </p>
           @if (preview(); as audio) {
             @if (audio.id === track.id) {
               <app-audio-player [src]="audio.url" [label]="track.name" [attr.inert]="busy() ? '' : null" />
@@ -108,6 +132,74 @@
     </div>
   }
 </section>
+
+@if (pendingPlayback(); as track) {
+  <div class="audio-confirm-overlay">
+    <section class="audio-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="audio-playback-title">
+      <div class="audio-confirm-content audio-playback-options">
+        <h2 id="audio-playback-title">{{ 'AUDIO_SEGMENT_SETTINGS' | audioLabel }}</h2>
+        <p>{{ track.name }}</p>
+        <label><input type="radio" name="playbackSelection" [value]="true" [ngModel]="playbackComplete" (ngModelChange)="changePlaybackComplete($event)" [disabled]="busy()" /> {{ 'AUDIO_PLAY_COMPLETE' | audioLabel }}</label>
+        <label><input type="radio" name="playbackSelection" [value]="false" [ngModel]="playbackComplete" (ngModelChange)="changePlaybackComplete($event)" [disabled]="busy()" /> {{ 'AUDIO_PLAY_FRAGMENT' | audioLabel }}</label>
+        @if (!playbackComplete) {
+          <div class="audio-range-labels">
+            <label for="audio-segment-start">{{ 'AUDIO_FRAGMENT_START' | audioLabel }}: {{ playbackStartMS / 1000 | number:'1.0-3' }} s</label>
+            <label for="audio-segment-end">{{ 'AUDIO_FRAGMENT_END' | audioLabel }}: {{ playbackEndMS / 1000 | number:'1.0-3' }} s</label>
+          </div>
+          <div class="audio-range">
+            <div class="audio-range-rail"><span [style.left.%]="100 * playbackStartMS / track.duration_ms" [style.width.%]="100 * (playbackEndMS - playbackStartMS) / track.duration_ms"></span></div>
+            <input id="audio-segment-start" type="range" min="0" [max]="track.duration_ms" step="1"
+              [ngModel]="playbackStartMS" (ngModelChange)="changePlaybackStart($event)" [disabled]="busy()"
+              [attr.aria-valuemax]="playbackEndMS - 1" />
+            <input id="audio-segment-end" type="range" min="0" [max]="track.duration_ms" step="1"
+              [ngModel]="playbackEndMS" (ngModelChange)="changePlaybackEnd($event)" [disabled]="busy()"
+              [attr.aria-valuemin]="playbackStartMS + 1" />
+          </div>
+          <div class="audio-range-labels"><span>0 s</span><span>{{ track.duration_ms / 1000 | number:'1.0-3' }} s</span></div>
+          <p class="audio-help">{{ 'AUDIO_FRAGMENT_DRAG_HELP' | audioLabel }}</p>
+          <div class="audio-range-values">
+            <label>{{ 'AUDIO_FRAGMENT_START' | audioLabel }} (s)
+              <input type="number" min="0" [max]="track.duration_ms / 1000" step="0.001"
+                [ngModel]="playbackStartMS / 1000" (ngModelChange)="setPlaybackSeconds('start', $event)" [disabled]="busy()" />
+            </label>
+            <label>{{ 'AUDIO_FRAGMENT_END' | audioLabel }} (s)
+              <input type="number" min="0" [max]="track.duration_ms / 1000" step="0.001"
+                [ngModel]="playbackEndMS / 1000" (ngModelChange)="setPlaybackSeconds('end', $event)" [disabled]="busy()" />
+            </label>
+          </div>
+          <p>{{ 'AUDIO_FRAGMENT_DURATION' | audioLabel }}: {{ (playbackEndMS - playbackStartMS) / 1000 | number:'1.0-3' }} s</p>
+          @if (!validPlaybackSegment()) { <p class="audio-confirm-error">{{ 'AUDIO_ERROR_SEGMENT' | audioLabel }}</p> }
+        }
+        <button class="audio-button audio-secondary" type="button" (click)="resetPlaybackSelection()" [disabled]="busy()">{{ 'AUDIO_FRAGMENT_RESET' | audioLabel }}</button>
+        <p>{{ 'AUDIO_FRAGMENT_HELP' | audioLabel }}</p>
+        <button audioIcon="listen" class="audio-button audio-secondary" type="button" (click)="listenSelection()"
+          [disabled]="busy() || selectionLoading() || (!playbackComplete && !validPlaybackSegment())" [attr.aria-busy]="selectionLoading()">
+          {{ (selectionLoading() ? 'AUDIO_LOADING' : 'AUDIO_LISTEN_SELECTION') | audioLabel }}
+        </button>
+        <p class="audio-help">{{ 'AUDIO_LISTEN_SELECTION_HELP' | audioLabel }}</p>
+        @if (selectionPreviewMatches()) {
+          @if (selectionPreview(); as audio) {
+            <app-audio-player [src]="audio.url" [label]="'AUDIO_LISTEN_SELECTION' | audioLabel" [attr.inert]="busy() ? '' : null" />
+          }
+        }
+        @if (error()) { <p class="audio-confirm-error" role="alert">{{ error() | audioLabel }}</p> }
+      </div>
+      <div class="audio-confirm-actions">
+        <button audioIcon="cancel" class="audio-confirm-cancel" type="button" (click)="closePlaybackSelection()" [disabled]="busy() || selectionLoading()">{{ 'AUDIO_CANCEL' | audioLabel }}</button>
+        <button audioIcon="save" class="audio-button" type="button" (click)="confirmPlayback(false)"
+          [disabled]="busy() || (!playbackComplete && !validPlaybackSegment())" [attr.aria-busy]="savingSelection()">
+          {{ (savingSelection() ? 'AUDIO_SAVING_SETTINGS' : 'AUDIO_SAVE_SETTINGS') | audioLabel }}
+        </button>
+        @if (track.enabled && track.playback_mode === 'broadcast_once') {
+        <button audioIcon="broadcast" class="audio-button" type="button" (click)="confirmPlayback()"
+          [disabled]="busy() || (!playbackComplete && !validPlaybackSegment())" [attr.aria-busy]="playingId() === track.id">
+          {{ (playingId() === track.id ? 'AUDIO_PLAYING' : 'AUDIO_PLAY_ASTERISK') | audioLabel }}
+        </button>
+        }
+      </div>
+    </section>
+  </div>
+}
 
 @if (pendingDelete()) {
   <div class="audio-confirm-overlay">

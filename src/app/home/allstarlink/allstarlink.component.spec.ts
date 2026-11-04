@@ -4,7 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { AllstarlinkComponent } from './allstarlink.component';
 import { environment } from '../../core/environment';
 import { vi } from 'vitest';
-import { signal } from '@angular/core';
+import { signal, WritableSignal } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { TranslatePipe } from '../../core/pipes/translate.pipe';
 import { TranslationService } from '../../core/services/translation.service';
@@ -90,6 +90,21 @@ describe('Allstarlink connection target safety', () => {
     fixture.detectChanges();
     return { fixture, component, http, element: fixture.nativeElement as HTMLElement };
   }
+
+  it('shows the audio window shortcut only for administrators', async () => {
+    const { fixture, http, element } = await crearMonitor();
+    expect(element.querySelector('[independentWindow="admin/audio"]')).not.toBeNull();
+    expect(element.querySelector('[independentWindow="admin/audio"] svg circle')).not.toBeNull();
+    expect(element.querySelector('[independentWindow="admin/audio"] svg path')).not.toBeNull();
+    const auth = TestBed.inject(AuthService);
+    (auth.esAdmin as WritableSignal<boolean>).set(false);
+    fixture.changeDetectorRef.markForCheck();
+    fixture.detectChanges();
+    expect(element.querySelector('[independentWindow="admin/audio"]')).toBeNull();
+    fixture.destroy();
+    http.verify();
+    vi.restoreAllMocks();
+  });
 
   it('uses the administrator initial refresh interval unless a user chooses another mode', async () => {
     const settings = TestBed.inject(SiteSettingsService);

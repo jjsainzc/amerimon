@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Subscription, timer, exhaustMap, filter, finalize } from 'rxjs';
@@ -9,6 +10,7 @@ import { AudioRecording } from './audio-management.model';
 import { AudioLevelMeterComponent } from './audio-level-meter.component';
 import { AudioPlayerComponent } from './audio-player.component';
 import { AudioIconButtonComponent } from './audio-icon-button.component';
+import { downloadAudioBlob } from './audio-download';
 
 @Component({
   selector: 'app-audio-recordings',
@@ -19,6 +21,7 @@ import { AudioIconButtonComponent } from './audio-icon-button.component';
 })
 export class AudioRecordingsComponent implements OnDestroy {
   private readonly service = inject(AudioManagementService);
+  private readonly destroyRef = inject(DestroyRef);
   private poll?: Subscription;
   private previewRequest?: Subscription;
   private destroyed = false;
@@ -124,6 +127,18 @@ export class AudioRecordingsComponent implements OnDestroy {
         this.complete('AUDIO_RECORD_ADDED');
       },
       error: error => this.fail(error, 'AUDIO_RECORD_LIBRARY_ERROR'),
+    });
+  }
+
+  download(recording: AudioRecording): void {
+    if (this.busy() || this.isActive(recording) || recording.duration_ms === 0) { return; }
+    this.begin('download', recording.id);
+    this.service.recordingFile(recording.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: blob => {
+        downloadAudioBlob(blob, recording.name);
+        this.action.set(null);
+      },
+      error: error => this.fail(error, 'AUDIO_DOWNLOAD_ERROR'),
     });
   }
 

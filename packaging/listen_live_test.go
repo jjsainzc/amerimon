@@ -99,7 +99,7 @@ func TestListenLiveDialplanInstallation(t *testing.T) {
 					t.Fatal(err)
 				}
 				result := string(data)
-				for _, required := range []string{protected, pjsip, "[amerimon-listen-node]", "AST_CONFIG(${AMERIMON_RPT_CONFIG},${EXTEN},rxchannel,-1)", "ChanSpy(${AMERIMON_RX},q)", "AMERIMON_RX=${AMERIMON_RX}@default", "EAGI(/usr/local/bin/audio_eagi.sh,${EXTEN},8086)"} {
+				for _, required := range []string{protected, pjsip, "[amerimon-listen-node]", "[amerimon-record-node]", "Rpt(${EXTEN},Pm)", "AST_CONFIG(${AMERIMON_RPT_CONFIG},${EXTEN},rxchannel,-1)", "ChanSpy(${AMERIMON_RX},q)", "AMERIMON_RX=${AMERIMON_RX}@default", "EAGI(/usr/local/bin/audio_eagi.sh,${EXTEN},8086)"} {
 					if !strings.Contains(result, required) {
 						t.Fatalf("missing or modified %q\n%s", required, result)
 					}
@@ -107,7 +107,7 @@ func TestListenLiveDialplanInstallation(t *testing.T) {
 				if strings.Count(result, "exten => nodo,") != 1 {
 					t.Fatalf("duplicate node extension:\n%s", result)
 				}
-				if strings.Contains(result, "Rpt(") || strings.Contains(result, "SimpleUSB/${NODE}") {
+				if strings.Count(result, "Rpt(") != 1 || strings.Contains(result, "SimpleUSB/${NODE}") {
 					t.Fatalf("unvalidated monitor or stale hardcoded channel:\n%s", result)
 				}
 				if tc.custom && !strings.Contains(result, custom) {

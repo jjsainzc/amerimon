@@ -20,9 +20,11 @@ The displayed entropy is calculated from the observed character frequencies in t
 
 ### Audio management and playback
 
+Only administrators see the **record/playback** icon (circle and triangle) in the AllStarLink table header to open **Audio management in another window**. The **table** icon in Audio management opens the AllStarLink table. Both retain tooltips and accessible labels in Spanish and English. The original page remains open so connections and audio can be managed side by side. Allow popups for this site if blocked; the browser may choose a tab instead of a window. Credentials are not transferred: an unremembered session may require login in the new window. The audio route retains administrator authorization.
+
 **Administration → Audio management** (`/admin/audio`) is an administrator-only option. It provides a library of WAV audio that administrators can activate or deactivate when needed. Files and settings are stored by the backend and in SQLite; signing out or closing the page does not stop scheduling. Tracks remain until an administrator explicitly deletes them.
 
-- Accepted format: linear PCM WAV, mono, 8-bit or 16-bit, 8000 Hz; maximum 25 MiB. 8-bit files are converted to 16-bit PCM, the format Asterisk requires for WAV playback.
+- Upload formats: WAV, MP3, FLAC, OGG/Opus, M4A/MP4, AAC, WMA, AIFF, WebM, MKA, AMR and APE, depending on installed FFmpeg codecs. Uploads are no longer WAV-only: the server converts to 16-bit, 8000 Hz mono PCM WAV. Both input and converted output are limited to 25 MiB; conversions reaching the limit are rejected rather than saving truncated audio. One conversion runs at a time per service, with a 60-second timeout. Install `ffmpeg` before running the local installer; the Debian package declares it as a dependency. Already compatible WAV files do not require external conversion.
 - `broadcast_once`: the administrator clicks the **Play on Asterisk** broadcast icon; Asterisk starts a broadcast to the primary node and its linked stations. This is a one-time action and is not repeated merely because the track remains enabled.
 - `broadcast_silence`: each enabled track has its own interval, from 1 to 10080 minutes. The backend plays only when it can confirm total silence across all monitored nodes; if an interval expires during activity, the broadcast remains pending until all nodes are silent. After playback, the next interval begins. Broadcasts are serialized with a persistent reservation lasting the measured audio duration plus two seconds. If Asterisk rejects a broadcast, the error is logged and retried when the next interval becomes due.
 - To distribute audio from the primary node to linked nodes, `duplex` must be nonzero (modes 1–4); Amerimon validates the effective value, including inherited template values. The **Primary node** settings screen can set `duplex` and automatically runs `module reload app_rpt.so` after saving.
@@ -39,7 +41,7 @@ The panel, meters, icon descriptions, errors, and confirmations follow the heade
 
 ### Primary node recordings
 
-In **Administration → Audio management**, the **Primary node recordings** card captures the same node/link listening mix as Listen Live. It does not use the browser microphone or transmit audio to stations. It requires the existing `amerimon-listen-node`/`listen-live-eagi` dialplan, EAGI script, and local listener used by Listen Live; it does not rewrite Asterisk configuration.
+In **Administration → Audio management**, the **Primary node recordings** card captures the node/link mix. It does not use the browser microphone or transmit audio to stations. It requires the dedicated `amerimon-record-node` context using `Rpt(node,Pm)` in monitor-only phone mode, together with the `listen-live-eagi` transport, EAGI script and local listener. Spying only on the radio `rxchannel` can yield silence while linked stations speak; recording does not use that source. The installer adds the recording context without changing Listen Live's radio context or existing custom blocks. After updating the backend and dialplan, stop and restart an older capture to change its source.
 
 - Enter a name and click **Start recording**. Only one capture can be active. Startup is confirmed after EAGI PCM arrives, not merely when AMI accepts Originate.
 - Silence is omitted automatically based on PCM energy (approximately −40 dBFS RMS), retaining 200 ms before and 500 ms after detection. This is level detection, not speech recognition: noise above the threshold is also retained. The status shows **Automatic pause: waiting for audio** and resumes when audio returns; duration measures only retained audio, including these margins.
@@ -49,6 +51,25 @@ In **Administration → Audio management**, the **Primary node recordings** card
 - **Listen** downloads the WAV through the authenticated API for browser-only playback. **Add to library** makes an independent one-time-broadcast copy without broadcasting or scheduling it automatically. You can later change mode and interval in its library card. **Delete** requires confirmation and removes only the original recording, not an existing library copy.
 
 Additive migration `0014_audio_recordings.sql` creates `audio_recordings` without modifying existing audio or configurations. All routes require administrator authorization: `GET/POST /mon/audio/recordings`, `PATCH /mon/audio/recordings/:id` with `action: pause|resume|stop`, `GET /mon/audio/recordings/:id/file`, `DELETE /mon/audio/recordings/:id`, and `POST /mon/audio/recordings/:id/library`.
+
+#### Selecting, previewing and saving a segment
+
+1. On the library card, press **Configure broadcast segment**. This is also available for scheduled or disabled tracks. The manual broadcast icon opens the same dialog.
+2. Select **Choose a segment**. Drag the left handle for **Start** and the right handle for **End**, or enter **Start (s)** and **End (s)** with 0.001-second precision. The handles also support keyboard adjustment and cannot cross. The highlighted bar shows the selected portion. For example, start 5 and end 20 selects 15 seconds.
+3. To check without transmitting, press the **Listen to selection** headphones inside the dialog, then play in the player that appears. It includes a level meter and plays only the selected portion; **Complete audio** previews everything.
+4. Press the **Save changes** disk icon to remember the bounds without broadcasting. **Play in Asterisk** saves and then requests a broadcast; it is only available when the track is enabled in manual mode. **Cancel** closes without saving pending edits.
+
+The dialog preview is local only: it neither saves bounds nor transmits to Asterisk. Changing bounds or switching complete/segment stops and hides the previous preview; press **Listen to selection** again to load the new selection. Closing the dialog stops and releases the audio.
+
+When a track has saved bounds, its card displays a highlighted **Segment selected** badge with start, end and duration. Saved bounds survive reloads/restarts and apply to both manual and every scheduled broadcast, without changing when the next broadcast is due.
+
+To remove the selection, press **Reset to complete audio**, then **Save changes**. The card returns to **Complete audio**. Resetting and then cancelling does not change saved bounds.
+
+The library file is never trimmed: the card's headphones and download still provide the complete audio. Only the dialog preview and broadcasts use the segment. Additive migration `0015_audio_segments.sql` stores `start_ms` and `end_ms` per track; existing tracks remain complete until a selection is saved. The server creates a temporary WAV for each segment broadcast and reserves playback for its duration plus two seconds; it deletes the temporary file one minute after the expected playback time while the service remains running.
+
+#### Downloading audio
+
+The **Download WAV** icon is available for library tracks, including disabled or scheduled ones, and finalized nonempty recordings. It downloads through the authenticated API without broadcasting or changing activation or intervals. Downloads contain the stored Asterisk-compatible WAV, not the original compressed upload; conversion does not retain that original. The button displays **Downloading...** and locks other actions until the request finishes.
 
 #### Signal meters
 
@@ -588,7 +609,7 @@ The Listen Live sessions report no longer shows the **User** and **Callsign** co
 | `/mon/pjsip-users/:id` | Administrator | DELETE: remove the endpoint and its exclusive auth/AOR objects |
 | `/mon/asterisk/commands` | Administrator | List and run Asterisk actions |
 | `/mon/asterisk/logs` | Administrator | Latest 500 operations by default, maximum 2000 |
-| `/mon/audio/tracks` | Administrator | GET: library; POST: upload WAV audio |
+| `/mon/audio/tracks` | Administrator | GET: library; POST: upload audio and convert to WAV |
 | `/mon/audio/tracks/:id` | Administrator | PATCH: edit mode/activation; DELETE: remove audio |
 | `/mon/audio/tracks/:id/play` | Administrator | Start one-time broadcast |
 | `/mon/audio/tracks/:id/file` | Administrator | GET: authenticated WAV for local listening, without broadcasting or changing scheduling |

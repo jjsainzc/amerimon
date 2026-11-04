@@ -20,9 +20,11 @@ La entropía mostrada se calcula a partir de las frecuencias de caracteres obser
 
 ### Gestión y reproducción de audios
 
+Solo los administradores ven, en la cabecera de la tabla AllStarLink, el icono de **grabación/reproducción** (círculo y triángulo) para abrir **Gestión de audios en otra ventana**. Desde Gestión de audios, el icono de **tabla** abre la tabla AllStarLink. Ambos conservan descripciones emergentes y etiquetas accesibles en español e inglés. La página original permanece abierta para observar conexiones y manejar audios a la vez. Permite ventanas emergentes para el sitio si el navegador las bloquea; puede decidir abrir una pestaña en lugar de una ventana. No se transfieren credenciales: si la sesión no está recordada, puede ser necesario iniciar sesión en la nueva ventana. La ruta de audios conserva su autorización administrativa.
+
 **Administración → Gestión de audios** (`/admin/audio`) es una opción exclusiva del administrador. Permite conservar una biblioteca de audios WAV para activarlos o desactivarlos cuando sea necesario. Los archivos y estados se guardan en el backend y SQLite; cerrar sesión o cerrar la página no detiene la programación. Los audios permanecen hasta que el administrador los elimine explícitamente.
 
-- Formato aceptado: WAV PCM lineal, mono, 8 o 16 bits, 8000 Hz; máximo 25 MiB. Los archivos de 8 bits se convierten a PCM de 16 bits, formato necesario para la reproducción WAV de Asterisk.
+- Formatos de subida: WAV, MP3, FLAC, OGG/Opus, M4A/MP4, AAC, WMA, AIFF, WebM, MKA, AMR y APE, según los códecs de FFmpeg instalado. Ya no se exige subir solo WAV: el servidor convierte a WAV PCM mono de 16 bits y 8000 Hz. Máximo 25 MiB tanto de entrada como convertido; una conversión que alcanza el límite se rechaza sin guardar un audio truncado. Se permite una conversión simultánea por servicio, con un máximo de 60 segundos. Instala `ffmpeg` antes de usar el instalador local; el paquete Debian lo declara como dependencia. Los WAV ya compatibles no necesitan conversión externa.
 - `broadcast_once`: el administrador pulsa el icono de emisión **Reproducir en Asterisk**; Asterisk inicia una emisión al nodo principal y sus estaciones enlazadas. Esta acción es puntual y no se repite por el hecho de mantener el audio activado.
 - `broadcast_silence`: cada audio activado mantiene su propio intervalo, de 1 a 10080 minutos. El backend solo emite cuando puede confirmar silencio total en todos los nodos monitorizados; si el intervalo vence mientras hay actividad, conserva la emisión pendiente hasta que todos estén en silencio. Después de emitir, inicia el siguiente intervalo. Las emisiones se serializan con una reserva persistente que dura la duración medida del archivo más dos segundos. Si Asterisk rechaza una emisión, se registra el error y se reintenta al vencer el siguiente intervalo.
 - Para distribuir el audio desde el nodo principal hacia los nodos enlazados, `duplex` debe ser distinto de 0 (modos 1–4); Amerimon valida el valor efectivo, incluso si se hereda de una plantilla. La pantalla de configuración del nodo principal permite cambiar `duplex` y ejecuta automáticamente `module reload app_rpt.so` al guardar.
@@ -39,7 +41,7 @@ El panel, medidores, descripciones de iconos, errores y confirmaciones siguen el
 
 ### Grabaciones del nodo principal
 
-En **Administración → Gestión de audios**, la tarjeta **Grabaciones del nodo principal** captura la misma mezcla de escucha del nodo y sus enlaces que Listen Live. No usa el micrófono del navegador ni transmite audio a las estaciones. Requiere el dialplan de escucha `amerimon-listen-node`/`listen-live-eagi`, el script EAGI y el listener local ya usados por Listen Live; no reescribe configuraciones de Asterisk.
+En **Administración → Gestión de audios**, la tarjeta **Grabaciones del nodo principal** captura la mezcla del nodo y sus enlaces. No usa el micrófono del navegador ni transmite audio a las estaciones. Requiere el contexto dedicado `amerimon-record-node`, con `Rpt(nodo,Pm)` en modo monitor de solo escucha, y el transporte `listen-live-eagi`, script EAGI y listener local. Espiar únicamente el `rxchannel` de radio puede entregar silencio aunque hablen estaciones enlazadas; la grabación no usa esa fuente. El instalador añade el contexto de grabación sin modificar el contexto de radio de Listen Live ni bloques personalizados existentes. Tras actualizar backend y dialplan, detén e inicia de nuevo una captura anterior para cambiar su fuente.
 
 - Introduce un nombre y pulsa **Iniciar grabación**. Solo se permite una captura activa. El inicio se confirma después de recibir PCM de EAGI, no solo al aceptar el Originate AMI.
 - El silencio se omite automáticamente a partir de la energía del PCM (umbral RMS aproximado de −40 dBFS), con 200 ms previos y 500 ms después de cada detección. Es detección de nivel, no reconocimiento de voz: ruido por encima del umbral también se conserva. El estado muestra **Pausa automática: esperando audio** y continúa al regresar audio; la duración muestra solo lo conservado, incluidos esos márgenes.
@@ -49,6 +51,25 @@ En **Administración → Gestión de audios**, la tarjeta **Grabaciones del nodo
 - **Escuchar** descarga el WAV por la API autenticada para reproducirlo solo en el navegador. **Añadir a biblioteca** crea una copia independiente de emisión única, sin emitir ni programar automáticamente. Puedes cambiar posteriormente su modalidad e intervalo en la tarjeta de la biblioteca. **Eliminar** pide confirmación y borra solo la grabación original; no elimina una copia ya añadida a la biblioteca.
 
 La migración aditiva `0014_audio_recordings.sql` crea `audio_recordings` sin cambiar audios ni configuraciones existentes. Todas las rutas requieren administrador: `GET/POST /mon/audio/recordings`, `PATCH /mon/audio/recordings/:id` con `action: pause|resume|stop`, `GET /mon/audio/recordings/:id/file`, `DELETE /mon/audio/recordings/:id` y `POST /mon/audio/recordings/:id/library`.
+
+#### Seleccionar, escuchar y guardar un fragmento
+
+1. En la tarjeta de la biblioteca, pulsa **Configurar fragmento de emisión**. Está disponible también para audios por intervalos o desactivados. El icono de emisión manual abre el mismo cuadro.
+2. Selecciona **Elegir fragmento**. Arrastra el control izquierdo para **Inicio** y el derecho para **Final**, o escribe **Inicio (s)** y **Final (s)** con precisión de 0,001 segundos. Los controles también admiten teclado y no se cruzan. La barra resaltada muestra el tramo seleccionado. Por ejemplo, inicio 5 y final 20 selecciona 15 segundos.
+3. Para comprobarlo sin transmitir, pulsa los auriculares **Escuchar selección** dentro del cuadro y después reproducir en el reproductor que aparece. Incluye medidor de nivel y reproduce solo el tramo seleccionado; con **Audio completo** reproduce todo.
+4. Pulsa el disquete **Guardar cambios** para recordar los límites sin emitir. El icono **Reproducir en Asterisk** guarda y después solicita la emisión; solo está disponible si el audio está activado en modo manual. **Cancelar** cierra sin guardar las ediciones pendientes.
+
+La escucha del cuadro es exclusivamente local: no guarda límites ni transmite a Asterisk. Al cambiar los límites o la opción completo/fragmento se detiene y oculta la escucha anterior; pulsa de nuevo **Escuchar selección** para cargar la nueva selección. Al cerrar el cuadro se detiene y libera el audio.
+
+Cuando un audio tiene límites guardados, su tarjeta muestra **Fragmento seleccionado** resaltado, con inicio, final y duración. Los límites se mantienen al recargar o reiniciar y se aplican tanto a las emisiones manuales como a cada emisión por intervalos, sin cambiar cuándo toca la próxima emisión.
+
+Para quitar la selección, pulsa **Restablecer audio completo** y después **Guardar cambios**. La tarjeta vuelve a indicar **Audio completo**. Restablecer y cancelar no cambia los límites guardados.
+
+El archivo de la biblioteca nunca se recorta: los auriculares de la tarjeta y la descarga siguen ofreciendo el audio completo. Solo la escucha dentro del cuadro y las emisiones usan el fragmento. La migración aditiva `0015_audio_segments.sql` guarda `start_ms` y `end_ms` por pista; los audios existentes siguen completos hasta guardar una selección. El servidor genera un WAV temporal para cada emisión del fragmento y reserva la reproducción por su duración más dos segundos; elimina el temporal un minuto después del tiempo previsto de reproducción mientras el servicio sigue activo.
+
+#### Descarga de audios
+
+El icono **Descargar WAV** está disponible en la biblioteca, incluso para audios desactivados o programados, y en grabaciones finalizadas con audio. Descarga mediante la API autenticada sin emitir ni modificar activaciones o intervalos. Se entrega el WAV almacenado compatible con Asterisk, no el archivo comprimido original; la conversión no conserva ese original. Durante la descarga el botón muestra **Descargando...** y bloquea otras acciones hasta completar la solicitud.
 
 #### Medidores de señal
 
@@ -589,7 +610,7 @@ El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e *
 | `/mon/asterisk/commands` | Administrador | Listar y ejecutar acciones Asterisk |
 | `/mon/asterisk/logs` | Administrador | Últimas 500 operaciones por defecto, máximo 2000 |
 | `/mon/audio/tracks/:id/file` | Administrador | GET: WAV autenticado para escucha local, sin emitir ni cambiar la programación |
-| `/mon/audio/tracks` | Administrador | GET: biblioteca; POST: subir audio WAV |
+| `/mon/audio/tracks` | Administrador | GET: biblioteca; POST: subir audio y convertir a WAV |
 | `/mon/audio/tracks/:id` | Administrador | PATCH: editar modalidad/activación; DELETE: eliminar audio |
 | `/mon/audio/tracks/:id/play` | Administrador | Iniciar emisión única |
 | `/mon/allstarlink/connections/history` | Administrador | Historial de conexiones |
