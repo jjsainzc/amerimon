@@ -79,6 +79,8 @@ nfpms:
         dst: /usr/lib/amerimon/listen-live-dialplan.awk
       - src: packaging/merge-allstar-public.awk
         dst: /usr/lib/amerimon/merge-allstar-public.awk
+      - src: packaging/echolink-peerip.awk
+        dst: /usr/lib/amerimon/echolink-peerip.awk
       - src: packaging/extensions-allstar-public-patch.conf
         dst: /usr/share/amerimon/extensions-allstar-public-patch.conf
       - src: packaging/configure-pjsip.sh

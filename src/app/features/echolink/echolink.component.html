@@ -1,0 +1,77 @@
+<section class="echolink">
+  <app-admin-volver />
+  <h2>{{ 'ECHOLINK_TITLE' | translate }}</h2>
+  <p>{{ 'ECHOLINK_HELP' | translate }}</p>
+  @if (error()) { <p class="error" role="alert">{{ error() | translate }}</p> }
+  @if (notice()) { <p class="notice" role="status">{{ notice() | translate }}</p> }
+  <button type="button" (click)="load()" [disabled]="busy()">{{ 'AUDIO_REFRESH' | translate }}</button>
+  @if (config(); as config) {
+    <p>{{ config.path }} · {{ 'NODO_PRINCIPAL' | translate }}: {{ config.astnode }}</p>
+    <p class="module-status" [class.module-loaded]="config.loaded" [class.module-unloaded]="!config.loaded" role="status">
+      <span class="status-dot" aria-hidden="true"></span>
+      <strong>{{ (config.loaded ? 'ECHOLINK_LOADED' : 'ECHOLINK_UNLOADED') | translate }}</strong>
+    </p>
+    <form (ngSubmit)="save()">
+      <fieldset [disabled]="busy()">
+        <label>{{ 'ECHOLINK_SECTION' | translate }}
+          <select name="section" [ngModel]="selected" (ngModelChange)="select($event)">
+            @for (section of config.sections; track section.section) { <option [value]="section.section">{{ section.section }}</option> }
+          </select>
+        </label>
+        @for (group of groups; track group.label) {
+          <fieldset>
+            <legend>{{ group.label | translate }}</legend>
+            @if (group.label === 'ECHOLINK_RADIO') {
+              <button type="button" (click)="useBrowserLocation()" [disabled]="busy()" [attr.aria-busy]="locating()">
+                {{ (locating() ? 'ECHOLINK_LOCATION_WAIT' : 'ECHOLINK_LOCATION_BUTTON') | translate }}
+              </button>
+              <p>{{ 'ECHOLINK_LOCATION_HELP' | translate }}</p>
+            }
+            <div class="fields">
+              @for (key of group.keys; track key) {
+                <label>{{ ('ECHOLINK_FIELD_' + key) | translate }} <small>{{ key }}</small>
+                  @if (key === 'message') {
+                    <textarea [name]="key" [(ngModel)]="values[key]" maxlength="2048"></textarea>
+                  } @else {
+                    <input [name]="key" [(ngModel)]="values[key]" maxlength="2048" />
+                  }
+                </label>
+              }
+            </div>
+          </fieldset>
+        }
+        <label class="password-field" for="echolink-password">{{ 'ECHOLINK_PASSWORD' | translate }}</label>
+          <app-password-field class="password-field" inputId="echolink-password" name="password" [ngModel]="password()" (ngModelChange)="password.set($event)"
+            (visibilityChange)="showPassword($event)" autocomplete="new-password" />
+        <p>{{ 'ECHOLINK_PASSWORD_HELP' | translate }}</p>
+        <p>{{ 'ECHOLINK_RADIO_HELP' | translate }}</p>
+        <button type="submit" [attr.aria-busy]="busy()">{{ 'AUDIO_SAVE_SETTINGS' | translate }}</button>
+      </fieldset>
+    </form>
+    <label class="check"><input type="checkbox" [(ngModel)]="persist" [disabled]="busy()" />{{ 'ECHOLINK_PERSIST' | translate }}</label>
+    <div class="actions">
+      <button type="button" (click)="pending = 'enable'" [disabled]="busy()">{{ 'ECHOLINK_ENABLE' | translate }}</button>
+      <button type="button" (click)="pending = 'disable'" [disabled]="busy()">{{ 'ECHOLINK_DISABLE' | translate }}</button>
+      <button type="button" (click)="pending = 'reload'" [disabled]="busy() || !config.loaded">{{ 'ECHOLINK_RELOAD' | translate }}</button>
+      <button type="button" (click)="checkPorts()" [disabled]="busy()">{{ 'ECHOLINK_PORTS' | translate }}</button>
+    </div>
+    @if (pending) {
+      <fieldset role="alertdialog" aria-labelledby="echolink-confirm">
+        <legend id="echolink-confirm">{{ 'ECHOLINK_CONFIRM_TITLE' | translate }}</legend>
+        <p>{{ ('ECHOLINK_ACTION_' + pending) | translate }}</p>
+        <p>{{ 'ECHOLINK_CONFIRM_HELP' | translate }}</p>
+        <p>{{ (persist && pending !== 'reload' ? 'ECHOLINK_PERMANENT' : 'ECHOLINK_TEMPORARY') | translate }}</p>
+        <div class="actions">
+          <button type="button" (click)="pending = null" [disabled]="busy()">{{ 'AUDIO_CANCEL' | translate }}</button>
+          <button type="button" (click)="apply()" [disabled]="busy()" [attr.aria-busy]="busy()">{{ 'ECHOLINK_APPLY' | translate }}</button>
+        </div>
+      </fieldset>
+    }
+    <p>{{ 'ECHOLINK_PORTS_HELP' | translate }}</p>
+    @for (port of ports(); track port.protocol + port.port + port.server) {
+      <p>{{ port.protocol }} {{ port.port }} {{ port.server }}:
+        {{ ((port.protocol === 'TCP' ? port.reachable : port.listening) ? 'ECHOLINK_CHECK_OK' : 'ECHOLINK_CHECK_FAIL') | translate }}
+      </p>
+    }
+  }
+</section>

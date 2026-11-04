@@ -357,7 +357,7 @@ type managerSection struct {
 }
 
 var managerHeaderPattern = regexp.MustCompile(`^\s*\[([^\]]+)\]`)
-var managerOptionPattern = regexp.MustCompile(`^\s*([A-Za-z0-9_]+)\s*(?:=|=>)\s*([^;#]*?)\s*(?:[;#].*)?$`)
+var managerOptionPattern = regexp.MustCompile(`^\s*([A-Za-z0-9_]+)\s*(?:=>|=)\s*([^;#]*?)\s*(?:[;#].*)?$`)
 
 func parseManagerSections(content string) []managerSection {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")

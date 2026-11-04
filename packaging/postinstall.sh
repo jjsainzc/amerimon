@@ -178,6 +178,32 @@ if [ -d "$AST_DIR" ]; then
         echo "Aviso: no existe $EXTENSIONS_CONF; no se aplicó el control [allstar-public]." >&2
     fi
 
+    ECHOLINK_PEERIP_PATCH=/usr/lib/amerimon/echolink-peerip.awk
+    if [ -f "$EXTENSIONS_CONF" ] && [ -r "$ECHOLINK_PEERIP_PATCH" ]; then
+        merged=$(mktemp "${EXTENSIONS_CONF}.echolink-peerip.XXXXXX")
+        if awk -f "$ECHOLINK_PEERIP_PATCH" "$EXTENSIONS_CONF" > "$merged"; then
+            if ! cmp -s "$EXTENSIONS_CONF" "$merged"; then
+                [ -e "$EXTENSIONS_CONF.bak-echolink-peerip" ] || cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-echolink-peerip"
+                chmod --reference="$EXTENSIONS_CONF" "$merged"
+                chown --reference="$EXTENSIONS_CONF" "$merged"
+                mv "$merged" "$EXTENSIONS_CONF"
+            else
+                rm -f "$merged"
+            fi
+        else
+            status=$?
+            rm -f "$merged"
+            if [ "$status" -eq 3 ]; then
+                echo "Aviso: no se encontró [radio-secure]; no se aplicó el parche peerip de EchoLink." >&2
+            else
+                echo "Error: no se pudo aplicar el parche peerip de EchoLink." >&2
+                exit 1
+            fi
+        fi
+    else
+        echo "Aviso: falta extensions.conf o el parche peerip de EchoLink; no se aplicó." >&2
+    fi
+
     if [ -r /usr/lib/amerimon/configure-pjsip.sh ]; then
         sh /usr/lib/amerimon/configure-pjsip.sh
     else

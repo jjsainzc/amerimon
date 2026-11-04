@@ -8,6 +8,11 @@ import { provideAudioManagement } from './features/audio-management/audio-manage
 import { AUDIO_MANAGEMENT_MONITOR_URL } from './features/audio-management/audio-management.tokens';
 
 export const routes: Routes = [
+  {
+    path: 'admin/echolink',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./features/echolink/echolink.component').then(m => m.EchoLinkComponent),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'allstarlink' },
   {
     path: 'allstarlink',

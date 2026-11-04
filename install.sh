@@ -85,6 +85,7 @@ fi
 "${SUDO[@]}" install -d -m 0755 /usr/lib/amerimon /usr/share/amerimon
 "${SUDO[@]}" install -m 0644 packaging/listen-live-dialplan.awk /usr/lib/amerimon/listen-live-dialplan.awk
 "${SUDO[@]}" install -m 0644 packaging/merge-allstar-public.awk /usr/lib/amerimon/merge-allstar-public.awk
+"${SUDO[@]}" install -m 0644 packaging/echolink-peerip.awk /usr/lib/amerimon/echolink-peerip.awk
 "${SUDO[@]}" install -m 0644 packaging/configure-pjsip.sh /usr/lib/amerimon/configure-pjsip.sh
 "${SUDO[@]}" install -m 0644 packaging/pjsip-network.sh /usr/lib/amerimon/pjsip-network.sh
 "${SUDO[@]}" install -m 0644 packaging/amerimon-pjsip-firewall.service /etc/systemd/system/amerimon-pjsip-firewall.service

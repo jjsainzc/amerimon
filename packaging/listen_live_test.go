@@ -21,6 +21,7 @@ func TestLocalInstallerAppliesListenLiveMigration(t *testing.T) {
 	for _, resource := range []string{
 		"packaging/listen-live-dialplan.awk",
 		"packaging/merge-allstar-public.awk",
+		"packaging/echolink-peerip.awk",
 		"packaging/configure-pjsip.sh",
 		"packaging/pjsip-network.sh",
 		"packaging/amerimon-pjsip-firewall.service",
