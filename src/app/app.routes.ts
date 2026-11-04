@@ -41,7 +41,10 @@ export const routes: Routes = [
         provide: AUDIO_MANAGEMENT_TRANSLATE,
         useFactory: () => {
           const translations = inject(TranslationService);
-          return (key: string) => translations.translate(key);
+          return (key: string) => {
+            translations.revision();
+            return translations.translate(key);
+          };
         },
       },
     ],

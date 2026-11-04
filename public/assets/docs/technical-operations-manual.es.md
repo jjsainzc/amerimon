@@ -23,7 +23,7 @@ La entropía mostrada se calcula a partir de las frecuencias de caracteres obser
 **Administración → Gestión de audios** (`/admin/audio`) es una opción exclusiva del administrador. Permite conservar una biblioteca de audios WAV para activarlos o desactivarlos cuando sea necesario. Los archivos y estados se guardan en el backend y SQLite; cerrar sesión o cerrar la página no detiene la programación. Los audios permanecen hasta que el administrador los elimine explícitamente.
 
 - Formato aceptado: WAV PCM lineal, mono, 8 o 16 bits, 8000 Hz; máximo 25 MiB. Los archivos de 8 bits se convierten a PCM de 16 bits, formato necesario para la reproducción WAV de Asterisk.
-- `broadcast_once`: el administrador pulsa **Reproducir ahora**; Asterisk inicia una emisión al nodo principal y sus estaciones enlazadas. Esta acción es puntual y no se repite por el hecho de mantener el audio activado.
+- `broadcast_once`: el administrador pulsa el icono de emisión **Reproducir en Asterisk**; Asterisk inicia una emisión al nodo principal y sus estaciones enlazadas. Esta acción es puntual y no se repite por el hecho de mantener el audio activado.
 - `broadcast_silence`: cada audio activado mantiene su propio intervalo, de 1 a 10080 minutos. El backend solo emite cuando puede confirmar silencio total en todos los nodos monitorizados; si el intervalo vence mientras hay actividad, conserva la emisión pendiente hasta que todos estén en silencio. Después de emitir, inicia el siguiente intervalo. Las emisiones se serializan con una reserva persistente que dura la duración medida del archivo más dos segundos. Si Asterisk rechaza una emisión, se registra el error y se reintenta al vencer el siguiente intervalo.
 - Para distribuir el audio desde el nodo principal hacia los nodos enlazados, `duplex` debe ser distinto de 0 (modos 1–4); Amerimon valida el valor efectivo, incluso si se hereda de una plantilla. La pantalla de configuración del nodo principal permite cambiar `duplex` y ejecuta automáticamente `module reload app_rpt.so` al guardar.
 
@@ -31,7 +31,30 @@ La programación corre en el servicio Go, no en el navegador, y continúa tras c
 
 La modalidad de bienvenida `on_connection` ya no está disponible porque la reproducción por enlace individual no está soportada de forma segura por `app_rpt`. La migración 0013 convierte las entradas existentes de esa modalidad a `broadcast_once`, sin eliminar audios ni archivos. Los audios PCM de 8 bits previamente guardados se convierten al formato de 16 bits cuando se reproducen por primera vez.
 
-El panel y todos sus errores y confirmaciones siguen el idioma de la cabecera. La interfaz Angular está encapsulada en `src/app/features/audio-management`; para reutilizarla en otra aplicación, consulta su README, proporciona la URL API, el traductor y una ruta con autorización administrativa.
+Los botones muestran iconos con descripción al pasar el cursor y etiquetas accesibles. Los auriculares (**Escuchar localmente**) descargan el WAV mediante la API autenticada para escucharlo en el navegador con su medidor, incluso si el audio está desactivado o programado. No emiten en Asterisk ni cambian la programación. El icono de emisión (**Reproducir en Asterisk**) conserva la emisión manual para audios activados de emisión única. Cambiar de escucha o salir de la pantalla libera el reproductor y su URL temporal.
+
+Durante una solicitud, las demás acciones y campos de biblioteca y grabaciones quedan bloqueados hasta terminar, también si falla. El botón que ejecuta la acción muestra el indicador y texto de proceso; la subida incluye allí el porcentaje, sin duplicarlo afuera. Los errores y avisos de finalización permanecen visibles por separado. La grabación en curso y su sondeo automático no bloquean los controles de pausa y parada.
+
+El panel, medidores, descripciones de iconos, errores y confirmaciones siguen el idioma de la cabecera, también al cambiar entre español e inglés sin salir de la pantalla. La interfaz Angular está encapsulada en `src/app/features/audio-management`; para reutilizarla en otra aplicación, consulta su README, proporciona la URL API, el traductor y una ruta con autorización administrativa.
+
+### Grabaciones del nodo principal
+
+En **Administración → Gestión de audios**, la tarjeta **Grabaciones del nodo principal** captura la misma mezcla de escucha del nodo y sus enlaces que Listen Live. No usa el micrófono del navegador ni transmite audio a las estaciones. Requiere el dialplan de escucha `amerimon-listen-node`/`listen-live-eagi`, el script EAGI y el listener local ya usados por Listen Live; no reescribe configuraciones de Asterisk.
+
+- Introduce un nombre y pulsa **Iniciar grabación**. Solo se permite una captura activa. El inicio se confirma después de recibir PCM de EAGI, no solo al aceptar el Originate AMI.
+- El silencio se omite automáticamente a partir de la energía del PCM (umbral RMS aproximado de −40 dBFS), con 200 ms previos y 500 ms después de cada detección. Es detección de nivel, no reconocimiento de voz: ruido por encima del umbral también se conserva. El estado muestra **Pausa automática: esperando audio** y continúa al regresar audio; la duración muestra solo lo conservado, incluidos esos márgenes.
+- **Pausar** mantiene una pausa manual aunque llegue audio. **Continuar** vuelve a habilitar la detección automática. **Detener y guardar** finaliza el WAV y cierra únicamente el canal de captura; no desconecta estaciones.
+- La captura continúa al cerrar la página o la sesión web. Los WAV PCM mono de 16 bits a 8000 Hz se guardan automáticamente en el subdirectorio privado `recordings` junto a la base SQLite del servicio (directorio `0700`, archivos `0600`). El máximo por grabación es 25 MiB, aproximadamente 27 minutos de audio conservado; al alcanzarlo, se finaliza automáticamente. Las grabaciones no se borran por antigüedad.
+- Si se interrumpe EAGI o se reinicia Amerimon, la captura no se reanuda sola. Se marca como interrumpida y se conserva el audio recibido; al arrancar se reconstruye la cabecera WAV a partir del PCM recuperado.
+- **Escuchar** descarga el WAV por la API autenticada para reproducirlo solo en el navegador. **Añadir a biblioteca** crea una copia independiente de emisión única, sin emitir ni programar automáticamente. Puedes cambiar posteriormente su modalidad e intervalo en la tarjeta de la biblioteca. **Eliminar** pide confirmación y borra solo la grabación original; no elimina una copia ya añadida a la biblioteca.
+
+La migración aditiva `0014_audio_recordings.sql` crea `audio_recordings` sin cambiar audios ni configuraciones existentes. Todas las rutas requieren administrador: `GET/POST /mon/audio/recordings`, `PATCH /mon/audio/recordings/:id` con `action: pause|resume|stop`, `GET /mon/audio/recordings/:id/file`, `DELETE /mon/audio/recordings/:id` y `POST /mon/audio/recordings/:id/library`.
+
+#### Medidores de señal
+
+- **Nivel de entrada de grabación:** mide la energía RMS del PCM recibido del nodo, incluso durante la pausa manual. Se actualiza cada 500 ms mientras existe una captura activa. No representa necesariamente audio guardado: los silencios se omiten y la pausa manual descarta audio.
+- **Nivel de reproducción:** mide el WAV escuchado en el navegador mediante Web Audio, con muestreo cada 50 ms, tanto en grabaciones como en biblioteca. Se reinicia al pausar o terminar. No mide la salida de Asterisk ni el volumen físico de los altavoces.
+- La escala va de −60 a 0 dBFS, con zonas verde, amarilla y roja; 0 dBFS es el máximo digital. El mínimo visual es −60 dBFS. La entrada vuelve al mínimo si no llegan muestras recientes. No se requiere permiso de micrófono. Si el navegador no permite iniciar el medidor, se muestra un error explícito.
 
 ## 2. Componentes y puertos
 
@@ -565,9 +588,7 @@ El reporte de escuchas de Listen Live ya no muestra las columnas **Usuario** e *
 | `/mon/pjsip-users/:id` | Administrador | DELETE: eliminar endpoint y sus objetos auth/AOR exclusivos |
 | `/mon/asterisk/commands` | Administrador | Listar y ejecutar acciones Asterisk |
 | `/mon/asterisk/logs` | Administrador | Últimas 500 operaciones por defecto, máximo 2000 |
-| `/mon/audio/tracks` | Administrador | GET: biblioteca; POST: subir audio WAV |
-| `/mon/audio/tracks/:id` | Administrador | PATCH: editar modalidad/activación; DELETE: eliminar audio |
-| `/mon/audio/tracks/:id/play` | Administrador | Iniciar emisión única |
+| `/mon/audio/tracks/:id/file` | Administrador | GET: WAV autenticado para escucha local, sin emitir ni cambiar la programación |
 | `/mon/audio/tracks` | Administrador | GET: biblioteca; POST: subir audio WAV |
 | `/mon/audio/tracks/:id` | Administrador | PATCH: editar modalidad/activación; DELETE: eliminar audio |
 | `/mon/audio/tracks/:id/play` | Administrador | Iniciar emisión única |

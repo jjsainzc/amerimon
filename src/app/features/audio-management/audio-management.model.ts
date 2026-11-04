@@ -22,3 +22,17 @@ export interface AudioTrackUpload {
   intervalMinutes: number;
   file: File;
 }
+
+export interface AudioRecording {
+  id: number;
+  name: string;
+  node: string;
+  state: 'starting' | 'recording' | 'paused' | 'completed' | 'interrupted' | 'failed';
+  auto_paused: boolean;
+  level_dbfs: number;
+  file_size: number;
+  duration_ms: number;
+  created_at: string;
+  error_code?: string;
+  in_library: boolean;
+}

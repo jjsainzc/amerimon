@@ -56,6 +56,14 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	privada.PATCH("/audio/tracks/:id", controllers.UpdateAudioTrack, jwt, admin)
 	privada.DELETE("/audio/tracks/:id", controllers.DeleteAudioTrack, jwt, admin)
 	privada.POST("/audio/tracks/:id/play", controllers.PlayAudioTrack, jwt, admin)
+	privada.GET("/audio/tracks/:id/file", controllers.AudioTrackFile, jwt, admin)
+	recordings := controllers.NewAudioRecordingControl(mgr)
+	privada.GET("/audio/recordings", recordings.List, jwt, admin)
+	privada.POST("/audio/recordings", recordings.Start, jwt, admin)
+	privada.PATCH("/audio/recordings/:id", recordings.Change, jwt, admin)
+	privada.GET("/audio/recordings/:id/file", recordings.File, jwt, admin)
+	privada.DELETE("/audio/recordings/:id", recordings.Delete, jwt, admin)
+	privada.POST("/audio/recordings/:id/library", recordings.AddToLibrary, jwt, admin)
 
 	// Rutas sin rol A: públicas; el token es opcional y, si es válido, identifica al usuario.
 	opt := controllers.OptionalJWTMiddleware

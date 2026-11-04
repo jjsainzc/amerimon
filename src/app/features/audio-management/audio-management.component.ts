@@ -1,10 +1,15 @@
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
-import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { AudioManagementLabelPipe } from './audio-management-label.pipe';
 import { AudioPlaybackMode, AudioTrack } from './audio-management.model';
 import { AudioManagementService } from './audio-management.service';
+import { AudioRecordingsComponent } from './audio-recordings.component';
+import { AudioPlayerComponent } from './audio-player.component';
+import { AudioIconButtonComponent } from './audio-icon-button.component';
 
 interface AudioTrackDraft {
   playbackMode: AudioPlaybackMode;
@@ -14,17 +19,19 @@ interface AudioTrackDraft {
 @Component({
   selector: 'app-audio-management',
   standalone: true,
-  imports: [AudioManagementLabelPipe, DatePipe, DecimalPipe, FormsModule],
+  imports: [AudioManagementLabelPipe, DatePipe, DecimalPipe, FormsModule, AudioRecordingsComponent, AudioPlayerComponent, AudioIconButtonComponent],
   templateUrl: './audio-management.component.html',
   styleUrl: './audio-management.component.css',
 })
-export class AudioManagementComponent {
+export class AudioManagementComponent implements OnDestroy {
   private readonly service = inject(AudioManagementService);
   @ViewChild('audioFileInput') private audioFileInput?: ElementRef<HTMLInputElement>;
 
   readonly tracks = signal<AudioTrack[]>([]);
   readonly drafts = signal<Record<number, AudioTrackDraft>>({});
   readonly loading = signal(false);
+  readonly busy = this.service.busy;
+  readonly togglingId = signal<number | null>(null);
   readonly saving = signal(false);
   readonly savingTrackId = signal<number | null>(null);
   readonly uploadProgress = signal<number | null>(null);
@@ -33,15 +40,24 @@ export class AudioManagementComponent {
   readonly deleting = signal(false);
   readonly error = signal('');
   readonly notice = signal('');
+  readonly preview = signal<{ id: number; url: string } | null>(null);
+  readonly previewLoadingId = signal<number | null>(null);
+  private previewRequest?: Subscription;
 
   name = '';
   file: File | null = null;
 
   constructor() {
     this.load();
+    this.service.libraryChanged.pipe(takeUntilDestroyed()).subscribe(() => this.fetchTracks());
   }
 
   load(): void {
+    if (this.busy()) { return; }
+    this.fetchTracks();
+  }
+
+  private fetchTracks(): void {
     this.loading.set(true);
     this.error.set('');
     this.service.list().subscribe({
@@ -55,18 +71,21 @@ export class AudioManagementComponent {
           },
         ])));
         this.loading.set(false);
+        this.savingTrackId.set(null);
+        this.togglingId.set(null);
       },
       error: error => this.fail(error, 'AUDIO_LOAD_ERROR'),
     });
   }
 
   selectFile(event: Event): void {
+    if (this.busy()) { return; }
     const input = event.target as HTMLInputElement;
     this.file = input.files?.[0] ?? null;
   }
 
   upload(): void {
-    if (!this.file || !this.name.trim() || this.saving()) {
+    if (!this.file || !this.name.trim() || this.busy()) {
       return;
     }
     this.saving.set(true);
@@ -106,6 +125,7 @@ export class AudioManagementComponent {
   }
 
   changeMode(track: AudioTrack, event: Event): void {
+    if (this.busy()) { return; }
     const select = event.target as HTMLSelectElement;
     const playbackMode = select.value;
     if (playbackMode !== 'broadcast_once' && playbackMode !== 'broadcast_silence') {
@@ -115,6 +135,7 @@ export class AudioManagementComponent {
   }
 
   changeInterval(track: AudioTrack, event: Event): void {
+    if (this.busy()) { return; }
     const input = event.target as HTMLInputElement;
     this.updateDraft(track, { intervalMinutes: Number(input.value) });
   }
@@ -140,7 +161,7 @@ export class AudioManagementComponent {
   }
 
   saveSettings(track: AudioTrack): void {
-    if (!this.canSaveSettings(track) || this.savingTrackId() !== null) {
+    if (!this.canSaveSettings(track) || this.busy()) {
       return;
     }
     const draft = this.draftFor(track);
@@ -152,9 +173,8 @@ export class AudioManagementComponent {
       ...(draft.playbackMode === 'broadcast_silence' ? { interval_minutes: draft.intervalMinutes } : {}),
     }).subscribe({
       next: () => {
-        this.savingTrackId.set(null);
         this.notice.set('AUDIO_UPDATE_SUCCESS');
-        this.load();
+        this.fetchTracks();
       },
       error: error => {
         this.savingTrackId.set(null);
@@ -164,10 +184,13 @@ export class AudioManagementComponent {
   }
 
   toggle(track: AudioTrack): void {
+    if (this.busy() || this.hasUnsavedChanges(track)) { return; }
+    this.togglingId.set(track.id);
     this.updateTrack(track, { enabled: !track.enabled });
   }
 
   play(track: AudioTrack): void {
+    if (this.busy() || !track.enabled) { return; }
     this.playingId.set(track.id);
     this.error.set('');
     this.notice.set('');
@@ -180,26 +203,57 @@ export class AudioManagementComponent {
     });
   }
 
+  listen(track: AudioTrack): void {
+    if (this.busy()) { return; }
+    this.clearPreview();
+    this.error.set('');
+    this.notice.set('');
+    this.previewLoadingId.set(track.id);
+    this.previewRequest = this.service.trackFile(track.id).subscribe({
+      next: blob => {
+        this.previewLoadingId.set(null);
+        this.preview.set({ id: track.id, url: URL.createObjectURL(blob) });
+      },
+      error: error => {
+        this.previewLoadingId.set(null);
+        this.fail(error, 'AUDIO_PREVIEW_ERROR');
+      },
+    });
+  }
+
+  private clearPreview(): void {
+    this.previewRequest?.unsubscribe();
+    const preview = this.preview();
+    if (preview) { URL.revokeObjectURL(preview.url); }
+    this.preview.set(null);
+  }
+
+  ngOnDestroy(): void {
+    this.clearPreview();
+  }
+
   remove(track: AudioTrack): void {
+    if (this.busy()) { return; }
     this.error.set('');
     this.pendingDelete.set(track);
   }
 
   cancelDelete(): void {
-    if (!this.deleting()) {
+    if (!this.busy()) {
       this.pendingDelete.set(null);
     }
   }
 
   confirmDelete(): void {
     const track = this.pendingDelete();
-    if (!track || this.deleting()) {
+    if (!track || this.busy()) {
       return;
     }
     this.error.set('');
     this.deleting.set(true);
     this.service.delete(track.id).subscribe({
       next: () => {
+        if (this.preview()?.id === track.id) { this.clearPreview(); }
         this.tracks.update(tracks => tracks.filter(item => item.id !== track.id));
         this.notice.set('AUDIO_DELETE_SUCCESS');
         this.pendingDelete.set(null);
@@ -225,10 +279,9 @@ export class AudioManagementComponent {
     this.service.update(track.id, patch).subscribe({
       next: () => {
         this.notice.set('AUDIO_UPDATE_SUCCESS');
-        this.load();
+        this.fetchTracks();
       },
       error: error => {
-        this.load();
         this.fail(error, 'AUDIO_UPDATE_ERROR');
       },
     });
@@ -251,6 +304,7 @@ export class AudioManagementComponent {
     this.deleting.set(false);
     this.playingId.set(null);
     this.savingTrackId.set(null);
+    this.togglingId.set(null);
   }
 
   private resetFileInput(): void {

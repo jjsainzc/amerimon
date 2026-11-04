@@ -357,6 +357,10 @@ func UploadAudioTrack(c echo.Context) error {
 	if len(originalName) > 200 || strings.ContainsAny(originalName, "\r\n\x00") {
 		return audioAPIError(c, http.StatusBadRequest, "El nombre del archivo no es válido.")
 	}
+	return persistAudioTrack(c, name, originalName, mode, intervalMinutes, data, duration, sampleRate, bitsPerSample, 0)
+}
+
+func persistAudioTrack(c echo.Context, name, originalName, mode string, intervalMinutes int, data []byte, duration time.Duration, sampleRate, bitsPerSample int, recordingID int64) error {
 	filename, err := newAudioFilename()
 	if err != nil {
 		log.Printf("audio: no se pudo crear identificador de archivo: %v", err)
@@ -436,6 +440,13 @@ func UploadAudioTrack(c echo.Context) error {
 			id, intervalMinutes, next.Format(time.RFC3339Nano)); err != nil {
 			log.Printf("audio: no se pudo crear programación %d: %v", id, err)
 			return audioAPIError(c, http.StatusInternalServerError, "No se pudo guardar la programación.")
+		}
+	}
+	if recordingID != 0 {
+		if _, err := tx.ExecContext(c.Request().Context(),
+			`UPDATE audio_recordings SET library_track_id = ? WHERE id = ?`, id, recordingID); err != nil {
+			log.Printf("audio: no se pudo asociar grabación %d: %v", recordingID, err)
+			return audioAPIError(c, http.StatusInternalServerError, "No se pudo guardar el registro de audio.")
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -585,6 +596,46 @@ func DeleteAudioTrack(c echo.Context) error {
 		}
 	}
 	return c.JSON(http.StatusOK, echo.Map{"status": "success"})
+}
+
+func AudioTrackFile(c echo.Context) error {
+	if config.App.DB == nil {
+		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
+	}
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id < 1 {
+		return audioAPIError(c, http.StatusBadRequest, "El identificador de audio no es válido.")
+	}
+	track, err := loadAudioTrack(c.Request().Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return audioAPIError(c, http.StatusNotFound, "El audio no existe.")
+	}
+	if err != nil {
+		log.Printf("audio: preview track %d: %v", id, err)
+		return audioAPIError(c, http.StatusInternalServerError, "No se pudo leer el audio.")
+	}
+	if !audioFilenamePattern.MatchString(track.StoredFilename) {
+		log.Printf("audio: invalid preview filename for track %d", id)
+		return audioAPIError(c, http.StatusInternalServerError, "El nombre del archivo no es válido.")
+	}
+	file, err := os.Open(filepath.Join(audioStoragePath(), track.StoredFilename))
+	if os.IsNotExist(err) {
+		file, err = os.Open(filepath.Join(legacyAudioStoragePath(), track.StoredFilename))
+	}
+	if err != nil {
+		log.Printf("audio: preview file for track %d: %v", id, err)
+		return audioAPIError(c, http.StatusInternalServerError, "No se pudo leer el archivo de audio.")
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() > audioMaxStoredBytes {
+		log.Printf("audio: invalid preview file for track %d: %v", id, err)
+		return audioAPIError(c, http.StatusInternalServerError, "No se pudo leer el archivo de audio.")
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	c.Response().Header().Set("Content-Type", "audio/wav")
+	http.ServeContent(c.Response(), c.Request(), track.StoredFilename, info.ModTime(), file)
+	return nil
 }
 
 func PlayAudioTrack(c echo.Context) error {

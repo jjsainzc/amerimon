@@ -23,7 +23,7 @@ The displayed entropy is calculated from the observed character frequencies in t
 **Administration → Audio management** (`/admin/audio`) is an administrator-only option. It provides a library of WAV audio that administrators can activate or deactivate when needed. Files and settings are stored by the backend and in SQLite; signing out or closing the page does not stop scheduling. Tracks remain until an administrator explicitly deletes them.
 
 - Accepted format: linear PCM WAV, mono, 8-bit or 16-bit, 8000 Hz; maximum 25 MiB. 8-bit files are converted to 16-bit PCM, the format Asterisk requires for WAV playback.
-- `broadcast_once`: the administrator clicks **Play now**; Asterisk starts a broadcast to the primary node and its linked stations. This is a one-time action and is not repeated merely because the track remains enabled.
+- `broadcast_once`: the administrator clicks the **Play on Asterisk** broadcast icon; Asterisk starts a broadcast to the primary node and its linked stations. This is a one-time action and is not repeated merely because the track remains enabled.
 - `broadcast_silence`: each enabled track has its own interval, from 1 to 10080 minutes. The backend plays only when it can confirm total silence across all monitored nodes; if an interval expires during activity, the broadcast remains pending until all nodes are silent. After playback, the next interval begins. Broadcasts are serialized with a persistent reservation lasting the measured audio duration plus two seconds. If Asterisk rejects a broadcast, the error is logged and retried when the next interval becomes due.
 - To distribute audio from the primary node to linked nodes, `duplex` must be nonzero (modes 1–4); Amerimon validates the effective value, including inherited template values. The **Primary node** settings screen can set `duplex` and automatically runs `module reload app_rpt.so` after saving.
 
@@ -31,7 +31,30 @@ Scheduling runs in the Go service, not in the browser, and continues after sign-
 
 The `on_connection` welcome mode has been removed because `app_rpt` does not safely support playback to a single connected link. Migration 0013 changes existing tracks in that mode to `broadcast_once` without deleting their records or files. Previously stored 8-bit PCM tracks are converted to 16-bit the first time they are played.
 
-The panel, including errors and confirmations, follows the language selected in the header. The Angular feature is isolated in `src/app/features/audio-management`; to reuse it in another application, see its README and provide the API URL, translator, and a route guarded by administrator authorization.
+Buttons use icons with hover descriptions and accessible labels. The headphones icon (**Listen locally**) downloads the WAV through the authenticated API for browser playback with its signal meter, including disabled or scheduled tracks. It does not broadcast through Asterisk or change scheduling. The broadcast icon (**Play on Asterisk**) retains manual transmission for enabled one-time tracks. Changing previews or leaving the screen releases the player and its temporary URL.
+
+During a request, other library and recording actions and editable fields remain disabled until it finishes, including on failure. The initiating button displays its progress indicator and process text; upload percentage also appears there, without a duplicate outside the button. Errors and completion notices remain visible separately. An ongoing recording and background polling do not lock pause and stop controls.
+
+The panel, meters, icon descriptions, errors, and confirmations follow the header language, including switching between Spanish and English without leaving the screen. The Angular feature is isolated in `src/app/features/audio-management`; to reuse it in another application, see its README and provide the API URL, translator, and a route guarded by administrator authorization.
+
+### Primary node recordings
+
+In **Administration → Audio management**, the **Primary node recordings** card captures the same node/link listening mix as Listen Live. It does not use the browser microphone or transmit audio to stations. It requires the existing `amerimon-listen-node`/`listen-live-eagi` dialplan, EAGI script, and local listener used by Listen Live; it does not rewrite Asterisk configuration.
+
+- Enter a name and click **Start recording**. Only one capture can be active. Startup is confirmed after EAGI PCM arrives, not merely when AMI accepts Originate.
+- Silence is omitted automatically based on PCM energy (approximately −40 dBFS RMS), retaining 200 ms before and 500 ms after detection. This is level detection, not speech recognition: noise above the threshold is also retained. The status shows **Automatic pause: waiting for audio** and resumes when audio returns; duration measures only retained audio, including these margins.
+- **Pause** remains a manual pause even if audio arrives. **Continue** re-enables automatic detection. **Stop and save** finalizes the WAV and closes only the capture channel, without disconnecting stations.
+- Capture continues after closing the page or signing out. The 16-bit, 8000 Hz mono PCM WAV files are saved automatically in the private `recordings` subdirectory next to the service's SQLite database (directory `0700`, files `0600`). Each recording is capped at 25 MiB, approximately 27 minutes of retained audio; reaching the limit finalizes it automatically. Recordings are not deleted based on age.
+- If EAGI disconnects or Amerimon restarts, capture does not resume automatically. It is marked interrupted and received audio is retained; on startup, the WAV header is reconstructed from recovered PCM.
+- **Listen** downloads the WAV through the authenticated API for browser-only playback. **Add to library** makes an independent one-time-broadcast copy without broadcasting or scheduling it automatically. You can later change mode and interval in its library card. **Delete** requires confirmation and removes only the original recording, not an existing library copy.
+
+Additive migration `0014_audio_recordings.sql` creates `audio_recordings` without modifying existing audio or configurations. All routes require administrator authorization: `GET/POST /mon/audio/recordings`, `PATCH /mon/audio/recordings/:id` with `action: pause|resume|stop`, `GET /mon/audio/recordings/:id/file`, `DELETE /mon/audio/recordings/:id`, and `POST /mon/audio/recordings/:id/library`.
+
+#### Signal meters
+
+- **Recording input level:** measures RMS energy of PCM received from the node, including during manual pause. It updates every 500 ms while a capture is active. It does not necessarily represent stored audio: silence is omitted and manual pause discards audio.
+- **Playback level:** measures the WAV heard in the browser through Web Audio, sampled every 50 ms, for both recordings and library previews. It resets on pause or end. It does not measure Asterisk's output or physical speaker volume.
+- The scale runs from −60 to 0 dBFS, with green, yellow, and red zones; 0 dBFS is the digital maximum. The visual floor is −60 dBFS. Input returns to the floor when recent samples stop arriving. No microphone permission is required. If the browser cannot start the meter, an explicit error is displayed.
 
 ## 2. Components and ports
 
@@ -568,6 +591,7 @@ The Listen Live sessions report no longer shows the **User** and **Callsign** co
 | `/mon/audio/tracks` | Administrator | GET: library; POST: upload WAV audio |
 | `/mon/audio/tracks/:id` | Administrator | PATCH: edit mode/activation; DELETE: remove audio |
 | `/mon/audio/tracks/:id/play` | Administrator | Start one-time broadcast |
+| `/mon/audio/tracks/:id/file` | Administrator | GET: authenticated WAV for local listening, without broadcasting or changing scheduling |
 | `/mon/allstarlink/connections/history` | Administrator | Connection history |
 | `/mon/system-info` | Administrator | System, CPU, memory, disks, network, temperature, voltage, and Asterisk |
 | `/mon/site-settings` | Public GET; administrator PUT | Header title/subtitle |

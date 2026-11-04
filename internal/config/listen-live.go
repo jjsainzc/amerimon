@@ -48,6 +48,7 @@ import (
 type AudioStreamManager struct {
 	listeners  map[string][]*websocket.Conn
 	audioConns map[string]net.Conn
+	consumers  map[string]io.WriteCloser
 	mu         sync.RWMutex
 }
 
@@ -56,6 +57,7 @@ func NewAudioStreamManager() *AudioStreamManager {
 	return &AudioStreamManager{
 		listeners:  make(map[string][]*websocket.Conn),
 		audioConns: make(map[string]net.Conn),
+		consumers:  make(map[string]io.WriteCloser),
 	}
 }
 
@@ -141,13 +143,33 @@ func (m *AudioStreamManager) CloseClients(uuid string) {
 	m.mu.Lock()
 	clients := m.listeners[uuid]
 	delete(m.listeners, uuid)
+	consumer := m.consumers[uuid]
+	delete(m.consumers, uuid)
 	m.mu.Unlock()
 
+	if consumer != nil {
+		if err := consumer.Close(); err != nil {
+			log.Printf("[AudioStream] error cerrando grabación uuid=%s: %v", uuid, err)
+		}
+	}
 	closeMessage := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "audio stream ended")
 	for _, client := range clients {
 		_ = client.WriteControl(websocket.CloseMessage, closeMessage, time.Now().Add(websocketWriteWait))
 		_ = client.Close()
 	}
+}
+
+// AddConsumer keeps server-side capture alive without a browser WebSocket.
+func (m *AudioStreamManager) AddConsumer(uuid string, consumer io.WriteCloser) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.consumers[uuid] = consumer
+}
+
+func (m *AudioStreamManager) RemoveConsumer(uuid string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.consumers, uuid)
 }
 
 // AddAudioConnection registra la conexión TCP de audio asociada al UUID.
@@ -190,9 +212,21 @@ func (m *AudioStreamManager) CloseAudioConnection(uuid string) bool {
 func (m *AudioStreamManager) Broadcast(uuid string, payload []byte) int {
 	m.mu.RLock()
 	clients := append([]*websocket.Conn(nil), m.listeners[uuid]...)
+	consumer := m.consumers[uuid]
 	m.mu.RUnlock()
 
 	active := 0
+	if consumer != nil {
+		if _, err := consumer.Write(payload); err != nil {
+			log.Printf("[AudioStream] error grabando uuid=%s: %v", uuid, err)
+			m.RemoveConsumer(uuid)
+			if closeErr := consumer.Close(); closeErr != nil {
+				log.Printf("[AudioStream] error finalizando grabación uuid=%s: %v", uuid, closeErr)
+			}
+		} else {
+			active++
+		}
+	}
 	for _, client := range clients {
 		if err := client.SetWriteDeadline(time.Now().Add(websocketWriteWait)); err != nil {
 			m.RemoveClient(uuid, client)

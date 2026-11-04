@@ -98,7 +98,7 @@ bind=0.0.0.0
   * Los audios programados pueden ser varios y no deben solaparse; conservar su configuración entre sesiones web y reinicios del servicio.
   
 
-- [ ] 20. Grabacion de audio, sugiereme el mejor lugar para ponerlo, y que tenga start,pausa,resume y despues reproducir el audio y/o borrarlo.  
+- [x] 20. Grabación del nodo principal en Gestión de audios: iniciar, pausa manual, continuar y detener/guardar en el servidor; pausa automática por silencio y reanudación al detectar audio. Escucha local, borrado con confirmación y copia independiente a la biblioteca de reproducción. Módulo reutilizable e interfaz ES/EN.
 
  
   

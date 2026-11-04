@@ -1,0 +1,84 @@
+<section class="audio-form" aria-labelledby="audio-recordings-title">
+  <div class="audio-list-heading">
+    <h2 id="audio-recordings-title">{{ 'AUDIO_RECORD_TITLE' | audioLabel }}</h2>
+    <button audioIcon="refresh" class="audio-button audio-secondary" type="button" (click)="refresh()" [disabled]="busy()" [attr.aria-busy]="refreshing()">{{ (refreshing() ? 'AUDIO_LOADING' : 'AUDIO_REFRESH') | audioLabel }}</button>
+  </div>
+  <p class="audio-help">{{ 'AUDIO_RECORD_HELP' | audioLabel }}</p>
+  <p class="audio-help">{{ 'AUDIO_RECORD_SILENCE_HELP' | audioLabel }}</p>
+  @if (error()) { <p class="audio-error" role="alert">{{ error() | audioLabel }}</p> }
+  @if (notice()) { <p class="audio-notice" role="status">{{ notice() | audioLabel }}</p> }
+  <form (ngSubmit)="start()">
+    <label>{{ 'AUDIO_NAME' | audioLabel }}
+      <input name="recordingName" [(ngModel)]="name" maxlength="100" required [disabled]="busy() || hasActive()" />
+    </label>
+    <button audioIcon="record" class="audio-button" type="submit" [disabled]="busy() || hasActive() || !name.trim()" [attr.aria-busy]="processing('start')">
+      {{ (processing('start') ? 'AUDIO_RECORD_PROCESSING' : 'AUDIO_RECORD_START') | audioLabel }}
+    </button>
+  </form>
+  <div class="audio-list">
+    @for (recording of recordings(); track recording.id) {
+      <article class="audio-track">
+        <div class="audio-track-info">
+          <h3>{{ recording.name }}</h3>
+          <p>{{ 'NODO' | audioLabel }} {{ recording.node }} · {{ recording.created_at | date:'short' }}</p>
+          <p>{{ stateLabel(recording) | audioLabel }} · {{ (recording.duration_ms / 1000) | number:'1.0-1' }} s · {{ (recording.file_size / 1024) | number:'1.0-0' }} KB</p>
+          @if (recording.error_code) {
+            <p class="audio-error">{{ recording.error_code | audioLabel }}</p>
+          }
+        </div>
+        <div class="audio-actions">
+          @if (isActive(recording)) {
+            <button [audioIcon]="recording.state === 'paused' ? 'resume' : 'pause'" class="audio-button audio-secondary" type="button"
+              [disabled]="busy() || recording.state === 'starting'"
+              (click)="change(recording, recording.state === 'paused' ? 'resume' : 'pause')"
+              [attr.aria-busy]="processing('pause', recording.id) || processing('resume', recording.id)">
+              {{ (processing('pause', recording.id) || processing('resume', recording.id) ? 'AUDIO_RECORD_PROCESSING' : recording.state === 'paused' ? 'AUDIO_RECORD_RESUME' : 'AUDIO_RECORD_PAUSE') | audioLabel }}
+            </button>
+            <button audioIcon="stop" class="audio-button audio-danger" type="button" (click)="change(recording, 'stop')" [disabled]="busy()" [attr.aria-busy]="processing('stop', recording.id)">
+              {{ (processing('stop', recording.id) ? 'AUDIO_RECORD_PROCESSING' : 'AUDIO_RECORD_STOP') | audioLabel }}
+            </button>
+          } @else {
+            <button audioIcon="listen" class="audio-button" type="button" (click)="listen(recording)"
+              [disabled]="busy() || recording.duration_ms === 0" [attr.aria-busy]="processing('listen', recording.id)">
+              {{ (processing('listen', recording.id) ? 'AUDIO_RECORD_PROCESSING' : 'AUDIO_RECORD_LISTEN') | audioLabel }}
+            </button>
+            <button audioIcon="library" class="audio-button" type="button" (click)="addToLibrary(recording)"
+              [disabled]="busy() || recording.in_library || recording.duration_ms === 0" [attr.aria-busy]="processing('library', recording.id)">
+              {{ (processing('library', recording.id) ? 'AUDIO_RECORD_PROCESSING' : recording.in_library ? 'AUDIO_RECORD_IN_LIBRARY' : 'AUDIO_RECORD_TO_LIBRARY') | audioLabel }}
+            </button>
+            <button audioIcon="delete" class="audio-button audio-danger" type="button" (click)="pendingDelete.set(recording)" [disabled]="busy()">
+              {{ 'AUDIO_DELETE' | audioLabel }}
+            </button>
+          }
+        </div>
+        @if (isActive(recording)) {
+          <app-audio-level-meter [dbfs]="recording.level_dbfs" [label]="'AUDIO_LEVEL_RECORDING' | audioLabel" />
+        }
+        @if (preview(); as audio) {
+          @if (audio.id === recording.id) {
+            <app-audio-player [src]="audio.url" [label]="recording.name" [attr.inert]="busy() ? '' : null" />
+          }
+        }
+      </article>
+    } @empty {
+      <p class="audio-state">{{ 'AUDIO_RECORD_EMPTY_LIST' | audioLabel }}</p>
+    }
+  </div>
+</section>
+@if (pendingDelete(); as recording) {
+  <div class="audio-confirm-overlay">
+    <section class="audio-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="recording-delete-title">
+      <div class="audio-confirm-icon" aria-hidden="true">!</div>
+      <div class="audio-confirm-content">
+        <h2 id="recording-delete-title">{{ 'AUDIO_RECORD_DELETE_CONFIRM' | audioLabel }}</h2>
+        <p>{{ recording.name }}</p>
+        <p>{{ 'AUDIO_RECORD_DELETE_HELP' | audioLabel }}</p>
+        @if (error()) { <p class="audio-confirm-error" role="alert">{{ error() | audioLabel }}</p> }
+      </div>
+      <div class="audio-confirm-actions">
+        <button audioIcon="cancel" class="audio-confirm-cancel" type="button" (click)="pendingDelete.set(null)" [disabled]="busy()">{{ 'CANCELAR' | audioLabel }}</button>
+        <button audioIcon="delete" class="audio-confirm-delete" type="button" (click)="remove()" [disabled]="busy()" [attr.aria-busy]="processing('delete', recording.id)">{{ (processing('delete', recording.id) ? 'AUDIO_DELETING' : 'AUDIO_DELETE') | audioLabel }}</button>
+      </div>
+    </section>
+  </div>
+}

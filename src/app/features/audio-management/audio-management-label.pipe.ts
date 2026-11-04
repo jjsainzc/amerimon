@@ -4,6 +4,7 @@ import { AUDIO_MANAGEMENT_TRANSLATE } from './audio-management.i18n';
 @Pipe({
   name: 'audioLabel',
   standalone: true,
+  pure: false,
 })
 export class AudioManagementLabelPipe implements PipeTransform {
   private readonly translate = inject(AUDIO_MANAGEMENT_TRANSLATE);

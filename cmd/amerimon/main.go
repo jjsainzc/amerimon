@@ -154,6 +154,9 @@ func main() {
 	config.App.DB = database
 	config.App.DBPath = *dbPath
 	config.App.UseDB = true
+	if err := controllers.RecoverAudioRecordings(); err != nil {
+		log.Fatalf("audio recordings recovery: %v", err)
+	}
 
 	if *resetAdmin {
 		if err := controllers.ClearAdminPassword(database); err != nil {

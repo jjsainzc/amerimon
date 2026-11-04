@@ -1,4 +1,9 @@
 export { AudioManagementComponent } from './audio-management.component';
+export { AudioRecordingsComponent } from './audio-recordings.component';
+export { AudioLevelMeterComponent } from './audio-level-meter.component';
+export { AudioPlayerComponent } from './audio-player.component';
+export { AudioIconButtonComponent } from './audio-icon-button.component';
+export type { AudioRecording } from './audio-management.model';
 export { AudioManagementLabelPipe } from './audio-management-label.pipe';
 export type { AudioManagementTranslate } from './audio-management.i18n';
 export { AUDIO_MANAGEMENT_TRANSLATE } from './audio-management.i18n';
