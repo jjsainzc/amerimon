@@ -2,7 +2,7 @@
   <app-admin-volver />
   <h3>{{ 'NODOS_PRIVADOS_TITULO' | translate }}</h3>
   <p class="private-nodes-ayuda">
-    {{ 'ARCHIVO' | translate }}: <code>{{ ruta() }}</code>. {{ 'FORMATO_LINEA_NODOS_PRIVADOS' | translate }}
+    {{ 'ARCHIVO' | translate }}: <code>'/var/lib/asterisk/privatenodes.txt'</code>. {{ 'FORMATO_LINEA_NODOS_PRIVADOS' | translate }}
     <code>nodo|indicativo|descripción|ubicación</code>{{ 'CAMPOS_OPCIONALES_Y_RUTA_PREDETERMINADA' | translate }}.
   </p>
   @if (!escribible()) {
