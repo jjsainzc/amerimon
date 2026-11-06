@@ -4,7 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { EchoLinkComponent } from './echolink.component';
 import { provideRouter } from '@angular/router';
 import { By } from '@angular/platform-browser';
-import { PasswordFieldComponent } from '../../shared/password-field/password-field.component';
+import { NgModel } from '@angular/forms';
+import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
 
 describe('EchoLink administration', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -41,6 +42,24 @@ describe('EchoLink administration', () => {
     });
     return { http, fixture, component: fixture.componentInstance };
   }
+
+  it('spans only the connection message across the full grid row and preserves its binding', async () => {
+    const { http, fixture, component } = setup();
+    component.values['message'] = 'Connection message';
+    fixture.autoDetectChanges();
+    await fixture.whenStable();
+    const fields = fixture.nativeElement.querySelectorAll('.fields .message-field') as NodeListOf<HTMLLabelElement>;
+    expect(fields.length).toBe(1);
+    const message = fields[0].querySelector('textarea') as HTMLTextAreaElement;
+    expect(getComputedStyle(fields[0]).gridColumn.replace(/\s/g, '')).toBe('1/-1');
+    expect(fixture.debugElement.query(By.css('.message-field textarea')).injector.get(NgModel).name).toBe('message');
+    expect(message.value).toBe('Connection message');
+    message.value = 'Updated message';
+    message.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(component.values['message']).toBe('Updated message');
+    fixture.destroy(); http.verify();
+  });
 
   it('highlights loaded status on entry and updates it after disabling', async () => {
     const { http, fixture, component } = setup();

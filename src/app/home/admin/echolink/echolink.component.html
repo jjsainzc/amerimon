@@ -29,7 +29,7 @@
             }
             <div class="fields">
               @for (key of group.keys; track key) {
-                <label>{{ ('ECHOLINK_FIELD_' + key) | translate }} <small>{{ key }}</small>
+                <label [class.message-field]="key === 'message'">{{ ('ECHOLINK_FIELD_' + key) | translate }} <small>{{ key }}</small>
                   @if (key === 'message') {
                     <textarea [name]="key" [(ngModel)]="values[key]" maxlength="2048"></textarea>
                   } @else {

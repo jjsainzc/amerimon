@@ -100,6 +100,35 @@ bind=0.0.0.0
 
 - [x] 20. Grabación del nodo principal en Gestión de audios: iniciar, pausa manual, continuar y detener/guardar en el servidor; pausa automática por silencio y reanudación al detectar audio. Escucha local, borrado con confirmación y copia independiente a la biblioteca de reproducción. Módulo reutilizable e interfaz ES/EN.
 
+- [ ] 21. Hay que cambiar un concepto aca, lo que llamamos Nodo Principal, que se identifican bajo la stanza de `[nodes]`, en el file `rpt.conf`, realmente no lo es, pueden haber mas de uno y son nodos locales que estan en el mismo sitio que el backend, por lo tanto, todas las operaciones con los nodos conectados bajo el "nodo primario", se pueden hacer también con todos aquellos que están conectados a los que estan bajo esa stanza que tienen el formato `<nodo> = radio@127.0.0.1/<nodo>,NONE`, hay una diferencia entre ellos y es que algunos pueden tener una registración en el file `rpt_http_registrations.conf` bajo la stanza `[registrations]` con el formato `register => <nodo>:<password>@register.allstarlink.org` , normalmente tienen mas de 4 dígitos, los que tienen 4 dígitos son nodos privados, los demás nodos que están en allmon.ini, son considerados remotos que solo pueden ser manejados usando conexion AMI, ya que están fuera del server donde está el backend.
+Esto quiere decir, que cualquier nodo que este conectado, a cualquiera, de los que están bajo esa stanza de `[nodes]`, por ejemplo se pueden mutear (silenciar). 
+Lo que esta definido, en el menú, como "Nodo Primario" bajo el combo desplegable de "Mas opciones", debe llamarse realmente "Nodos Locales", y dentro, la configuracion de  "Nodo primario" deben tener varias tarjetas colapsables donde, para editarlas, debe llevar un popup con el nodo, el password, si es que llevan registración en `rpt_http_registrations.conf`, y sobreescribir estas opciones: `duplex=0,hangtime=0,althangtime=0,holdofftelem=1,telemdefault=0,telemdynamic=0,linktolink=no,nounkeyct=1,totime=180000`, que sus valores por defecto estan en la stanza `[node-main](!)`.
+Esas definiciones de nodos se colocan al final del file `rpt.conf` bajo stanzas que se denominan `[<nodo>](node-main)`, o sea que heredan todas las opciones del template `[node-main](!)` y sobreescriben las mencionadas anteriormente.
+Opcionalmente estas definiciones pueden estar en `#tryinclude "custom/rpt.conf"` o lo que diga ese `#tryinclude`.
+Tambien se pueden crear nuevos, ya sean privados o registrados, habria que indicar que tipo y si es registrado poner la línea en `rpt_http_registrations.conf`, para todos tambien hay que escoger cual de estos rxchannel será asociado:
+;;; rxchannel ;;;
+; Must also be enabled in modules.conf
+; Enable the selected channel driver in modules.conf !!!
+; Rx/Tx audio/signalling channel. Choose ONLY 1 per node stanza.
+; rxchannel = Local/pseudo          ; No radio (hub)
+; rxchannel = SimpleUSB/1999        ; SimpleUSB
+; rxchannel = Radio/1999            ; USBRadio (DSP)
+; rxchannel = Voter/1999            ; RTCM device
+; rxchannel = Pi/1                  ; Raspberry Pi PiTA
+; rxchannel = Dahdi/1               ; PCI Quad card
+; rxchannel = Beagle/1              ; BeagleBoard
+; rxchannel = USRP/127.0.0.1:34001:32001    ;GNU Radio interface USRP
+Ejempolo de config de un nodo
+```
+[<numero del nodo>]
+rxchannel = SimpleUSB/usb0
+duplex = 2
+idrecording = |i<indicativo>
+hangtime = 5000
+totime = 180000
+context = radio
+```
+> NOTA: no pueden haber dos nodos definidos dentro de rpt.conf con el rxchannel igual
  
   
 

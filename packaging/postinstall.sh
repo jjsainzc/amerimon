@@ -204,6 +204,41 @@ if [ -d "$AST_DIR" ]; then
         echo "Aviso: falta extensions.conf o el parche peerip de EchoLink; no se aplicó." >&2
     fi
 
+    ECHOLINK_CONF="$AST_DIR/echolink.conf"
+    RPT_CONF="$AST_DIR/rpt.conf"
+    ECHOLINK_TELEMETRY_PATCH=/usr/lib/amerimon/echolink-telemetry.awk
+    if [ -f "$ECHOLINK_CONF" ] && [ -f "$RPT_CONF" ] && [ -r "$ECHOLINK_TELEMETRY_PATCH" ]; then
+        merged=$(mktemp "${RPT_CONF}.echolink-telemetry.XXXXXX")
+        if awk -f "$ECHOLINK_TELEMETRY_PATCH" "$ECHOLINK_CONF" "$RPT_CONF" > "$merged"; then
+            if ! cmp -s "$RPT_CONF" "$merged"; then
+                [ -e "$RPT_CONF.bak-echolink-telemetry" ] || cp -a "$RPT_CONF" "$RPT_CONF.bak-echolink-telemetry"
+                chmod --reference="$RPT_CONF" "$merged"
+                chown --reference="$RPT_CONF" "$merged"
+                mv "$merged" "$RPT_CONF"
+                echo "EchoLink: se configuró echolinkdefault = 1; también habilita otra telemetría hacia EchoLink."
+                if command -v asterisk >/dev/null 2>&1 && asterisk -rx 'core show version' >/dev/null 2>&1; then
+                    asterisk -rx 'module reload app_rpt.so' || echo "Aviso: no se pudo recargar app_rpt.so; recárgalo manualmente." >&2
+                else
+                    echo "Aviso: Asterisk no está disponible; recarga app_rpt.so cuando esté activo." >&2
+                fi
+                echo "EchoLink: desconecta y reconecta los enlaces para aplicar el modo de telemetría."
+            else
+                rm -f "$merged"
+            fi
+        else
+            status=$?
+            rm -f "$merged"
+            if [ "$status" -eq 3 ]; then
+                echo "Aviso: EchoLink no tiene astnode; no se modificó rpt.conf." >&2
+            else
+                echo "Error: no se pudo aplicar el parche de telemetría EchoLink; rpt.conf no se modificó." >&2
+                exit 1
+            fi
+        fi
+    else
+        echo "Aviso: falta echolink.conf, rpt.conf o el parche de telemetría EchoLink; no se aplicó." >&2
+    fi
+
     if [ -r /usr/lib/amerimon/configure-pjsip.sh ]; then
         sh /usr/lib/amerimon/configure-pjsip.sh
     else

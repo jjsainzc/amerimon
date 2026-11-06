@@ -11,7 +11,7 @@ export const routes: Routes = [
   {
     path: 'admin/echolink',
     canActivate: [adminGuard],
-    loadComponent: () => import('./features/echolink/echolink.component').then(m => m.EchoLinkComponent),
+    loadComponent: () => import('./home/admin/echolink/echolink.component').then(m => m.EchoLinkComponent),
   },
   { path: '', pathMatch: 'full', redirectTo: 'allstarlink' },
   {

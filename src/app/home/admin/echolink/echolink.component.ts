@@ -2,10 +2,10 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TranslatePipe } from '../../core/pipes/translate.pipe';
-import { environment } from '../../core/environment';
-import { PasswordFieldComponent } from '../../shared/password-field/password-field.component';
-import { AdminVolverComponent } from '../../shared/admin-volver/admin-volver.component';
+import { TranslatePipe } from '../../../core/pipes/translate.pipe';
+import { environment } from '../../../core/environment';
+import { PasswordFieldComponent } from '../../../shared/password-field/password-field.component';
+import { AdminVolverComponent } from '../../../shared/admin-volver/admin-volver.component';
 
 interface Section {
   section: string;
@@ -37,6 +37,7 @@ interface Port {
     .echolink { box-sizing: border-box; width: 100%; max-width: 65rem; min-width: 0; margin: auto; padding: 1rem; color: #dce5eb; overflow-wrap: anywhere; }
     fieldset { min-inline-size: 0; border: 1px solid #506673; border-radius: 6px; margin: 1rem 0; padding: 1rem; }
     .fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(220px,100%),1fr)); gap: 1rem; }
+    .message-field { grid-column: 1 / -1; }
     label { display: grid; min-width: 0; gap: .4rem; }
     input, select, textarea { box-sizing: border-box; min-width: 0; max-width: 100%; padding: .5rem; border: 1px solid #506673; border-radius: 4px; background: #14212a; color: inherit; }
     .password-field { width: 100%; max-width: 28rem; }

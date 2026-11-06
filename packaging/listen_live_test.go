@@ -22,6 +22,7 @@ func TestLocalInstallerAppliesListenLiveMigration(t *testing.T) {
 		"packaging/listen-live-dialplan.awk",
 		"packaging/merge-allstar-public.awk",
 		"packaging/echolink-peerip.awk",
+		"packaging/echolink-telemetry.awk",
 		"packaging/configure-pjsip.sh",
 		"packaging/pjsip-network.sh",
 		"packaging/amerimon-pjsip-firewall.service",
@@ -55,7 +56,12 @@ func TestListenLiveDialplanInstallation(t *testing.T) {
 		t.Fatal("Verbose and Log require app_verbose.so in the installed module list")
 	}
 	start := strings.LastIndex(string(postinstall), `    EXTENSIONS_CONF="$AST_DIR/extensions.conf"`)
-	end := strings.Index(string(postinstall), `        if command -v asterisk`)
+	end := -1
+	if start >= 0 {
+		if relative := strings.Index(string(postinstall[start:]), `        if command -v asterisk`); relative >= 0 {
+			end = start + relative
+		}
+	}
 	if start < 0 || end < start {
 		t.Fatal("Listen Live installation block not found")
 	}
