@@ -45,11 +45,15 @@ END {
     if (failed) exit 1
     found = 0
     for (node in nodes) {
+        if (headers[node] != 1) {
+            print "EchoLink telemetry: missing RPT section [" node "], skipped" > "/dev/stderr"
+            delete nodes[node]
+            continue
+        }
         found = 1
-        if (headers[node] != 1) fail("missing RPT section [" node "]")
     }
     if (!found) {
-        print "EchoLink telemetry: no astnode found" > "/dev/stderr"
+        print "EchoLink telemetry: no astnode with matching RPT section found" > "/dev/stderr"
         exit 3
     }
     for (i = 1; i <= count; i++) {

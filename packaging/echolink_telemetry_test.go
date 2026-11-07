@@ -86,7 +86,7 @@ func TestEchoLinkTelemetryInstallation(t *testing.T) {
 	}
 	script := string(data)
 	start := strings.Index(script, `    ECHOLINK_CONF=`)
-	end := strings.Index(script, `    if [ -r /usr/lib/amerimon/configure-pjsip.sh ]; then`)
+	end := strings.Index(script, "\n)\n\nconfigure_pjsip()")
 	if start < 0 || end < start {
 		t.Fatal("EchoLink telemetry installation block missing")
 	}
@@ -139,8 +139,8 @@ func TestEchoLinkTelemetryInstallation(t *testing.T) {
 	}
 	cmd := exec.Command("sh", "-ec", block)
 	cmd.Env = append(os.Environ(), "AST_DIR="+dir, "PATH="+dir+":"+os.Getenv("PATH"))
-	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "no se modific") {
-		t.Fatalf("invalid target must explicitly fail: %v %s", err, output)
+	if output, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(output), "Aviso:") || !strings.Contains(string(output), "no se modific") {
+		t.Fatalf("missing target must warn without aborting installation: %v %s", err, output)
 	}
 	after, err := os.ReadFile(rptPath)
 	if err != nil || string(after) != string(before) {
@@ -150,9 +150,70 @@ func TestEchoLinkTelemetryInstallation(t *testing.T) {
 	if err != nil || len(temps) != 0 {
 		t.Fatal("failed patch left temporary files")
 	}
+	commands, err = os.ReadFile(filepath.Join(dir, "commands"))
+	if err != nil || strings.Count(string(commands), "module reload app_rpt.so") != 1 {
+		t.Fatal("skipped patch must not reload Asterisk")
+	}
 	release, err := os.ReadFile("../.goreleaser.yaml")
 	if err != nil || !strings.Contains(string(release), "src: packaging/echolink-telemetry.awk\n        dst: /usr/lib/amerimon/echolink-telemetry.awk") {
 		t.Fatal("Debian package must include the telemetry patch")
+	}
+}
+
+func TestEchoLinkTelemetryInstallationMissingAndUnsafeNodes(t *testing.T) {
+	data, err := os.ReadFile("postinstall.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(data)
+	start := strings.Index(script, `    ECHOLINK_CONF=`)
+	end := strings.Index(script, "\n)\n\nconfigure_pjsip()")
+	if start < 0 || end < start {
+		t.Fatal("EchoLink telemetry installation block missing")
+	}
+	patch, err := filepath.Abs("echolink-telemetry.awk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	block := strings.ReplaceAll(script[start:end], "/usr/lib/amerimon/echolink-telemetry.awk", patch)
+	for _, tc := range []struct {
+		name, echo, rpt, want string
+		fail                  bool
+	}{
+		{"missing-1999", "[el0]\nastnode = 1999\n", "[41777]\nduplex = 1\n", "[41777]\nduplex = 1\n", false},
+		{"mixed-nodes", "[el0]\nastnode = 1999\n[el1]\nastnode = 41777\n", "[41777]\nduplex = 1\n", "[41777]\necholinkdefault = 1\nduplex = 1\n", false},
+		{"no-astnode", "[el0]\n;astnode = 1999\n", "[41777]\n", "[41777]\n", false},
+		{"invalid-astnode", "[el0]\nastnode = invalid\n", "[41777]\n", "[41777]\n", true},
+		{"duplicate-section", "[el0]\nastnode = 41777\n", "[41777]\n[41777]\n", "[41777]\n[41777]\n", true},
+		{"template-section", "[el0]\nastnode = 41777\n", "[41777](!)\n", "[41777](!)\n", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			rptPath := filepath.Join(dir, "rpt.conf")
+			writeTelemetryFixture(t, filepath.Join(dir, "echolink.conf"), tc.echo)
+			writeTelemetryFixture(t, rptPath, tc.rpt)
+			writeTelemetryFixture(t, filepath.Join(dir, "asterisk"), "#!/bin/sh\nexit 0\n")
+			if err := os.Chmod(filepath.Join(dir, "asterisk"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command("sh", "-ec", block+"\nprintf 'postinstall-continued\\n'\n")
+			cmd.Env = append(os.Environ(), "AST_DIR="+dir, "PATH="+dir+":"+os.Getenv("PATH"))
+			output, err := cmd.CombinedOutput()
+			if (err != nil) != tc.fail || strings.Contains(string(output), "postinstall-continued") == tc.fail {
+				t.Fatalf("unexpected postinstall outcome: %v %s", err, output)
+			}
+			if !tc.fail && !strings.Contains(string(output), "missing RPT section [1999], skipped") && tc.name != "no-astnode" {
+				t.Fatalf("missing node must be explicitly reported: %s", output)
+			}
+			result, err := os.ReadFile(rptPath)
+			if err != nil || string(result) != tc.want {
+				t.Fatalf("unexpected rpt.conf: %v %s", err, result)
+			}
+			temps, err := filepath.Glob(rptPath + ".echolink-telemetry.*")
+			if err != nil || len(temps) != 0 {
+				t.Fatal("telemetry patch left temporary files")
+			}
+		})
 	}
 }
 

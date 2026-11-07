@@ -15,15 +15,12 @@ func TestAudioModuleInstallation(t *testing.T) {
 	}
 	script := string(data)
 	start := strings.Index(script, `    MODULES_CONF=`)
-	end := -1
-	if start >= 0 {
-		if endRelative := strings.Index(script[start:], `    if [ -f "$EXTENSIONS_CONF" ]; then`); endRelative >= 0 {
-			end = start + endRelative
-		}
-	}
-	if start < 0 || end < start {
+	end := strings.Index(script, "\n)\n\nconfigure_listen_live()")
+	moduleStart := strings.Index(script, "\nMODULES=")
+	if start < 0 || end < start || moduleStart < 0 {
 		t.Fatal("module installation block missing")
 	}
+	moduleEnd := moduleStart + 1 + strings.Index(script[moduleStart+1:], "\n")
 	for _, installed := range []bool{true, false} {
 		t.Run(map[bool]string{true: "installed", false: "missing"}[installed], func(t *testing.T) {
 			dir := t.TempDir()
@@ -41,7 +38,7 @@ func TestAudioModuleInstallation(t *testing.T) {
 			if err := os.WriteFile(path, []byte(initial), 0o640); err != nil {
 				t.Fatal(err)
 			}
-			block := script[start:end]
+			block := script[moduleStart:moduleEnd] + "\n" + script[start:end]
 			block = strings.ReplaceAll(block, `/usr/lib/*/asterisk/modules/"$module" /usr/lib/asterisk/modules/"$module"`, moduleDir+`/"$module"`)
 			var previous string
 			for run := 0; run < 2; run++ {

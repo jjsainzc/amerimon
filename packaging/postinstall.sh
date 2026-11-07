@@ -1,6 +1,22 @@
 #!/bin/sh
 set -e
 
+# Run outside a conditional so errexit still stops a failed configuration step.
+run_configuration() {
+    label=$1
+    shift
+    set +e
+    "$@"
+    status=$?
+    set -e
+    if [ "$status" -ne 0 ]; then
+        echo "Aviso: falló la configuración de $label (código $status); se omitió el resto de ese paso y la instalación continúa." >&2
+    fi
+    return 0
+}
+
+configure_files() (
+set -e
 # Secreto JWT: solo root lo lee; systemd lo entrega al servicio como credencial.
 mkdir -p /etc/amerimon
 if [ ! -s /etc/amerimon/jwt.secret ]; then
@@ -71,6 +87,10 @@ fi
 chown root:root /var/lib/amerimon/terminal-credentials.key
 chmod 600 /var/lib/amerimon/terminal-credentials.key
 
+)
+
+configure_services() (
+set -e
 if [ -d /run/systemd/system ]; then
     systemctl daemon-reload
     systemctl enable amerimon.service
@@ -141,11 +161,12 @@ if [ -d /run/systemd/system ]; then
         /usr/lib/amerimon/configure-nginx.sh || echo "Aviso: no se pudo configurar Nginx; Amerimon sigue disponible en el puerto 8082." >&2
     fi
 fi
+)
 
 # Listen Live and inbound audio control need Asterisk modules. Keep backups and
 # preserve existing Asterisk configuration; no Asterisk restart is performed.
-AST_DIR=/etc/asterisk
-if [ -d "$AST_DIR" ]; then
+configure_allstar_public() (
+set -e
     EXTENSIONS_CONF="$AST_DIR/extensions.conf"
     ALLSTAR_PUBLIC_PATCH=/usr/share/amerimon/extensions-allstar-public-patch.conf
     ALLSTAR_PUBLIC_MERGER=/usr/lib/amerimon/merge-allstar-public.awk
@@ -178,6 +199,10 @@ if [ -d "$AST_DIR" ]; then
         echo "Aviso: no existe $EXTENSIONS_CONF; no se aplicó el control [allstar-public]." >&2
     fi
 
+)
+
+configure_echolink_peerip() (
+set -e
     ECHOLINK_PEERIP_PATCH=/usr/lib/amerimon/echolink-peerip.awk
     if [ -f "$EXTENSIONS_CONF" ] && [ -r "$ECHOLINK_PEERIP_PATCH" ]; then
         merged=$(mktemp "${EXTENSIONS_CONF}.echolink-peerip.XXXXXX")
@@ -204,6 +229,10 @@ if [ -d "$AST_DIR" ]; then
         echo "Aviso: falta extensions.conf o el parche peerip de EchoLink; no se aplicó." >&2
     fi
 
+)
+
+configure_echolink_telemetry() (
+set -e
     ECHOLINK_CONF="$AST_DIR/echolink.conf"
     RPT_CONF="$AST_DIR/rpt.conf"
     ECHOLINK_TELEMETRY_PATCH=/usr/lib/amerimon/echolink-telemetry.awk
@@ -229,7 +258,7 @@ if [ -d "$AST_DIR" ]; then
             status=$?
             rm -f "$merged"
             if [ "$status" -eq 3 ]; then
-                echo "Aviso: EchoLink no tiene astnode; no se modificó rpt.conf." >&2
+                echo "Aviso: EchoLink no tiene astnode con sección en rpt.conf; no se modificó rpt.conf." >&2
             else
                 echo "Error: no se pudo aplicar el parche de telemetría EchoLink; rpt.conf no se modificó." >&2
                 exit 1
@@ -239,6 +268,10 @@ if [ -d "$AST_DIR" ]; then
         echo "Aviso: falta echolink.conf, rpt.conf o el parche de telemetría EchoLink; no se aplicó." >&2
     fi
 
+)
+
+configure_pjsip() (
+set -e
     if [ -r /usr/lib/amerimon/configure-pjsip.sh ]; then
         sh /usr/lib/amerimon/configure-pjsip.sh
     else
@@ -246,9 +279,11 @@ if [ -d "$AST_DIR" ]; then
         exit 1
     fi
 
-    MODULES_CONF="$AST_DIR/modules.conf"
-    MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so app_verbose.so func_config.so func_strings.so func_logic.so func_cut.so res_mutestream.so"
+)
 
+configure_audio_modules() (
+set -e
+    MODULES_CONF="$AST_DIR/modules.conf"
     if [ -f "$MODULES_CONF" ]; then
         [ -e "$MODULES_CONF.bak-listen-live" ] || cp -a "$MODULES_CONF" "$MODULES_CONF.bak-listen-live"
         AVAILABLE_MODULES=
@@ -285,6 +320,10 @@ if [ -d "$AST_DIR" ]; then
         echo "Aviso: no existe $MODULES_CONF; no se configuraron módulos para Listen Live y control de audio." >&2
     fi
 
+)
+
+configure_listen_live() (
+set -e
     EXTENSIONS_CONF="$AST_DIR/extensions.conf"
     if [ -f "$EXTENSIONS_CONF" ]; then
         [ -e "$EXTENSIONS_CONF.bak-listen-live" ] || cp -a "$EXTENSIONS_CONF" "$EXTENSIONS_CONF.bak-listen-live"
@@ -401,4 +440,21 @@ EOF
     else
         echo "Aviso: no existe $EXTENSIONS_CONF; no se configuró el dialplan de Listen Live." >&2
     fi
+)
+
+run_configuration "ficheros y credenciales" configure_files
+run_configuration "servicios y proxy web" configure_services
+
+AST_DIR=/etc/asterisk
+EXTENSIONS_CONF="$AST_DIR/extensions.conf"
+MODULES="res_speech.so res_agi.so app_chanspy.so app_mixmonitor.so app_verbose.so func_config.so func_strings.so func_logic.so func_cut.so res_mutestream.so"
+if [ -d "$AST_DIR" ]; then
+    run_configuration "allstar-public" configure_allstar_public
+    run_configuration "EchoLink peerip" configure_echolink_peerip
+    run_configuration "telemetría EchoLink" configure_echolink_telemetry
+    run_configuration "PJSIP" configure_pjsip
+    run_configuration "módulos de audio" configure_audio_modules
+    run_configuration "dialplan Listen Live" configure_listen_live
 fi
+
+exit 0
