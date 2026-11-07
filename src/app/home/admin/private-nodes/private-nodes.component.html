@@ -41,3 +41,155 @@
     </div>
   </form>
 </section>
+
+<section class="private-nodes private-rpt" aria-labelledby="private-rpt-title">
+  <h3 id="private-rpt-title">{{ 'NODOS_PRIVADOS_RPT_TITULO' | translate }}</h3>
+  <p class="private-nodes-ayuda">
+    {{ 'NODOS_PRIVADOS_RPT_AYUDA' | translate }} <code>{{ rptPath() || '/etc/asterisk/rpt.conf' }}</code>
+  </p>
+  @if (cargandoRPT()) { <p role="status">{{ 'CARGANDO' | translate }}</p> }
+  @if (errorRPT()) { <p class="private-nodes-error" role="alert">{{ errorRPT() }}</p> }
+  @if (avisoRPT()) { <p class="private-nodes-ok" role="status">{{ avisoRPT() }}</p> }
+
+  <div class="private-nodes-acciones">
+    <button type="button" (click)="abrirNuevoNodo()" [disabled]="guardandoRPT() || cargandoRPT()">
+      + {{ 'AGREGAR_NODO_PRIVADO_RPT' | translate }}
+    </button>
+    <button type="button" (click)="cargarRPTNodes()" [disabled]="guardandoRPT() || cargandoRPT()">
+      {{ 'RECARGAR_LISTA' | translate }}
+    </button>
+  </div>
+  <div class="private-rpt-lista">
+    @for (node of rptNodes(); track node.id) {
+      <article class="private-rpt-nodo">
+        <div class="private-rpt-identidad">
+          <strong>{{ node.id }}</strong>
+          <span><code>{{ node.rxchannel || ('RXCHANNEL_NO_CONFIGURADO' | translate) }}</code></span>
+        </div>
+        <div class="private-rpt-acciones">
+          <button type="button" (click)="guardarServidores()"
+            [title]="(guardandoRPT() ? 'GUARDANDO' : 'GUARDAR_CAMBIOS') | translate"
+            [attr.aria-label]="(guardandoRPT() ? 'GUARDANDO' : 'GUARDAR_CAMBIOS') | translate"
+            [disabled]="guardandoRPT() || cargandoRPT() || editorAbierto() || !cambiosServidores.changed(rptNodes())">
+            <i [class]="guardandoRPT() ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-floppy-disk'" aria-hidden="true"></i>
+          </button>
+          <button type="button" (click)="editarNodo(node)" [disabled]="guardandoRPT()"
+            [title]="'EDITAR' | translate" [attr.aria-label]="'EDITAR' | translate">
+            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="private-nodes-quitar" (click)="solicitarEliminarNodo(node.id)" [disabled]="guardandoRPT()"
+            [title]="'ELIMINAR' | translate" [attr.aria-label]="'ELIMINAR' | translate">
+            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="private-rpt-servidor">
+          <label class="private-rpt-server-toggle">
+            <input type="checkbox" [name]="'rpt-server-' + node.id" [ngModel]="node.show_as_server"
+              (ngModelChange)="cambiarServidor(node.id, $event)" [disabled]="guardandoRPT() || editorAbierto()"
+              [attr.aria-describedby]="'rpt-server-help-' + node.id">
+            {{ 'NODO_RPT_MOSTRAR_COMO_SERVIDOR' | translate }}
+          </label>
+          <p class="private-nodes-ayuda" [id]="'rpt-server-help-' + node.id">{{ 'NODO_RPT_MOSTRAR_COMO_SERVIDOR_AYUDA' | translate }}</p>
+        </div>
+      </article>
+    } @empty {
+      @if (!cargandoRPT()) { <p class="private-nodes-vacio">{{ 'NO_HAY_NODOS_PRIVADOS_RPT' | translate }}</p> }
+    }
+  </div>
+
+  @if (editorAbierto()) {
+    <div class="private-rpt-overlay">
+      <section class="private-rpt-editor" role="dialog" aria-modal="true" aria-labelledby="private-rpt-editor-title">
+        <h3 id="private-rpt-editor-title">{{ (editandoNodo() ? 'EDITAR_NODO_PRIVADO_RPT' : 'AGREGAR_NODO_PRIVADO_RPT') | translate }}</h3>
+        <form (ngSubmit)="guardarNodo()">
+          <fieldset [disabled]="guardandoRPT()">
+            <label>
+              {{ 'NUMERO_NODO_PRIVADO' | translate }}
+              <input name="rpt-node-id" [ngModel]="nodoActual().id" (ngModelChange)="actualizarNodo({id: $event})"
+                required minlength="4" maxlength="4" pattern="[0-9]{4}" [readonly]="editandoNodo()" autocomplete="off">
+            </label>
+            <label>
+              rxchannel
+              <input name="rpt-node-rxchannel" [ngModel]="nodoActual().rxchannel" (ngModelChange)="actualizarNodo({rxchannel: $event})"
+                required maxlength="256" autocomplete="off" placeholder="USRP/127.0.0.1:34001:32001">
+            </label>
+            <div class="rxchannel-ayuda">
+              <strong>{{ 'RXCHANNEL_EJEMPLOS' | translate }}</strong>
+              <ul>
+                <li><code>Local/pseudo</code> — {{ 'RXCHANNEL_LOCAL' | translate }}</li>
+                <li><code>SimpleUSB/1999</code> — {{ 'RXCHANNEL_SIMPLEUSB' | translate }}</li>
+                <li><code>Radio/1999</code> — {{ 'RXCHANNEL_RADIO' | translate }}</li>
+                <li><code>Voter/1999</code> — {{ 'RXCHANNEL_VOTER' | translate }}</li>
+                <li><code>Pi/1</code> — {{ 'RXCHANNEL_PI' | translate }}</li>
+                <li><code>Dahdi/1</code> — {{ 'RXCHANNEL_DAHDI' | translate }}</li>
+                <li><code>Beagle/1</code> — {{ 'RXCHANNEL_BEAGLE' | translate }}</li>
+                <li><code>USRP/127.0.0.1:34001:32001</code> — {{ 'RXCHANNEL_USRP' | translate }}</li>
+              </ul>
+            </div>
+            <div class="private-rpt-opciones">
+              <strong>{{ 'PARAMETROS_NODO_RPT' | translate }}</strong>
+              @for (option of opcionesNodo(); track option.key) {
+                <label>
+                  <span>{{ option.key }}</span>
+                  <input [name]="'rpt-setting-' + option.key" [ngModel]="option.value"
+                    (ngModelChange)="actualizarParametro(option.key, $event)" autocomplete="off">
+                </label>
+              }
+            </div>
+            <div class="private-rpt-agregar-opcion">
+              <label>
+                {{ 'PARAMETRO_RPT' | translate }}
+                <select name="rpt-template-parameter" aria-describedby="rpt-parameter-help"
+                  [ngModel]="parametroSeleccionado()" (ngModelChange)="seleccionarParametro($event)">
+                  <option value="">{{ 'SELECCIONAR_PARAMETRO_RPT' | translate }}</option>
+                  @for (parameter of parametrosDisponibles(); track parameter.key) {
+                    <option [value]="parameter.key">{{ parameter.key }} = {{ parameter.value }}</option>
+                  }
+                  <option value="__custom__">{{ 'PARAMETRO_PERSONALIZADO_RPT' | translate }}</option>
+                </select>
+              </label>
+              @if (parametroPersonalizado()) {
+                <label>
+                  {{ 'NOMBRE_PARAMETRO_PERSONALIZADO_RPT' | translate }}
+                  <input name="rpt-extra-key" [ngModel]="parametroKey()" (ngModelChange)="parametroKey.set($event)" autocomplete="off">
+                </label>
+              }
+              <label>
+                {{ 'VALOR_PARAMETRO_RPT' | translate }}
+                <input name="rpt-extra-value" [ngModel]="parametroValue()" (ngModelChange)="parametroValue.set($event)" autocomplete="off">
+              </label>
+              <button type="button" (click)="agregarParametro()" [disabled]="!parametroSeleccionado() || !parametroValue().trim()">
+                {{ 'AGREGAR_PARAMETRO_RPT' | translate }}
+              </button>
+            </div>
+            <div id="rpt-parameter-help" class="private-rpt-parametro-ayuda" aria-live="polite">
+              <p>{{ 'PARAMETRO_RPT_SOBRESCRITURA_AYUDA' | translate }}</p>
+              @if (parametroSeleccionado()) {
+                <strong>{{ 'PARAMETRO_RPT_DOCUMENTACION' | translate }}</strong>
+                <p class="private-rpt-descripcion">{{ descripcionParametro() || ('PARAMETRO_RPT_SIN_DOCUMENTACION' | translate) }}</p>
+              }
+            </div>
+          </fieldset>
+          @if (errorRPT()) { <p class="private-nodes-error" role="alert">{{ errorRPT() }}</p> }
+          <div class="private-nodes-acciones">
+            <button type="button" (click)="cerrarEditor()" [disabled]="guardandoRPT()">{{ 'CANCELAR' | translate }}</button>
+            <button type="submit" [disabled]="guardandoRPT() || !cambiosRPT.changed(nodoActual())">
+              {{ (guardandoRPT() ? 'GUARDANDO' : 'GUARDAR_CAMBIOS') | translate }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  }
+</section>
+
+<app-confirmacion-dialog
+  noticeKey="confirm.private-rpt-node.delete"
+  [open]="pendienteEliminar() !== null"
+  [title]="'ELIMINAR' | translate"
+  [message]="pendienteEliminar() ? ('ELIMINAR_NODO_PRIVADO_RPT_CONFIRMAR' | translate:{id: pendienteEliminar()!}) : ''"
+  [confirmLabel]="'ELIMINAR' | translate"
+  [showDeleteIcon]="true"
+  [busy]="guardandoRPT()"
+  (confirmed)="confirmarEliminacionNodo()"
+  (cancelled)="cancelarEliminacionNodo()" />

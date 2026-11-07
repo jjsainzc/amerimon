@@ -1,14 +1,83 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
+
+var pjsipIncludePattern = regexp.MustCompile(`^\s*#(tryinclude|include)\s+(?:"([^"]+)"|'([^']+)'|([^;\s"']+))\s*(?:;.*)?$`)
+
+// Reserve section IDs as well as endpoint IDs: auth/AOR objects may use the same extension number.
+func readPJSIPSectionIDs(path string) (map[string]bool, error) {
+	ids := make(map[string]bool)
+	active := make(map[string]bool)
+	visited := make(map[string]bool)
+	base := filepath.Dir(path)
+	var read func(string, int) error
+	read = func(path string, depth int) error {
+		if depth > 32 {
+			return errors.New("PJSIP includes exceed maximum depth")
+		}
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			return err
+		}
+		if active[resolved] {
+			return errors.New("cyclic PJSIP include")
+		}
+		if visited[resolved] {
+			return nil
+		}
+		data, err := os.ReadFile(resolved)
+		if err != nil {
+			return err
+		}
+		active[resolved] = true
+		defer delete(active, resolved)
+		for _, line := range strings.Split(string(data), "\n") {
+			if header := reAllmonHeader.FindStringSubmatch(line); header != nil {
+				ids[strings.TrimSpace(header[1])] = true
+			}
+			if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+				continue
+			}
+			match := pjsipIncludePattern.FindStringSubmatch(line)
+			if match == nil {
+				return errors.New("unsupported PJSIP configuration directive")
+			}
+			target := nz(match[2], nz(match[3], match[4]))
+			if !filepath.IsAbs(target) {
+				target = filepath.Join(base, target)
+			}
+			matches, err := filepath.Glob(target)
+			if err != nil {
+				return err
+			}
+			if len(matches) == 0 && match[1] != "tryinclude" {
+				return fmt.Errorf("missing PJSIP include %s", target)
+			}
+			for _, included := range matches {
+				if err := read(included, depth+1); err != nil {
+					return err
+				}
+			}
+		}
+		visited[resolved] = true
+		return nil
+	}
+	if err := read(path, 0); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
 
 type PJSIPExtension struct {
 	ID              string   `json:"id"`

@@ -225,6 +225,43 @@ func TestReadPrimaryRPTNodeNotConfigured(t *testing.T) {
 	}
 }
 
+func TestPrivateNodeServerVisibilityKeepsPrimaryAndUsesGlobalAMI(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "rpt.conf")
+	content := "[1998](node-main)\n; amerimon_show_as_server = yes\n" +
+		"[1964](node-main)\n[616265](node-main)\n[nodes]\n" +
+		"1998=radio@127.0.0.1/1998,NONE\n616265=radio@127.0.0.1/616265,NONE\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	privatePath := filepath.Join(dir, "privatenodes.txt")
+	if err := os.WriteFile(privatePath, []byte("1998|PRIVATE\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	previous := config.App
+	t.Cleanup(func() { config.App = previous })
+	config.App.AMI.RPTConfigPath = path
+	config.App.AMI.Host = "127.0.0.1"
+	config.App.AMI.User = "global-user"
+	config.App.AMI.Secret = "global-secret"
+	config.App.Sources.PrivateNodesPath = privatePath
+	for _, configured := range [][]allmonInstance{nil, {
+		{Node: "1998", Host: "127.0.0.1", User: "wrong", Secret: "wrong"},
+	}} {
+		instances, err := reconcileLocalAllmonInstances(configured)
+		if err != nil || len(instances) != 2 || instances[0].Node != "616265" || instances[1].Node != "1998" {
+			t.Fatalf("incorrect private server selection: %#v, %v", instances, err)
+		}
+		if instances[1].User != "global-user" || instances[1].Secret != "global-secret" {
+			t.Fatal("private server must use global AMI credentials")
+		}
+		tables := buildAllStarLinkLocalTables(instances, nil, map[string]bool{"616265": true, "1998": true})
+		if len(tables) != 2 {
+			t.Fatalf("missing private server table: %#v", tables)
+		}
+	}
+}
+
 func TestPrivateNodesAreConnectionsNotServers(t *testing.T) {
 	for _, withAllmon := range []bool{false, true} {
 		t.Run(fmt.Sprint(withAllmon), func(t *testing.T) {

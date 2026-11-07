@@ -6,7 +6,7 @@
 .private-nodes-alerta { padding: .5rem .75rem; border: 1px solid #ff8a80; border-radius: 6px; color: #ff8a80; }
 .private-nodes-lista { display: grid; gap: .5rem; }
 .private-nodes-fila { display: grid; grid-template-columns: 6rem minmax(0, 1fr) auto; align-items: center; gap: .6rem; }
-.private-nodes-fila label { color: #a9bac5; font-size: .82rem; }
+.private-nodes-fila label { padding-left: .75rem; color: #a9bac5; font-size: .82rem; }
 .private-nodes-fila input { box-sizing: border-box; width: 100%; min-width: 0; padding: .5rem; border: 1px solid #455b68; border-radius: 5px; background: #14202a; color: #e5edf2; font: inherit; }
 .private-nodes-acciones { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
 .private-nodes-acciones button, .private-nodes-quitar { padding: .45rem .8rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; cursor: pointer; }
@@ -15,10 +15,47 @@
 .private-nodes-vacio { color: #a9bac5; }
 .private-nodes-error { color: #ff8a80; }
 .private-nodes-ok { color: #81c784; }
+.private-rpt { border-top: 1px solid #455b68; margin-top: 1.5rem; }
+.rxchannel-ayuda { margin: .75rem 0; padding: .65rem .85rem; border: 1px solid #455b68; border-radius: 6px; background: #14202a; color: #a9bac5; font-size: .88rem; }
+.rxchannel-ayuda ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .3rem 1rem; margin: .5rem 0 0; padding-left: 1.25rem; }
+.private-rpt-lista { display: grid; gap: .5rem; margin-top: .75rem; }
+.private-rpt-nodo { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .75rem 1rem; padding: 1rem; border: 1px solid #455b68; border-radius: 6px; background: #14202a; }
+.private-rpt-identidad { display: grid; gap: .35rem; min-width: 0; }
+.private-rpt-identidad strong { font-size: 1.1rem; }
+.private-rpt-nodo code { overflow-wrap: anywhere; }
+.private-rpt-servidor { grid-column: 1 / -1; padding-top: .75rem; border-top: 1px solid #30434f; }
+.private-rpt-servidor .private-nodes-ayuda { margin: .4rem 0 0 1.5rem; line-height: 1.5; }
+.private-rpt-acciones { display: flex; gap: .4rem; }
+.private-rpt-acciones button, .private-rpt-agregar-opcion button { padding: .4rem .7rem; border: 1px solid #455b68; border-radius: 5px; background: #263641; color: #dce5eb; font: inherit; cursor: pointer; }
+.private-rpt-acciones button { display: inline-grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; }
+.private-rpt-acciones button.private-nodes-quitar { color: #ff6b6b; }
+.private-rpt-acciones button:disabled { opacity: .55; cursor: not-allowed; }
+.private-rpt-acciones button:not(:disabled):hover { background: #354c5b; border-color: #a9bac5; }
+.private-rpt-acciones button:focus-visible { outline: 2px solid #a9bac5; outline-offset: 2px; }
+.private-rpt-overlay { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 1rem; background: #000a; }
+.private-rpt-editor { box-sizing: border-box; width: min(42rem, 100%); max-height: 90vh; overflow-y: auto; padding: 1rem; border: 1px solid #455b68; border-radius: 8px; background: #1a2630; box-shadow: 0 1rem 3rem #0008; }
+.private-rpt-editor fieldset { display: grid; gap: .7rem; padding: 0; border: 0; }
+.private-rpt-editor label { display: grid; gap: .3rem; color: #a9bac5; font-size: .9rem; }
+.private-rpt-editor input, .private-rpt-editor select { box-sizing: border-box; width: 100%; min-width: 0; padding: .5rem; border: 1px solid #455b68; border-radius: 5px; background: #14202a; color: #e5edf2; font: inherit; }
+.private-rpt-editor input[readonly] { opacity: .7; }
+.private-rpt-server-toggle { display: flex; align-items: center; gap: .5rem; color: #a9bac5; font-size: .85rem; }
+.private-rpt-server-toggle input { width: auto; }
+.private-rpt-opciones { display: grid; gap: .5rem; padding-top: .35rem; }
+.private-rpt-opciones label { grid-template-columns: 9rem minmax(0, 1fr); align-items: center; }
+.private-rpt-opciones label span { overflow-wrap: anywhere; }
+.private-rpt-agregar-opcion { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .5rem; align-items: end; padding-top: .5rem; border-top: 1px solid #455b68; }
+.private-rpt-agregar-opcion button { min-height: 2.4rem; }
+.private-rpt-parametro-ayuda { padding: .65rem .85rem; border: 1px solid #455b68; border-radius: 6px; color: #a9bac5; font-size: .88rem; }
+.private-rpt-parametro-ayuda p { margin: .3rem 0; }
+.private-rpt-descripcion { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {
   .private-nodes-fila { grid-template-columns: minmax(0, 1fr) auto; }
   .private-nodes-fila label { grid-column: 1 / -1; }
   .private-nodes-acciones { flex-wrap: wrap; }
   .private-nodes-acciones button { flex: 1 1 auto; }
+  .private-rpt-nodo { grid-template-columns: minmax(0, 1fr); }
+  .private-rpt-acciones { justify-content: flex-end; }
+  .private-rpt-opciones label { grid-template-columns: minmax(0, 1fr); }
+  .private-rpt-agregar-opcion { grid-template-columns: minmax(0, 1fr); }
 }

@@ -29,6 +29,8 @@ func TestPrimaryNodeRoutesRequireAdministrator(t *testing.T) {
 		{"PATCH", "/mon/audio/recordings/1"}, {"GET", "/mon/audio/recordings/1/file"},
 		{"DELETE", "/mon/audio/recordings/1"}, {"POST", "/mon/audio/recordings/1/library"},
 		{"GET", "/mon/audio/tracks/1/file"},
+		{"GET", "/mon/node-reconnections"}, {"POST", "/mon/node-reconnections"},
+		{"PUT", "/mon/node-reconnections/1"}, {"DELETE", "/mon/node-reconnections/1"},
 	} {
 		for _, tc := range []struct {
 			name, token string

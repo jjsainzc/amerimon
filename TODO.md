@@ -130,6 +130,58 @@ context = radio
 ```
 > NOTA: no pueden haber dos nodos definidos dentro de rpt.conf con el rxchannel igual
  
-  
+
+- [x] 22. En la misma pantalla y files donde se definen los privatenodes.txt, agregar soporte para crear nodos privados de 4 dígitos en rpt.conf, con rxchannel y opciones configurables:
+```
+[nodes]
+1998 = radio@127.0.0.1/1998,NONE
+1964 = radio@127.0.0.1/1964,NONE
+
+[1964](node-main)
+rxchannel = USRP/127.0.0.1:35001:33001
+duplex = 0       ; Half duplex, no telemetry or hang time
+linktolink = yes ; Force full-duplex even with duplex=0
+
+[1998](node-main)
+;;;;;;;;;;;;;;;;;;; Another node settings here ;;;;;;;;;;;;;;;;;;;
+;startup_macro = *8132000
+rxchannel=USRP/127.0.0.1:34001:32001
+duplex=0
+hangtime=0
+althangtime=0
+holdofftelem=1
+telemdefault=0
+telemdynamic=0
+linktolink=no
+nounkeyct=1
+totime=180000
+```
+El nodo 1998 es el que tiene la mas completa configuración.
+
+La pantalla permite crear, editar y eliminar estos nodos; conserva las opciones personalizadas al editar, valida que no se repitan nodos ni rxchannel (incluidos los puertos USRP) y recarga `app_rpt.so` al guardar.
+El editor ofrece los parámetros de `[node-main]` en un combo, muestra sus comentarios como documentación en el idioma original y permite escribir un parámetro personalizado. Las sobrescrituras se guardan en la sección del nodo, sin modificar la plantilla. Los textos de la interfaz están traducidos al español y al inglés.
+Antes de guardar se rechazan números privados que coincidan con IDs PJSIP, incluidos los archivos de `#include` y `#tryinclude`. Si no puede comprobarse la configuración PJSIP, se informa el error sin guardar ni recargar.
+
+- [x] 23. Yo habia hecho este sh
+```#!/bin/bash
+
+MYNODE=616262
+ARG=$1
+NODES=${ARG//,/$'\n'}
+for NODE in ${NODES}
+do
+     STAT=$(asterisk -rx "rpt stats ${MYNODE}"|grep "${NODE}")
+     if [ -z "${STAT}"  ]
+     then
+        sudo asterisk -rx"rpt cmd ${MYNODE} ilink 3 ${NODE}"
+      fi
+done
+```
+para conectar en forma temporizada una lista de nodos al principal, ya existe soporte para hacerlo dentro de la misma aplicacion, independientemente de que se haga conexion permanente a un nodo, esto a veces falla, el objetivo es crear un temporizador que haga lo mismo que ese sh, para hacer que determinados nodos se conecten si es que no estan conectados, la configuracion debe tener personalizada la desactivacion/activacion por nodo y la frecuencia en que se chequea, asi como tambien el modo en que se conecta, tambien debe poder eliminarse de la lista cualquier nodo.
+Esto puede ser una opcion nueva para el administrador, si hay dudas me preguntas.
+
+Implementado en **Administración → Reconexión automática**: lista persistente SQLite con nodo fuente seleccionable en el combo de servidores AllStarLink, activación individual, frecuencia en segundos y modo transceptor, monitor o monitor local, temporal o permanente. Admite nodos AllStarLink, privados y EchoLink con el prefijo `3` de app_rpt. Consulta el `XStat` de la fuente seleccionada con sus credenciales AMI y solo solicita conexiones para destinos ausentes, sin cambiar enlaces ya existentes. Permite el mismo destino desde fuentes diferentes, sin parejas duplicadas; conserva las entradas anteriores con **Principal actual**. Desactivar o eliminar no desconecta; se respetan las comprobaciones de topología y reservas pendientes. Funciona sin navegador, conserva las configuraciones del cliente y muestra fuente/destino, acciones por iconos, estados y fechas en una tarjeta adaptable con interfaz y documentación ES/EN.
+
+La tarjeta representa **fuente ← destino** (el destino se conecta al fuente). Desactivar una entrada detiene sus comprobaciones y reconexiones, mostrando **Temporizador detenido** sin próxima comprobación. La lista no se recarga automáticamente ni muestra etiquetas de carga: solo se lee al entrar, tras guardar o eliminar y con recarga manual; los resultados visibles son los de esa lectura. El temporizador del servidor sigue independiente.
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes

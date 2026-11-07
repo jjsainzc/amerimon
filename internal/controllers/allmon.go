@@ -189,6 +189,10 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 	if err != nil {
 		return nil, err
 	}
+	privateServers, err := readPrivateRPTServerNodes(path)
+	if err != nil {
+		return nil, err
+	}
 	port := strings.TrimSpace(ami.Port)
 	if port == "" {
 		port = "5038"
@@ -200,7 +204,7 @@ func reconcileLocalAllmonInstances(instances []allmonInstance) ([]allmonInstance
 		trackingDisabled[instance.Node] = instance.TrackingDisabled
 	}
 	for _, node := range nodes {
-		if isPrivateMonitorNode(node, privateNodes) {
+		if isPrivateMonitorNode(node, privateNodes) && !privateServers[node] {
 			continue
 		}
 		if local[node] {

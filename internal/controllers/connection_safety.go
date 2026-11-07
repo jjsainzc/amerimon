@@ -75,6 +75,10 @@ func addRPTVisibleLinks(graph rptLinkGraph, local, raw string) error {
 		}
 		switch fields[0] {
 		case "Conn:":
+			if len(fields) >= 2 && strings.HasPrefix(fields[1], "SIP/") {
+				hasStatus = true
+				continue
+			}
 			if len(fields) < 2 || !isValidRemoteNodeID(fields[1]) {
 				return fmt.Errorf("XStat contiene un enlace inválido en %s", local)
 			}

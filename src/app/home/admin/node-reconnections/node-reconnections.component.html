@@ -1,0 +1,120 @@
+<section class="reconnections" aria-labelledby="reconnections-title">
+  <app-admin-volver />
+  <h2 id="reconnections-title">{{ 'RECONNECT_TITLE' | translate }}</h2>
+  <p class="help">{{ 'RECONNECT_HELP' | translate }}</p>
+  <div class="toolbar">
+    <button type="button" (click)="open()" [disabled]="busy() || loading() || editorOpen()">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i> {{ 'RECONNECT_ADD' | translate }}
+    </button>
+    <button type="button" (click)="load()" [disabled]="busy() || loading() || editorOpen()">
+      <i class="fa-solid fa-rotate" aria-hidden="true"></i> {{ 'RECARGAR_LISTA' | translate }}
+    </button>
+  </div>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (notice()) { <p class="success" role="status">{{ notice() | translate }}</p> }
+
+  @if (editorOpen()) {
+    <form [formGroup]="form" (ngSubmit)="save()" class="editor">
+      <h3>{{ (editingID() === null ? 'RECONNECT_ADD' : 'RECONNECT_EDIT') | translate }}</h3>
+      <fieldset [disabled]="busy()">
+        <label>{{ 'RECONNECT_SOURCE' | translate }}
+          <select formControlName="source_node">
+            <option value="">{{ 'RECONNECT_CURRENT_PRIMARY' | translate }}{{ primary() ? ' (' + primary() + ')' : '' }}</option>
+            @for (source of sources(); track source.value) {
+              <option [value]="source.value">{{ source.label }}</option>
+            }
+            @if (form.controls.source_node.value && !sourceAvailable(form.controls.source_node.value)) {
+              <option [value]="form.controls.source_node.value">{{ form.controls.source_node.value }} — {{ 'RECONNECT_SOURCE_ERROR' | translate }}</option>
+            }
+          </select>
+        </label>
+        <label>{{ 'RECONNECT_NODE' | translate }}
+          <span class="clipboard-field" [appCopy]="form.controls.node.value"><input formControlName="node" inputmode="numeric" maxlength="10" autocomplete="off"></span>
+        </label>
+        <label>{{ 'RECONNECT_INTERVAL' | translate }}
+          <input formControlName="interval_seconds" type="number" min="1" max="86400" step="1">
+        </label>
+        <label>{{ 'RECONNECT_MODE' | translate }}
+          <select formControlName="action">
+            @for (action of actions; track action.value) {
+              <option [value]="action.value">{{ action.label | translate }}</option>
+            }
+          </select>
+        </label>
+        <div class="editor-toggles">
+          <label class="toggle"><input formControlName="permanent" type="checkbox">{{ 'RECONNECT_PERMANENT' | translate }}</label>
+          <label class="toggle"><input formControlName="enabled" type="checkbox">{{ 'RECONNECT_ENABLED' | translate }}</label>
+        </div>
+      </fieldset>
+      @if (form.invalid && form.touched) { <p class="error" role="alert">{{ 'RECONNECT_INVALID' | translate }}</p> }
+      <div class="toolbar">
+        <button type="submit" [disabled]="busy() || form.invalid || !sourceAvailable(form.controls.source_node.value) || !changes.changed(form.getRawValue())">
+          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> {{ 'GUARDAR_CAMBIOS' | translate }}
+        </button>
+        <button type="button" (click)="close()" [disabled]="busy()">{{ 'CANCELAR' | translate }}</button>
+      </div>
+    </form>
+  }
+
+  <div class="list">
+    @for (entry of entries(); track entry.id) {
+      <article class="entry" [class.entry-enabled]="entry.enabled">
+        <div class="identity">
+          <div class="endpoint">
+            <span class="field-label">{{ 'RECONNECT_SOURCE' | translate }}</span>
+            <strong [appCopy]="entry.source_node || primary()">{{ entry.source_node || ('RECONNECT_CURRENT_PRIMARY' | translate) }}</strong>
+          </div>
+          <i class="fa-solid fa-arrow-left route-arrow" aria-hidden="true"></i>
+          <div class="endpoint">
+            <span class="field-label">{{ 'RECONNECT_DESTINATION' | translate }}</span>
+            <strong [appCopy]="entry.node">{{ entry.node }}</strong>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="button" (click)="toggle(entry)" [attr.aria-pressed]="entry.enabled"
+            [title]="(entry.enabled ? 'RECONNECT_DISABLE' : 'RECONNECT_ENABLE') | translate"
+            [attr.aria-label]="(entry.enabled ? 'RECONNECT_DISABLE' : 'RECONNECT_ENABLE') | translate"
+            [disabled]="busy() || loading() || editorOpen()">
+            <i [class]="entry.enabled ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'" aria-hidden="true"></i>
+          </button>
+          <button type="button" (click)="open(entry)" [title]="'EDITAR' | translate" [attr.aria-label]="'EDITAR' | translate"
+            [disabled]="busy() || loading() || editorOpen()"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></button>
+          <button type="button" class="remove" (click)="pendingDelete.set(entry)"
+            [title]="'ELIMINAR' | translate" [attr.aria-label]="'ELIMINAR' | translate"
+            [disabled]="busy() || loading() || editorOpen()"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+        </div>
+        <div class="configuration">
+          <span class="badge" [class.badge-enabled]="entry.enabled">
+            <i class="fa-solid fa-circle" aria-hidden="true"></i>
+            {{ (entry.enabled ? 'RECONNECT_ENABLED' : 'RECONNECT_DISABLED') | translate }}
+          </span>
+          <span><i class="fa-solid fa-link" aria-hidden="true"></i> {{ actionLabel(entry.action) | translate }} · {{ (entry.permanent ? 'RECONNECT_PERMANENT' : 'RECONNECT_TEMPORARY') | translate }}</span>
+          <span><i class="fa-regular fa-clock" aria-hidden="true"></i> {{ 'RECONNECT_EVERY_SECONDS' | translate:{seconds: entry.interval_seconds} }}</span>
+        </div>
+        <div class="status">
+          <div class="check-result">
+            <span class="field-label">{{ 'RECONNECT_RESULT' | translate }}</span>
+            <span>{{ (entry.enabled ? entry.last_result : 'RECONNECT_STOPPED') | translate }}</span>
+          </div>
+          <dl class="check-times">
+            @if (entry.last_check_at) {
+              <div><dt>{{ 'RECONNECT_LAST_CHECK' | translate }}</dt><dd>{{ entry.last_check_at * 1000 | date:'yyyy-MM-dd HH:mm:ss' }}</dd></div>
+            }
+            @if (entry.enabled && entry.next_check_at) {
+              <div><dt>{{ 'RECONNECT_NEXT_CHECK' | translate }}</dt><dd>{{ entry.next_check_at * 1000 | date:'yyyy-MM-dd HH:mm:ss' }}</dd></div>
+            }
+          </dl>
+          @if (entry.enabled && entry.last_details) {
+            <details><summary>{{ 'RECONNECT_DETAILS' | translate }}</summary><p>{{ entry.last_details }}</p></details>
+          }
+        </div>
+      </article>
+    } @empty {
+      @if (!loading()) { <p class="help">{{ 'RECONNECT_EMPTY' | translate }}</p> }
+    }
+  </div>
+</section>
+<app-confirmacion-dialog [open]="pendingDelete() !== null" [busy]="busy()"
+  [title]="'RECONNECT_DELETE_TITLE' | translate" [message]="'RECONNECT_DELETE_HELP' | translate"
+  [confirmLabel]="'ELIMINAR' | translate" [showDeleteIcon]="true"
+  (confirmed)="delete()" (cancelled)="pendingDelete.set(null)" />

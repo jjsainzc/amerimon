@@ -10,6 +10,21 @@ export interface PrivateNodesConfig {
   lines: string[];
 }
 
+export interface PrivateRPTNode {
+  id: string;
+  rxchannel: string;
+  settings: Record<string, string>;
+  show_as_server: boolean;
+}
+
+export interface PrivateRPTNodesConfig {
+  status: string;
+  path: string;
+  nodes: PrivateRPTNode[];
+  template_settings: Record<string, string>;
+  template_descriptions: Record<string, string>;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PrivateNodesService {
   private readonly http = inject(HttpClient);
@@ -23,5 +38,15 @@ export class PrivateNodesService {
   /** Envía el contenido completo para validarlo y guardar el archivo de nodos privados. */
   guardar(lines: string[]): Observable<{ status: string; path: string }> {
     return this.http.put<{ status: string; path: string }>(this.url, { lines });
+  }
+
+  /** Consulta los nodos de cuatro dígitos configurados en rpt.conf. */
+  obtenerRPT(): Observable<PrivateRPTNodesConfig> {
+    return this.http.get<PrivateRPTNodesConfig>(`${this.url}/rpt`);
+  }
+
+  /** Guarda el conjunto administrado de nodos privados sin reemplazar ajustes ajenos. */
+  guardarRPT(nodes: PrivateRPTNode[]): Observable<{ status: string; path: string }> {
+    return this.http.put<{ status: string; path: string }>(`${this.url}/rpt`, { nodes });
   }
 }

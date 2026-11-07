@@ -172,6 +172,12 @@ func main() {
 	}
 
 	// iniciar el programador de actividad de todos los nodos StarLink
+	reconnectionCtx, stopReconnections := context.WithCancel(context.Background())
+	reconnectionsDone := controllers.StartNodeReconnectionScheduler(reconnectionCtx)
+	defer func() {
+		stopReconnections()
+		<-reconnectionsDone
+	}()
 	controllers.StartAllStarLinkActivityScheduler()
 	controllers.StartAudioPlaybackScheduler()
 
@@ -228,6 +234,7 @@ func main() {
 	defer stop()
 	go func() {
 		<-ctx.Done()
+		stopReconnections()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		srv.Shutdown(shutdownCtx)

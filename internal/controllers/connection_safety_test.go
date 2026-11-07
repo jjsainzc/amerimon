@@ -59,6 +59,7 @@ func TestAddRPTVisibleLinks(t *testing.T) {
 		{name: "indirect announcement", raw: "LinkedNodes: T50003,T50002", want: true},
 		{name: "disconnected", raw: "Conn: 50002 192.0.2.1 0 OUT 00:01 DISCONNECTED"},
 		{name: "no list", raw: "Response: Success", wantError: true},
+		{name: "SIP does not form an RPT edge", raw: "Conn: SIP/1001 192.0.2.1 IN 00:01"},
 		{name: "malformed direct", raw: "Conn:", wantError: true},
 		{name: "malformed indirect", raw: "LinkedNodes: T", wantError: true},
 		{name: "empty marker mixed with nodes", raw: "LinkedNodes: <NONE>, T50002", wantError: true},

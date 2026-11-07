@@ -201,6 +201,94 @@ By default, `sources.privatenodes_path` uses `/var/lib/asterisk/privatenodes.txt
 
 Upgrades do not replace `/etc/amerimon/allmon.ini`: the installer creates it only if it is missing. The Allmon node editor preserves sections it does not manage and creates an `.amerimon.bak` copy before saving.
 
+### Private nodes: directory and Asterisk configuration
+
+**Admin → Private Nodes** provides two editors on the same screen:
+
+- **Directory:** `privatenodes.txt` lines using `node|callsign|description|location`, supplying descriptive information for AstDB.
+- **Private nodes in rpt.conf:** a list of four-digit sections and entries in the file selected by `ami.rpt_config_path` (default `/etc/asterisk/rpt.conf`). Create nodes, edit them in a popup card, or delete them after confirmation.
+
+Saves are independent. Creating a node in `rpt.conf` does not add a directory line; deleting a directory line does not remove its Asterisk section. Maintain both records in their respective editors when a node needs both descriptive information and configuration. Private nodes do not become the primary node; by default they do not create monitor server tables.
+
+Each list row has **Show as a server in AllStarLink**, unchecked by default. Change the checkboxes and click **Save changes**, as in the Allmon list. Saving is enabled only after changes and retains the selection if the request fails. A checked node gets its own table and appears in the local server selector, using global AMI credentials; its private category and primary-node selection remain unchanged. The next monitor refresh applies the setting both with and without Allmon. Unchecking does not disconnect its links; it only removes its server table and selector entry.
+
+The card separates the node number and `rxchannel` from the checkbox and its help. Action buttons use icons: a floppy disk for **Save changes**, an edit icon for **Edit**, and a trash can for **Delete**. They include hover help and translated accessible labels; the floppy disk becomes a busy indicator while saving.
+
+The preference is saved as a `; amerimon_show_as_server = yes` comment in the node's `rpt.conf` section, not as an Asterisk parameter or template setting. Unchecking removes the comment; deleting the node removes the preference too. Each node in `GET/PUT /mon/private-nodes/rpt` includes the boolean `show_as_server`.
+
+#### Creating or editing a node
+
+1. Select **Add private node** or **Edit** in the `rpt.conf` list.
+2. Enter an exactly four-digit number for a new node. The number cannot be changed when editing an existing node.
+3. Set `rxchannel` and adjust the relevant parameters. New forms start with the values from example node 1998:
+
+   | Parameter | Initial value |
+   | --- | --- |
+   | `rxchannel` | `USRP/127.0.0.1:34001:32001` |
+   | `duplex` | `0` |
+   | `hangtime` | `0` |
+   | `althangtime` | `0` |
+   | `holdofftelem` | `1` |
+   | `telemdefault` | `0` |
+   | `telemdynamic` | `0` |
+   | `linktolink` | `no` |
+   | `nounkeyct` | `1` |
+   | `totime` | `180000` |
+
+   These values are editable, not a universal configuration for every device. The commented `startup_macro` from the example is not enabled.
+4. The **Parameter** dropdown lists active `[node-main]` assignments not already configured in the node. `rxchannel` has a dedicated field and is not offered again. Selecting a parameter prefills its template value and displays immediately preceding comments and any inline comment. **Add override** adds the value to the node section without changing the template.
+5. **Enter a custom parameter…** accepts a custom name made of letters, numbers, or underscores and its value. Duplicate parameters are rejected. Edit existing parameters in their own fields.
+6. **Save changes** is enabled after changes; restoring the original form values disables it again. **Cancel** discards the popup edits without writing files.
+
+The interface is translated into Spanish and English. Documentation extracted from the file is displayed as plain text in its original language without automatic translation; missing comments produce a no-description notice. Dropdown extraction is limited to active `[node-main]` assignments in the main file: it does not include commented parameters or resolve included files and inherited templates.
+
+#### rxchannel help and validation
+
+Examples appear inside the editor card next to the field:
+
+| Example channel | Purpose |
+| --- | --- |
+| `Local/pseudo` | No radio (hub) |
+| `SimpleUSB/1999` | SimpleUSB |
+| `Radio/1999` | USBRadio (DSP) |
+| `Voter/1999` | RTCM device |
+| `Pi/1` | Raspberry Pi PiTA |
+| `Dahdi/1` | PCI Quad card |
+| `Beagle/1` | BeagleBoard |
+| `USRP/127.0.0.1:34001:32001` | GNU Radio USRP interface |
+
+Adjust the device and ports for your server. The selected driver must be available and enabled in Asterisk; this editor does not modify `modules.conf`. Duplicate numbers or `rxchannel` values are rejected. The same USRP port pair is also rejected even when the host differs, and directly configured public-node channels are checked for conflicts. Validation does not resolve inherited or included channels or test physical device availability.
+
+New nodes are added as `[<node>](node-main)` with a `<node> = radio@127.0.0.1/<node>,NONE` entry in `[nodes]`. Editing preserves existing entries, headers, comments, and parameters; only submitted values are overridden and missing ones added. Omitting a parameter does not delete it. **Delete** removes the entire node section, including its custom settings, and its `[nodes]` entry; it does not remove other drivers' files or external references.
+
+Before saving, private node numbers are checked against every PJSIP section ID (endpoints, auth, AOR, and templates). The check uses `ami.pjsip_config_path`, or `pjsip.conf` next to `rpt.conf` when unset. It follows `#include` and `#tryinclude`, including wildcards; relative paths resolve from the main PJSIP configuration directory. Conflicts return HTTP 409 without writing files, backups, or reloading Asterisk. Read failures, missing mandatory includes, cycles, or unsupported directives such as `#exec` block saving with a verification error; an unmatched `#tryinclude` is valid. This check runs when saving private nodes, not when creating extensions in the PJSIP editor.
+
+#### Saving, backups, and reload verification
+
+Before modifying `rpt.conf`, Amerimon creates `rpt.conf.amerimon.bak` (or the configured filename followed by `.amerimon.bak`) with `0600` permissions. Each save that changes the file updates the backup with the previous content. Writing preserves the target's permissions, owner, and group and respects symbolic links; the service needs permission to read, back up, and replace the file.
+
+After saving or deleting, Amerimon sends `module reload app_rpt.so` through AMI. It requires a successful reload response, then queries `module show like app_rpt.so`; success is reported only when the module appears loaded. Asterisk is not restarted. If reload or verification fails, the interface reports an error and the configuration may already be saved: inspect the logs and file before retrying. AMI failures do not trigger an automatic rollback.
+
+For manual diagnosis on the server:
+
+```bash
+sudo asterisk -rx 'module reload app_rpt.so'
+sudo asterisk -rx 'module show like app_rpt.so'
+```
+
+A loaded module does not prove that every node adopted all settings or has working audio; also test node connections and the selected channel.
+
+The API requires a JWT with the administrator role:
+
+| Method and route | Contents |
+| --- | --- |
+| `GET /mon/private-nodes` | Directory path, permissions, and lines |
+| `PUT /mon/private-nodes` | Saves `{ "lines": [...] }` |
+| `GET /mon/private-nodes/rpt` | `path`, `nodes`, `template_settings`, and `template_descriptions` |
+| `PUT /mon/private-nodes/rpt` | Saves `{ "nodes": [...] }`; each node has `id`, `rxchannel`, and `settings` |
+
+The `rpt.conf` PUT submits the complete set of private nodes: omitted nodes are deleted. Avoid editing from multiple browsers simultaneously; refresh the list before working on configuration changed outside the editor. Successful responses include `reloaded: true` and `module_loaded: true`. Automated tests use temporary files and simulated AMI without reloading a real Asterisk instance.
+
 ### Access control: nodes and callsigns
 
 The dialplan contexts serve different purposes:
@@ -374,7 +462,7 @@ If Asterisk is running, post-install loads Sorcery, PJPROJECT, and RTP first, fo
 3. `/var/www/html/supermon/allmon.ini`.
 4. `sources.allmon_ini_own_path`; defaults to `/etc/amerimon/allmon.ini`.
 
-Local nodes are obtained from `/etc/asterisk/rpt.conf` (or `ami.rpt_config_path`), including the primary identified by `<node> = radio@127.0.0.1/<node>,NONE` in `[nodes]`. Nodes in `privatenodes.txt` and those classified as private (four digits) are excluded as servers: they do not create tables or server-selector options. Their connections still appear in the table for the node to which they are connected, whether the primary or another server. The primary is not selected by order: if several non-private entries match the loopback rule, an ambiguity error is logged. Local nodes use Amerimon's global AMI credentials. Allmon entries pointing to loopback or the global AMI host do not replace these nodes or their credentials. Remote server instances retain their Allmon configuration. This selection is shared by the table, activity polling, and node operations.
+Local nodes are obtained from `/etc/asterisk/rpt.conf` (or `ami.rpt_config_path`), including the primary identified by `<node> = radio@127.0.0.1/<node>,NONE` in `[nodes]`. Nodes in `privatenodes.txt` and those classified as private (four digits) are excluded as servers by default. Local four-digit private nodes marked **Show as a server in AllStarLink** do create their own table and selector entry. Their connections still appear in the table for the node to which they are connected, whether the primary or another server. The primary is not selected by order or by this checkbox: if several non-private entries match the loopback rule, an ambiguity error is logged. Local nodes use Amerimon's global AMI credentials. Allmon entries pointing to loopback or the global AMI host do not replace these nodes or their credentials. Remote server instances retain their Allmon configuration. This selection is shared by the table, activity polling, and node operations.
 
 In the AllStarLink monitor, the primary node's table appears first; the rest are sorted by number. Each table header shows `number - description - IP/hostname`; the primary keeps its **Primary node** label, and remote tables do not have a **Remote node** prefix. The description comes from `astdb.txt`, and the address comes from the global AMI host for local nodes or Allmon's `host` field for remote nodes (without the port). The configured IP or hostname is displayed without DNS lookups; missing data is omitted, even when the server is disconnected.
 
@@ -490,6 +578,46 @@ sudo limpiar_canales_listen_live.sh --clean
 ```
 
 Cleanup interrupts all active Listen Live sessions and requires entering `LIMPIAR`. The script does not kill the Asterisk process or its process group. Zombie processes cannot be killed directly; Asterisk must reap them.
+
+### Automatic node reconnection from a source
+
+Remote Allmon sources use the same AMI criteria as manual connections: host, port and username are required; an empty password configured in Allmon is not rejected before attempting authentication. Asterisk decides whether to accept those credentials. Empty passwords are not recommended.
+
+The destination is freely entered: it does not need to appear in the catalog or AllStarLink servers. Only its numeric format and difference from the source are validated. The combo and AMI configuration check apply only to the source node. If saving an enabled entry fails, the error identifies that request's source and destination; combo loading errors are reported separately. Destination availability is not checked when saving.
+
+The list does not reload automatically or show loading labels that move the cards. It is read on entry, after saving or deleting, and through the manual reload button. Displayed results reflect that read; the server timer continues to run independently.
+
+In **Administration → More options → Automatic reconnection**, add AllStarLink, private or EchoLink destinations. Enter app_rpt's numeric identifier: for EchoLink, prefix `3` followed by the EchoLink number (`123456` becomes `3123456`). A number without a prefix is not automatically converted and the protocol is not inferred from its length; app_rpt resolves the destination just as for a manual connection.
+
+Each entry provides:
+
+- **Source node:** a combo populated by AllStarLink server discovery, without AMI queries. Includes local nodes, private nodes opted in as servers and tracked remote Allmon servers. New entries preselect the primary's number when available; **Current primary** preserves dynamic selection for older entries.
+- **Enabled:** individual activation, off by default. The list activation button saves this change immediately. When disabled, the card shows **Timer stopped**, without a next check or previous attempt diagnostics. The last check date, if present, is historical. Refreshing the list does not check the link: it only reads settings and discovers servers without AMI queries.
+- **Check every (seconds):** a whole number from `1` to `86400`, initially `60`.
+- **Mode:** transceiver, monitor or local monitor, with a separate permanence checkbox. Their temporary/permanent `ilink` codes are `3/13`, `2/12` and `8/18`.
+
+The form's floppy disk saves its settings; the trash can asks for confirmation before deletion. Disabling or deleting only stops future timer requests: it does not disconnect or alter an Asterisk permanent link. Disabled entries do not query AMI. Saving or deleting during a check may report that an operation is in progress; retry without losing your edits.
+
+The scheduler runs in the Go process even when the browser or administrator session is closed. Every second it finds due entries and checks each at its own interval. The next check is scheduled after the previous one finishes; AMI queries, other entries and concurrent operations can delay it. This is not cron or an exact execution time. The list and times persist in SQLite and resume after an Amerimon restart; checks do not run while the service is stopped. The next attempt is reserved before sending commands to avoid immediate repetition after failure.
+
+Each attempt finds the source in the same inventory as AllStarLink and uses its AMI credentials: global credentials for local nodes and Allmon credentials for remote servers. **Current primary** resolves the primary again from `rpt.conf`; an explicit source number does not change when the primary is renamed. If the source disappears, tracking is disabled or AMI is incomplete, it reports an error without connecting from another server. Entries with unavailable sources can still be disabled or deleted. An uninterpretable `XStat` also prevents connecting. Complete IDs are compared, not substrings: `50002` does not match `500020`. An existing `Conn:` link at the source, even connecting or in another mode, is left intact. SIP channels are not RPT links and do not prevent destination checks.
+
+When the destination is absent, the scheduler reuses manual connection protection against self-links, visible routes and pending reservations, without changing mode or disconnecting first. Concurrent attempts are deferred. It requests `rpt cmd <source> ilink <code> <destination>` and records the operation. The pending reservation lasts 15 seconds. **Connection requested** only means AMI accepted the command; it does not prove a connection or audio. The next cycle checks the live state. AMI failures and topology rejections remain visible with diagnostics and are retried at the configured interval. Loop prevention cannot be guaranteed for hidden routes or unreachable nodes.
+
+The card shows **source ← destination**: the destination is the node connected to the source; the arrow does not represent audio direction. It groups activation/edit/delete icons and separates mode, interval and status with an activation badge. Check dates and results appear below, with collapsible technical details. The layout adapts to narrow screens. It does not overwrite the form or replace unavailable saved sources. UI text is available in Spanish and English. Asterisk and server diagnostics retain their original language. Also review **Asterisk Logs** and `journalctl -u amerimon` for attempts.
+
+Migration `0016_node_reconnections.sql` creates `node_reconnections`; `0017_node_reconnection_sources.sql` adds the source and source/destination uniqueness through a transactional copy. Existing IDs, activation, intervals, modes, dates, results and details are preserved, with `source_node = ""` representing **Current primary**. Existing databases retain the pre-migration backup; earlier migrations, YAML, `rpt.conf`, Allmon and client settings are not rewritten. New installations start with an empty list.
+
+All routes require JWT and administrator role:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /mon/node-reconnections` | Returns `{ "entries": [...] }` with settings and status |
+| `POST /mon/node-reconnections` | Creates one entry |
+| `PUT /mon/node-reconnections/:id` | Updates only that entry and resets its schedule |
+| `DELETE /mon/node-reconnections/:id` | Removes only that entry without disconnecting |
+
+Create/update bodies contain `source_node` (server ID, or empty for **Current primary**), `node`, `enabled`, `interval_seconds`, `action` (`connect`, `monitor`, `localmonitor`) and `permanent`. List entries also include `id`, `last_check_at`, `next_check_at` (Unix seconds; `0` when not yet available), `last_result` (translation key) and `last_details`. The same destination is allowed from different sources, subject to topology protection. Duplicate pairs and self-links return HTTP `409`; invalid parameters return `400`, missing IDs `404`, and configuration/storage errors `503/500`.
 
 ## 7. Database, migrations, and backups
 

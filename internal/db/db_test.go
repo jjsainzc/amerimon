@@ -14,6 +14,7 @@ func TestMigrateKeepsDataAndBacksUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := d.Exec(`INSERT INTO favoritos (numero, descripcion) VALUES ('448511', 'HI3ACS')`); err != nil {
 		t.Fatal(err)
 	}
@@ -38,6 +39,117 @@ func TestMigrateKeepsDataAndBacksUp(t *testing.T) {
 	backups, _ := filepath.Glob(path + ".bak-*")
 	if len(backups) != 1 {
 		t.Fatalf("se esperaba 1 respaldo, hay %d", len(backups))
+	}
+}
+
+func TestNodeReconnectionMigrationPreservesClientData(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "client.db")
+	legacy, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.Exec("CREATE TABLE schema_migrations (name TEXT PRIMARY KEY)"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := migrationsFS.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() >= "0016_node_reconnections.sql" {
+			continue
+		}
+		body, err := migrationsFS.ReadFile("migrations/" + entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := legacy.Exec(string(body)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := legacy.Exec("INSERT INTO schema_migrations (name) VALUES (?)", entry.Name()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := legacy.Exec("INSERT INTO favoritos (numero, descripcion) VALUES ('1998', 'custom client node')"); err != nil {
+		t.Fatal(err)
+	}
+	legacy.Close()
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var description string
+	if err := migrated.QueryRow("SELECT descripcion FROM favoritos WHERE numero = '1998'").Scan(&description); err != nil || description != "custom client node" {
+		t.Fatalf("client settings lost: %q %v", description, err)
+	}
+	var count int
+	if err := migrated.QueryRow("SELECT COUNT(*) FROM node_reconnections").Scan(&count); err != nil || count != 0 {
+		t.Fatalf("new scheduler should start empty: %d %v", count, err)
+	}
+	backups, err := filepath.Glob(path + ".bak-*")
+	if err != nil || len(backups) != 1 {
+		t.Fatalf("missing migration backup: %v %v", backups, err)
+	}
+}
+
+func TestNodeReconnectionSourceMigrationKeepsExistingSchedules(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sources.db")
+	legacy, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.Exec("CREATE TABLE schema_migrations (name TEXT PRIMARY KEY)"); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := migrationsFS.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() >= "0017_node_reconnection_sources.sql" {
+			continue
+		}
+		body, err := migrationsFS.ReadFile("migrations/" + entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := legacy.Exec(string(body)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := legacy.Exec("INSERT INTO schema_migrations (name) VALUES (?)", entry.Name()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := legacy.Exec(`INSERT INTO node_reconnections
+		(id, node, enabled, interval_seconds, action, permanent, next_check_at, last_check_at, last_result, last_details)
+		VALUES (9, '3123456', 1, 120, 'monitor', 1, 123456, 123000, 'RECONNECT_PRESENT', 'client details')`); err != nil {
+		t.Fatal(err)
+	}
+	legacy.Close()
+	migrated, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer migrated.Close()
+	var source, target, action, result, details string
+	var enabled, interval, permanent, next, last int
+	if err := migrated.QueryRow(`SELECT source_node, node, enabled, interval_seconds, action, permanent,
+		next_check_at, last_check_at, last_result, last_details FROM node_reconnections WHERE id = 9`).Scan(
+		&source, &target, &enabled, &interval, &action, &permanent, &next, &last, &result, &details); err != nil {
+		t.Fatal(err)
+	}
+	if source != "" || target != "3123456" || enabled != 1 || interval != 120 || action != "monitor" ||
+		permanent != 1 || next != 123456 || last != 123000 || result != "RECONNECT_PRESENT" || details != "client details" {
+		t.Fatalf("legacy entry changed: %q %q %d %d %q %d %d %d %q %q", source, target, enabled, interval, action, permanent, next, last, result, details)
+	}
+	for _, source := range []string{"50001", "70001"} {
+		if _, err := migrated.Exec("INSERT INTO node_reconnections (source_node, node) VALUES (?, '3123456')", source); err != nil {
+			t.Fatalf("same target across sources not allowed: %v", err)
+		}
+	}
+	if _, err := migrated.Exec("INSERT INTO node_reconnections (source_node, node) VALUES ('70001', '3123456')"); err == nil {
+		t.Fatal("duplicate source/target pair accepted")
 	}
 }
 
