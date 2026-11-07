@@ -35,33 +35,42 @@ FILENAME == ARGV[1] {
 FILENAME == ARGV[2] {
     lines[++count] = $0
     sections[count] = section
-    if (clean ~ /^\[/ && section in nodes) {
-        if (++headers[section] > 1 || clean ~ /\(!\)/)
-            fail("duplicate or template RPT section [" section "]")
+    if (clean ~ /^\[/) {
+        if (section == "node-main") {
+            if (++templateHeaders > 1 || clean !~ /\([[:space:]]*![[:space:]]*\)/)
+                fail("duplicate or invalid RPT template [node-main]")
+            template = 1
+        }
+        if (section in nodes) {
+            if (++headers[section] > 1 || clean ~ /\([[:space:]]*![[:space:]]*\)/)
+                fail("duplicate or template RPT section [" section "]")
+        }
     }
 }
 
 END {
     if (failed) exit 1
-    found = 0
+    found = template
     for (node in nodes) {
         if (headers[node] != 1) {
-            print "EchoLink telemetry: missing RPT section [" node "], skipped" > "/dev/stderr"
+            if (!template)
+                print "EchoLink telemetry: missing RPT section [" node "], skipped" > "/dev/stderr"
             delete nodes[node]
             continue
         }
         found = 1
     }
     if (!found) {
-        print "EchoLink telemetry: no astnode with matching RPT section found" > "/dev/stderr"
+        print "EchoLink telemetry: no [node-main] template or astnode with matching RPT section found" > "/dev/stderr"
         exit 3
     }
     for (i = 1; i <= count; i++) {
         clean = trim(lines[i])
-        if (clean ~ /^\[/ && sections[i] in nodes) {
+        target = sections[i] in nodes || (template && sections[i] == "node-main")
+        if (clean ~ /^\[/ && target) {
             print lines[i]
             print "echolinkdefault = 1"
-        } else if (!(sections[i] in nodes && tolower(clean) ~ /^echolinkdefault[[:space:]]*=/)) {
+        } else if (!(target && tolower(clean) ~ /^echolinkdefault[[:space:]]*=/)) {
             print lines[i]
         }
     }

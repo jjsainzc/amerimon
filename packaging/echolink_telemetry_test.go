@@ -25,12 +25,13 @@ func TestEchoLinkTelemetryPatch(t *testing.T) {
 					t.Fatal(err)
 				}
 				result := string(output)
-				if !strings.HasPrefix(result, template+"[41777](node-main)\necholinkdefault = 1\n") ||
+				expectedTemplate := "[node-main](!)\necholinkdefault = 1\nduplex = 1\n"
+				if !strings.HasPrefix(result, expectedTemplate+"[41777](node-main)\necholinkdefault = 1\n") ||
 					!strings.HasSuffix(result, "telemdefault = 2\n"+other) {
 					t.Fatalf("target setting missing or unrelated configuration changed: %s", result)
 				}
 				active := 0
-				for _, line := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(result, template), other), "\n") {
+				for _, line := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(result, expectedTemplate), other), "\n") {
 					if strings.HasPrefix(strings.ToLower(line), "echolinkdefault") {
 						active++
 					}
@@ -59,6 +60,27 @@ func TestEchoLinkTelemetryMultipleNodes(t *testing.T) {
 	}
 }
 
+func TestEchoLinkTelemetryUsesNodeMainTemplate(t *testing.T) {
+	dir := t.TempDir()
+	echoPath := filepath.Join(dir, "echolink.conf")
+	rptPath := filepath.Join(dir, "rpt.conf")
+	writeTelemetryFixture(t, echoPath, "[el0]\nastnode = 1999\n")
+	initial := "[node-main](!)\n;echolinkdefault = 2\n" +
+		"[616262](node-main)\nduplex = 1\n" +
+		"[616260](node-main)\necholinkdefault = 0\n"
+	want := "[node-main](!)\necholinkdefault = 1\n;echolinkdefault = 2\n" +
+		"[616262](node-main)\nduplex = 1\n" +
+		"[616260](node-main)\necholinkdefault = 0\n"
+	for run := 0; run < 2; run++ {
+		writeTelemetryFixture(t, rptPath, initial)
+		output, err := exec.Command("awk", "-f", "echolink-telemetry.awk", echoPath, rptPath).CombinedOutput()
+		if err != nil || string(output) != want {
+			t.Fatalf("template patch failed or changed node overrides: %v %s", err, output)
+		}
+		initial = string(output)
+	}
+}
+
 func TestEchoLinkTelemetryRejectsUnsafeConfiguration(t *testing.T) {
 	for _, tc := range []struct{ echo, rpt string }{
 		{"[el0]\nastnode = 41777\n", "[99999]\n"},
@@ -66,6 +88,8 @@ func TestEchoLinkTelemetryRejectsUnsafeConfiguration(t *testing.T) {
 		{"[el0]\nastnode = 41777\n", "[41777]\n[41777]\n"},
 		{"[el0]\nastnode = 41777\n", "[41777](!)\n"},
 		{"[el0]\n;astnode = 41777\n", "[41777]\n"},
+		{"[el0]\nastnode = 1999\n", "[node-main](!)\n[node-main](!)\n"},
+		{"[el0]\nastnode = 1999\n", "[node-main]\n"},
 	} {
 		dir := t.TempDir()
 		echoPath := filepath.Join(dir, "echolink.conf")
@@ -181,6 +205,8 @@ func TestEchoLinkTelemetryInstallationMissingAndUnsafeNodes(t *testing.T) {
 		fail                  bool
 	}{
 		{"missing-1999", "[el0]\nastnode = 1999\n", "[41777]\nduplex = 1\n", "[41777]\nduplex = 1\n", false},
+		{"template-with-missing-1999", "[el0]\nastnode = 1999\n", "[node-main](!)\n;echolinkdefault = 2\n[41777](node-main)\n", "[node-main](!)\necholinkdefault = 1\n;echolinkdefault = 2\n[41777](node-main)\n", false},
+		{"template-without-astnode", "[el0]\n;astnode = 1999\n", "[node-main](!)\n", "[node-main](!)\necholinkdefault = 1\n", false},
 		{"mixed-nodes", "[el0]\nastnode = 1999\n[el1]\nastnode = 41777\n", "[41777]\nduplex = 1\n", "[41777]\necholinkdefault = 1\nduplex = 1\n", false},
 		{"no-astnode", "[el0]\n;astnode = 1999\n", "[41777]\n", "[41777]\n", false},
 		{"invalid-astnode", "[el0]\nastnode = invalid\n", "[41777]\n", "[41777]\n", true},
@@ -202,7 +228,7 @@ func TestEchoLinkTelemetryInstallationMissingAndUnsafeNodes(t *testing.T) {
 			if (err != nil) != tc.fail || strings.Contains(string(output), "postinstall-continued") == tc.fail {
 				t.Fatalf("unexpected postinstall outcome: %v %s", err, output)
 			}
-			if !tc.fail && !strings.Contains(string(output), "missing RPT section [1999], skipped") && tc.name != "no-astnode" {
+			if (tc.name == "missing-1999" || tc.name == "mixed-nodes") && !strings.Contains(string(output), "missing RPT section [1999], skipped") {
 				t.Fatalf("missing node must be explicitly reported: %s", output)
 			}
 			result, err := os.ReadFile(rptPath)

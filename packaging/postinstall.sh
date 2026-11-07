@@ -258,7 +258,7 @@ set -e
             status=$?
             rm -f "$merged"
             if [ "$status" -eq 3 ]; then
-                echo "Aviso: EchoLink no tiene astnode con sección en rpt.conf; no se modificó rpt.conf." >&2
+                echo "Aviso: no se encontró la plantilla [node-main] ni un astnode con sección en rpt.conf; no se modificó rpt.conf." >&2
             else
                 echo "Error: no se pudo aplicar el parche de telemetría EchoLink; rpt.conf no se modificó." >&2
                 exit 1
