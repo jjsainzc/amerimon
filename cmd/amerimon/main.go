@@ -180,6 +180,7 @@ func main() {
 	}()
 	controllers.StartAllStarLinkActivityScheduler()
 	controllers.StartAudioPlaybackScheduler()
+	controllers.StartNextionSupervisor(reconnectionCtx)
 
 	// iniciar el listener de audio
 	audioManager := config.NewAudioStreamManager()

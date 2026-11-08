@@ -83,6 +83,11 @@ export const routes: Routes = [
     loadComponent: () => import('./home/admin/node-reconnections/node-reconnections.component').then(m => m.NodeReconnectionsComponent),
   },
   {
+    path: 'admin/nextion',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./home/admin/nextion/nextion.component').then(m => m.NextionComponent),
+  },
+  {
     path: 'admin/enlaces-externos',
     canActivate: [adminGuard],
     loadComponent: () => import('./home/admin/enlaces-externos/enlaces-externos-admin.component').then(m => m.EnlacesExternosAdminComponent),

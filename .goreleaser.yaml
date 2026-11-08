@@ -113,6 +113,8 @@ nfpms:
         dst: /usr/sbin/amerimon-reset-password
         file_info:
           mode: 0750
+      - src: public/assets/firmware/AMERINET_Nextion_*
+        dst: /usr/share/amerimon/nextion/
     scripts:
       postinstall: packaging/postinstall.sh
       preremove: packaging/preremove.sh

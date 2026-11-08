@@ -38,6 +38,10 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.GET("/weather", controllers.GetWeather)
 	privada.POST("/auth/password", controllers.ChangeAdminPassword, jwt, admin)
 	privada.PUT("/site-settings", controllers.SaveSiteSettings, jwt, admin)
+	privada.GET("/nextion", controllers.GetNextionSettings, jwt, admin)
+	privada.PUT("/nextion", controllers.SaveNextionSettings, jwt, admin)
+	privada.POST("/nextion/test-port", controllers.TestNextionPort, jwt, admin)
+	privada.GET("/nextion/files/:model/:extension", controllers.DownloadNextionFile, jwt, admin)
 	privada.GET("/system-info", controllers.GetSystemInfo, jwt, admin)
 	privada.POST("/system/control", controllers.ControlSystem, jwt, admin)
 

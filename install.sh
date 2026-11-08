@@ -82,7 +82,10 @@ if ! "${SUDO[@]}" test -e /etc/amerimon/allmon.ini; then
 	"${SUDO[@]}" install -m 0600 /dev/null /etc/amerimon/allmon.ini
 fi
 "${SUDO[@]}" chown root:root /etc/amerimon/allmon.ini
-"${SUDO[@]}" install -d -m 0755 /usr/lib/amerimon /usr/share/amerimon
+"${SUDO[@]}" install -d -m 0755 /usr/lib/amerimon /usr/share/amerimon/nextion
+if compgen -G "public/assets/firmware/AMERINET_Nextion_*" >/dev/null; then
+	"${SUDO[@]}" cp -a public/assets/firmware/AMERINET_Nextion_* /usr/share/amerimon/nextion/
+fi
 "${SUDO[@]}" install -m 0644 packaging/listen-live-dialplan.awk /usr/lib/amerimon/listen-live-dialplan.awk
 "${SUDO[@]}" install -m 0644 packaging/merge-allstar-public.awk /usr/lib/amerimon/merge-allstar-public.awk
 "${SUDO[@]}" install -m 0644 packaging/echolink-peerip.awk /usr/lib/amerimon/echolink-peerip.awk

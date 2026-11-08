@@ -1,0 +1,599 @@
+package controllers
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"amerimon/internal/config"
+
+	"github.com/labstack/echo/v4"
+)
+
+var (
+	nextionBaudRates = map[int]uint32{
+		9600: syscall.B9600, 19200: syscall.B19200, 38400: syscall.B38400,
+		57600: syscall.B57600, 115200: syscall.B115200,
+	}
+	nextionPortName  = regexp.MustCompile(`^/dev/tty(?:USB|ACM)[0-9]+$`)
+	nextionModelName = regexp.MustCompile(`^AMERINET_Nextion_([A-Za-z0-9._-]+)-([a-z]{2,3})$`)
+)
+
+type nextionSettings struct {
+	Enabled      bool   `json:"enabled"`
+	Port         string `json:"port"`
+	BaudRate     int    `json:"baud_rate"`
+	Interface    string `json:"interface"`
+	FavoriteNode string `json:"favorite_node"`
+}
+
+type nextionNetworkInterface struct {
+	Name  string `json:"name"`
+	Label string `json:"label"`
+	IPv4  string `json:"ipv4,omitempty"`
+}
+
+type nextionPort struct {
+	Path         string `json:"path"`
+	Label        string `json:"label"`
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Product      string `json:"product,omitempty"`
+	VendorID     string `json:"vendor_id,omitempty"`
+	ProductID    string `json:"product_id,omitempty"`
+	Serial       string `json:"serial,omitempty"`
+}
+
+func discoverNextionInterfaces() []nextionNetworkInterface {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		log.Printf("nextion: no se pudieron enumerar interfaces de red: %v", err)
+		return []nextionNetworkInterface{}
+	}
+	result := make([]nextionNetworkInterface, 0, len(interfaces))
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addresses, err := iface.Addrs()
+		if err != nil {
+			log.Printf("nextion: no se pudieron consultar direcciones de %s: %v", iface.Name, err)
+		}
+		ipv4 := nextionInterfaceIPv4(addresses)
+		label := iface.Name
+		if ipv4 != "" {
+			label += " — " + ipv4
+		}
+		if iface.HardwareAddr != nil {
+			label += " — " + iface.HardwareAddr.String()
+		}
+		result = append(result, nextionNetworkInterface{Name: iface.Name, Label: label, IPv4: ipv4})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result
+}
+
+func nextionInterfaceIPv4(addresses []net.Addr) string {
+	var values []string
+	seen := make(map[string]bool)
+	for _, address := range addresses {
+		ip, _, err := net.ParseCIDR(address.String())
+		if err != nil || ip.To4() == nil || !ip.IsGlobalUnicast() ||
+			ip.IsLoopback() || ip.IsLinkLocalUnicast() || seen[ip.String()] {
+			continue
+		}
+		seen[ip.String()] = true
+		values = append(values, ip.String())
+	}
+	sort.Strings(values)
+	return strings.Join(values, ", ")
+}
+
+func hasNetworkInterface(name string) bool {
+	iface, err := net.InterfaceByName(name)
+	return err == nil && iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0
+}
+
+type nextionModel struct {
+	Name            string `json:"name"`
+	Model           string `json:"model"`
+	Language        string `json:"language"`
+	PreviewURL      string `json:"preview_url"`
+	SourceAvailable bool   `json:"source_available"`
+}
+
+type nextionRuntimeStatus struct {
+	Running   bool   `json:"running"`
+	Port      string `json:"port"`
+	LocalNode string `json:"local_node,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+type nextionSettingsRequest struct {
+	Enabled      bool   `json:"enabled"`
+	Port         string `json:"port"`
+	BaudRate     int    `json:"baud_rate"`
+	Interface    string `json:"interface"`
+	FavoriteNode string `json:"favorite_node"`
+}
+
+type nextionPortTestRequest struct {
+	Port     string `json:"port"`
+	BaudRate int    `json:"baud_rate"`
+}
+
+type nextionService struct {
+	mu       sync.Mutex
+	running  bool
+	port     string
+	local    string
+	lastErr  string
+	revision string
+	cancel   context.CancelFunc
+	done     chan struct{}
+	notify   chan struct{}
+}
+
+var nextionRuntime = &nextionService{notify: make(chan struct{}, 1)}
+
+func readNextionSettings(ctx context.Context) (nextionSettings, error) {
+	settings := nextionSettings{BaudRate: 9600}
+	if config.App.DB == nil {
+		return settings, errors.New("base de datos no disponible")
+	}
+	values := map[string]*string{
+		"nextion_enabled": nil, "nextion_port": &settings.Port,
+		"nextion_baud_rate": nil, "nextion_interface": &settings.Interface,
+		"nextion_favorite_node": &settings.FavoriteNode,
+	}
+	for key, target := range values {
+		var value string
+		err := config.App.DB.QueryRowContext(ctx, `SELECT value FROM app_settings WHERE key = ?`, key).Scan(&value)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return settings, err
+		}
+		if target != nil {
+			*target = value
+			continue
+		}
+		switch key {
+		case "nextion_enabled":
+			settings.Enabled = value == "1"
+		case "nextion_baud_rate":
+			rate, err := strconv.Atoi(value)
+			if err != nil {
+				return settings, fmt.Errorf("velocidad serie guardada inválida: %w", err)
+			}
+			settings.BaudRate = rate
+		}
+	}
+	return settings, nil
+}
+
+func validateNextionSettings(settings nextionSettings) error {
+	settings.Port = strings.TrimSpace(settings.Port)
+	settings.FavoriteNode = strings.TrimSpace(settings.FavoriteNode)
+	if !settings.Enabled {
+		return nil
+	}
+	if settings.Port != "" && !nextionPortName.MatchString(settings.Port) {
+		return errors.New("el puerto debe ser un dispositivo /dev/ttyUSBx o /dev/ttyACMx")
+	}
+	if settings.Interface != "" && !hasNetworkInterface(settings.Interface) {
+		return errors.New("la interfaz de red seleccionada no está disponible")
+	}
+	if settings.BaudRate != 0 {
+		if _, ok := nextionBaudRates[settings.BaudRate]; !ok {
+			return errors.New("velocidad serie no compatible")
+		}
+	}
+	if settings.Port == "" || settings.BaudRate == 0 || !nodeNumber.MatchString(settings.FavoriteNode) {
+		return errors.New("para activar Nextion selecciona un puerto, una velocidad y un nodo favorito válidos")
+	}
+	local, err := newPrimaryNodeControl().primary()
+	if err != nil {
+		return fmt.Errorf("no se pudo determinar el nodo local: %w", err)
+	}
+	if settings.FavoriteNode == local {
+		return errors.New("el nodo favorito debe ser distinto del nodo local")
+	}
+	ami := config.CurrentAMI()
+	if ami.Host == "" || ami.Port == "" || ami.User == "" || ami.Secret == "" {
+		return errors.New("la configuración AMI existente está incompleta")
+	}
+	return nil
+}
+
+func GetNextionSettings(c echo.Context) error {
+	settings, err := readNextionSettings(c.Request().Context())
+	if err != nil {
+		log.Printf("nextion: no se pudo leer la configuración: %v", err)
+		return apiError(http.StatusInternalServerError, "No se pudo leer la configuración Nextion")
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	nextionRuntime.mu.Lock()
+	runtime := nextionRuntimeStatus{
+		Running: nextionRuntime.running, Port: nextionRuntime.port,
+		LocalNode: nextionRuntime.local, Error: nextionRuntime.lastErr,
+	}
+	nextionRuntime.mu.Unlock()
+	ami := config.CurrentAMI()
+	return c.JSON(http.StatusOK, echo.Map{
+		"settings": settings, "ports": discoverNextionPorts(),
+		"models": listNextionModels(), "runtime": runtime,
+		"interfaces":   discoverNextionInterfaces(),
+		"current_ipv4": ipAddress(settings.Interface),
+		"local_node":   configuredLocalNode(), "ami_configured": ami.Host != "" && ami.Port != "" && ami.User != "" && ami.Secret != "",
+	})
+}
+
+func SaveNextionSettings(c echo.Context) error {
+	var request nextionSettingsRequest
+	if err := c.Bind(&request); err != nil {
+		return apiError(http.StatusBadRequest, "Solicitud Nextion inválida")
+	}
+	settings := nextionSettings{
+		Enabled: request.Enabled, Port: strings.TrimSpace(request.Port),
+		BaudRate: request.BaudRate, Interface: strings.TrimSpace(request.Interface),
+		FavoriteNode: strings.TrimSpace(request.FavoriteNode),
+	}
+	if err := validateNextionSettings(settings); err != nil {
+		return apiError(http.StatusBadRequest, err.Error())
+	}
+	if config.App.DB == nil {
+		return apiError(http.StatusServiceUnavailable, "La base de datos no está disponible")
+	}
+	values := map[string]string{
+		"nextion_enabled": "0", "nextion_port": settings.Port,
+		"nextion_baud_rate":     strconv.Itoa(settings.BaudRate),
+		"nextion_interface":     settings.Interface,
+		"nextion_favorite_node": settings.FavoriteNode,
+	}
+	if settings.Enabled {
+		values["nextion_enabled"] = "1"
+	}
+	tx, err := config.App.DB.BeginTx(c.Request().Context(), nil)
+	if err != nil {
+		log.Printf("nextion: no se pudo iniciar la transacción de configuración: %v", err)
+		return apiError(http.StatusInternalServerError, "No se pudo guardar la configuración Nextion")
+	}
+	defer tx.Rollback()
+	for key, value := range values {
+		if _, err := tx.ExecContext(c.Request().Context(),
+			`INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+			key, value); err != nil {
+			log.Printf("nextion: no se pudo guardar %s: %v", key, err)
+			return apiError(http.StatusInternalServerError, "No se pudo guardar la configuración Nextion")
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		log.Printf("nextion: no se pudo confirmar la configuración: %v", err)
+		return apiError(http.StatusInternalServerError, "No se pudo guardar la configuración Nextion")
+	}
+	nextionRuntime.signalChange()
+	return GetNextionSettings(c)
+}
+
+func TestNextionPort(c echo.Context) error {
+	var request nextionPortTestRequest
+	if err := c.Bind(&request); err != nil {
+		return apiError(http.StatusBadRequest, "Solicitud de prueba inválida")
+	}
+	request.Port = strings.TrimSpace(request.Port)
+	if !nextionPortName.MatchString(request.Port) {
+		return apiError(http.StatusBadRequest, "El puerto debe ser un dispositivo /dev/ttyUSBx o /dev/ttyACMx")
+	}
+	if _, ok := nextionBaudRates[request.BaudRate]; !ok {
+		return apiError(http.StatusBadRequest, "Velocidad serie no compatible")
+	}
+	settings, err := readNextionSettings(c.Request().Context())
+	if err != nil {
+		log.Printf("nextion: no se pudo leer la configuración al probar el puerto: %v", err)
+		return apiError(http.StatusInternalServerError, "No se pudo leer la configuración Nextion")
+	}
+	nextionRuntime.mu.Lock()
+	alreadyOpen := nextionRuntime.running && nextionRuntime.port == request.Port
+	nextionRuntime.mu.Unlock()
+	if alreadyOpen && settings.Enabled && settings.Port == request.Port && settings.BaudRate == request.BaudRate {
+		return c.JSON(http.StatusOK, echo.Map{"status": "ok", "message": "El controlador ya está conectado a este puerto"})
+	}
+	port, err := openSerial(request.Port, request.BaudRate)
+	if err != nil {
+		return c.JSON(http.StatusConflict, echo.Map{"status": "error", "message": "No se pudo abrir el puerto serie: " + err.Error()})
+	}
+	if err := port.Close(); err != nil {
+		log.Printf("nextion: error cerrando puerto después de probarlo: %v", err)
+		return apiError(http.StatusInternalServerError, "El puerto respondió, pero no se pudo cerrar correctamente")
+	}
+	return c.JSON(http.StatusOK, echo.Map{"status": "ok"})
+}
+
+func (s *nextionService) signalChange() {
+	select {
+	case s.notify <- struct{}{}:
+	default:
+	}
+}
+
+func StartNextionSupervisor(ctx context.Context) {
+	go nextionRuntime.supervise(ctx)
+}
+
+func (s *nextionService) supervise(ctx context.Context) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		s.reconcile(ctx)
+		select {
+		case <-ctx.Done():
+			s.stopWorker()
+			return
+		case <-ticker.C:
+		case <-s.notify:
+		}
+	}
+}
+
+func (s *nextionService) reconcile(ctx context.Context) {
+	settings, err := readNextionSettings(ctx)
+	if err != nil {
+		s.mu.Lock()
+		s.lastErr = err.Error()
+		s.mu.Unlock()
+		log.Printf("nextion: no se pudo leer la configuración para sincronizar el controlador: %v", err)
+		return
+	}
+	revision := fmt.Sprintf("%t|%s|%d|%s|%s", settings.Enabled, settings.Port, settings.BaudRate, settings.Interface, settings.FavoriteNode)
+	s.mu.Lock()
+	if revision == s.revision && (!settings.Enabled || s.cancel != nil) {
+		s.mu.Unlock()
+		return
+	}
+	s.revision = revision
+	s.mu.Unlock()
+
+	s.stopWorker()
+	if !settings.Enabled {
+		s.setRuntime(false, "", "", "")
+		return
+	}
+	if err := validateNextionSettings(settings); err != nil {
+		s.setRuntime(false, settings.Port, "", err.Error())
+		log.Printf("nextion: configuración activada no válida: %v", err)
+		return
+	}
+	local, err := newPrimaryNodeControl().primary()
+	if err != nil {
+		s.setRuntime(false, settings.Port, "", err.Error())
+		return
+	}
+	amiConfig := config.CurrentAMI()
+	radio := &ami{host: amiConfig.Host, port: amiConfig.Port, username: amiConfig.User, secret: amiConfig.Secret, node: local}
+	p := &panel{local: local, favorite: settings.FavoriteNode, network: settings.Interface, radio: radio,
+		executeSystem: executeSystem}
+	workerCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	s.mu.Lock()
+	s.cancel, s.done = cancel, done
+	s.port, s.local, s.running, s.lastErr = settings.Port, local, false, ""
+	s.mu.Unlock()
+	go s.runWorker(workerCtx, p, settings, done)
+}
+
+func (s *nextionService) runWorker(ctx context.Context, p *panel, settings nextionSettings, done chan struct{}) {
+	defer close(done)
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		port, err := openSerial(settings.Port, settings.BaudRate)
+		if err != nil {
+			s.setRuntime(false, settings.Port, p.local, err.Error())
+			log.Printf("nextion: no se pudo abrir %s: %v; reintento en 2 segundos", settings.Port, err)
+		} else {
+			s.setRuntime(true, settings.Port, p.local, "")
+			log.Printf("nextion: conectado a %s a %d baudios", settings.Port, settings.BaudRate)
+			runDone := make(chan error, 1)
+			go func() { runDone <- p.run(port) }()
+			select {
+			case <-ctx.Done():
+				_ = port.Close()
+				<-runDone
+				p.radio.close()
+				return
+			case err = <-runDone:
+				_ = port.Close()
+				p.radio.close()
+				if ctx.Err() != nil {
+					return
+				}
+				s.setRuntime(false, settings.Port, p.local, err.Error())
+				log.Printf("nextion: comunicación interrumpida: %v; reintento en 2 segundos", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
+func (s *nextionService) stopWorker() {
+	s.mu.Lock()
+	cancel, done := s.cancel, s.done
+	s.cancel, s.done = nil, nil
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+		<-done
+	}
+}
+
+func (s *nextionService) setRuntime(running bool, port, local, lastErr string) {
+	s.mu.Lock()
+	s.running, s.port, s.local, s.lastErr = running, port, local, lastErr
+	s.mu.Unlock()
+}
+
+func configuredLocalNode() string {
+	node, err := newPrimaryNodeControl().primary()
+	if err != nil {
+		return ""
+	}
+	return node
+}
+
+func discoverNextionPorts() []nextionPort {
+	paths, err := filepath.Glob("/dev/ttyUSB*")
+	if err != nil {
+		log.Printf("nextion: no se pudieron enumerar puertos USB: %v", err)
+		return []nextionPort{}
+	}
+	acm, err := filepath.Glob("/dev/ttyACM*")
+	if err != nil {
+		log.Printf("nextion: no se pudieron enumerar puertos ACM: %v", err)
+	}
+	paths = append(paths, acm...)
+	sort.Strings(paths)
+	ports := make([]nextionPort, 0, len(paths))
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil || info.Mode()&os.ModeCharDevice == 0 {
+			continue
+		}
+		base := filepath.Base(path)
+		sysfs := filepath.Join("/sys/class/tty", base, "device")
+		if resolved, err := filepath.EvalSymlinks(sysfs); err == nil {
+			sysfs = resolved
+		}
+		port := nextionPort{Path: path, Label: path}
+		for current := sysfs; current != "/" && current != "."; current = filepath.Dir(current) {
+			vendorID := readSysfsString(current, "idVendor", "")
+			productID := readSysfsString(current, "idProduct", "")
+			if vendorID == "" || productID == "" {
+				continue
+			}
+			port.VendorID, port.ProductID = vendorID, productID
+			port.Manufacturer = readSysfsString(current, "manufacturer", "")
+			port.Product = readSysfsString(current, "product", "")
+			port.Serial = readSysfsString(current, "serial", "")
+			break
+		}
+		if strings.EqualFold(port.VendorID, "10c4") && strings.EqualFold(port.ProductID, "ea60") {
+			port.Label += " — Silicon Labs CP210x"
+		} else if port.Product != "" {
+			port.Label += " — " + port.Product
+		}
+		if port.VendorID != "" && port.ProductID != "" {
+			port.Label += fmt.Sprintf(" (%s:%s)", port.VendorID, port.ProductID)
+		}
+		ports = append(ports, port)
+	}
+	return ports
+}
+
+func readSysfsString(dir, name, fallback string) string {
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		return fallback
+	}
+	return strings.TrimSpace(string(data))
+}
+
+func listNextionModels() []nextionModel {
+	dirs := nextionFirmwareDirs()
+	models := make([]nextionModel, 0)
+	seen := make(map[string]bool)
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				log.Printf("nextion: no se pudo leer el directorio de firmware %s: %v", dir, err)
+			}
+			continue
+		}
+		for _, entry := range entries {
+			extension := strings.ToLower(filepath.Ext(entry.Name()))
+			if entry.IsDir() || extension != ".tft" {
+				continue
+			}
+			name := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+			match := nextionModelName.FindStringSubmatch(name)
+			if match == nil || seen[name] {
+				continue
+			}
+			seen[name] = true
+			models = append(models, nextionModel{
+				Name: name, Model: match[1], Language: match[2],
+				PreviewURL: "assets/images/" + name + ".png",
+			})
+		}
+	}
+	for i := range models {
+		for _, dir := range dirs {
+			if _, err := os.Stat(filepath.Join(dir, models[i].Name+".HMI")); err == nil {
+				models[i].SourceAvailable = true
+				break
+			}
+		}
+	}
+	sort.Slice(models, func(i, j int) bool { return models[i].Name < models[j].Name })
+	return models
+}
+
+func nextionFirmwareDirs() []string {
+	dirs := []string{"/usr/share/amerimon/nextion"}
+	if configured := os.Getenv("AMERIMON_NEXTION_DIR"); configured != "" {
+		dirs = append([]string{configured}, dirs...)
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		for current := cwd; ; current = filepath.Dir(current) {
+			dirs = append(dirs, filepath.Join(current, "public", "assets", "firmware"))
+			if filepath.Dir(current) == current {
+				break
+			}
+		}
+	}
+	return dirs
+}
+
+func DownloadNextionFile(c echo.Context) error {
+	name := c.Param("model")
+	if !nextionModelName.MatchString(name) {
+		return apiError(http.StatusBadRequest, "Modelo Nextion inválido")
+	}
+	extension := strings.ToLower(c.Param("extension"))
+	if extension != "tft" && extension != "hmi" {
+		return apiError(http.StatusBadRequest, "Tipo de archivo Nextion inválido")
+	}
+	filename := name + "." + extension
+	for _, dir := range nextionFirmwareDirs() {
+		path := filepath.Join(dir, filename)
+		if extension == "hmi" {
+			path = filepath.Join(dir, name+".HMI")
+		}
+		if info, err := os.Stat(path); err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		c.Response().Header().Set("Content-Type", "application/octet-stream")
+		c.Response().Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(path)+`"`)
+		return c.File(path)
+	}
+	return apiError(http.StatusNotFound, "No se encontró el archivo Nextion solicitado")
+}

@@ -1,0 +1,134 @@
+<section class="nextion-page">
+  <app-admin-volver />
+  <header class="heading">
+    <div>
+      <h1>{{ 'NEXTION_TITLE' | translate }}</h1>
+      <p>{{ 'NEXTION_HELP' | translate }}</p>
+    </div>
+    <button type="button" class="icon-button" [title]="'NEXTION_REFRESH' | translate"
+      [attr.aria-label]="'NEXTION_REFRESH' | translate" (click)="cargar()" [disabled]="cargando() || guardando()">
+      <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+    </button>
+  </header>
+
+  @if (error()) { <p class="message error" role="alert">{{ error() }}</p> }
+  @if (aviso()) { <p class="message success" role="status">{{ aviso() | translate }}</p> }
+
+  @if (cargando()) {
+    <p role="status">{{ 'CARGANDO' | translate }}</p>
+  } @else {
+    <section class="card" aria-labelledby="nextion-settings-title">
+      <h2 id="nextion-settings-title">{{ 'NEXTION_SETTINGS' | translate }}</h2>
+      <p class="runtime" [class.runtime-on]="runtime().running" [class.runtime-off]="!runtime().running" role="status">
+        <i [class]="runtime().running ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-pause'" aria-hidden="true"></i>
+        {{ (runtime().running ? 'NEXTION_RUNNING' : 'NEXTION_STOPPED') | translate }}
+        @if (runtime().port) { <span>{{ runtime().port }}</span> }
+      </p>
+      @if (nodoLocal()) {
+        <p>{{ 'NEXTION_LOCAL_NODE' | translate }}: <strong>{{ nodoLocal() }}</strong></p>
+      }
+      @if (runtime().error) { <p class="message error" role="alert">{{ runtime().error }}</p> }
+      @if (!amiConfigurado()) { <p class="message warning">{{ 'NEXTION_AMI_MISSING' | translate }}</p> }
+
+      <form #form="ngForm" (ngSubmit)="guardar()">
+        <label class="switch-row">
+          <input type="checkbox" name="enabled" [(ngModel)]="habilitado">
+          <span>{{ 'NEXTION_ENABLED' | translate }}</span>
+        </label>
+        <p class="note">{{ 'NEXTION_INCOMPLETE_NOTE' | translate }}</p>
+
+        <div class="fields">
+          <label>{{ 'NEXTION_SERIAL_PORT' | translate }}
+            <span class="input-action">
+              <input name="port" [(ngModel)]="puerto" list="nextion-ports" autocomplete="off"
+                [placeholder]="'NEXTION_PORT_PLACEHOLDER' | translate">
+              <button type="button" class="icon-button port-test" [title]="'NEXTION_TEST_PORT' | translate"
+                [attr.aria-label]="'NEXTION_TEST_PORT' | translate" (click)="probarPuerto()"
+                [disabled]="probando() || guardando() || !puerto.trim()">
+                <i [class]="probando() ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-plug-circle-check'" aria-hidden="true"></i>
+              </button>
+            </span>
+            <datalist id="nextion-ports">
+              @for (port of puertos(); track port.path) {
+                <option [value]="port.path">{{ port.label }}</option>
+              }
+            </datalist>
+            <small>{{ 'NEXTION_PORT_HELP' | translate }}</small>
+          </label>
+
+          <label>{{ 'NEXTION_BAUD_RATE' | translate }}
+            <select name="baudRate" [(ngModel)]="velocidad">
+              @for (rate of velocidades; track rate) { <option [ngValue]="rate">{{ rate }}</option> }
+            </select>
+          </label>
+
+          <label>{{ 'NEXTION_NETWORK_INTERFACE' | translate }}
+            <select name="networkInterface" [(ngModel)]="interfaz">
+              <option value="">{{ 'NEXTION_INTERFACE_AUTO' | translate }}</option>
+              @for (network of interfaces(); track network.name) {
+                <option [value]="network.name">{{ network.label }}</option>
+              }
+              @if (interfaz && !interfazGuardada(interfaz)) {
+                <option [value]="interfaz">{{ interfaz }} — {{ 'NEXTION_INTERFACE_UNAVAILABLE' | translate }}</option>
+              }
+            </select>
+            <small>{{ 'NEXTION_INTERFACE_HELP' | translate }} {{ 'NEXTION_CURRENT_IPV4' | translate }}: {{ ipv4Actual() }}</small>
+          </label>
+
+          <label>{{ 'NEXTION_FAVORITE' | translate }}
+            <select name="favoriteNode" [(ngModel)]="nodoFavorito">
+              <option value="">{{ 'NEXTION_NO_FAVORITE' | translate }}</option>
+              @for (favorite of favoritos(); track favorite.id) {
+                <option [value]="favorite.numero">{{ favoritoLabel(favorite) }}</option>
+              }
+              @if (nodoFavorito && !favoritoGuardado(nodoFavorito)) {
+                <option [value]="nodoFavorito">{{ nodoFavorito }} — {{ 'NEXTION_SAVED_FAVORITE' | translate }}</option>
+              }
+            </select>
+            <small>{{ 'NEXTION_FAVORITE_HELP' | translate }}</small>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="icon-button primary" [title]="'GUARDAR_CAMBIOS' | translate"
+            [attr.aria-label]="'GUARDAR_CAMBIOS' | translate"
+            [disabled]="guardando() || probando() || !cambios.changed(datosFormulario())">
+            <i [class]="guardando() ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-floppy-disk'" aria-hidden="true"></i>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card firmware" aria-labelledby="nextion-firmware-title">
+      <h2 id="nextion-firmware-title">{{ 'NEXTION_FIRMWARE' | translate }}</h2>
+      <p>{{ 'NEXTION_FIRMWARE_HELP' | translate }}</p>
+      <div class="models">
+        @for (model of modelos(); track model.name) {
+          <article class="model">
+            <img [src]="previewUrl(model)" [alt]="'NEXTION_PREVIEW_ALT' | translate:{model: model.model}">
+            <div class="model-info">
+              <h3>{{ 'NEXTION_MODEL' | translate:{model: model.model, language: model.language} }}</h3>
+              <p>{{ 'NEXTION_SD_INSTRUCTIONS' | translate }}</p>
+            </div>
+            <div class="downloads">
+              <button type="button" class="icon-button" [title]="'NEXTION_DOWNLOAD_TFT' | translate:{model: model.model}"
+                [attr.aria-label]="'NEXTION_DOWNLOAD_TFT' | translate:{model: model.model}"
+                (click)="descargar(model, 'tft')">
+                <i class="fa-solid fa-microchip" aria-hidden="true"></i>
+              </button>
+              @if (model.source_available) {
+                <button type="button" class="icon-button" [title]="'NEXTION_DOWNLOAD_HMI' | translate:{model: model.model}"
+                  [attr.aria-label]="'NEXTION_DOWNLOAD_HMI' | translate:{model: model.model}"
+                  (click)="descargar(model, 'hmi')">
+                  <i class="fa-solid fa-file-code" aria-hidden="true"></i>
+                </button>
+              }
+            </div>
+          </article>
+        } @empty {
+          <p>{{ 'NEXTION_NO_FIRMWARE' | translate }}</p>
+        }
+      </div>
+    </section>
+  }
+</section>
