@@ -714,7 +714,7 @@
   "NEXTION_INCOMPLETE_NOTE": "You can save incomplete settings while disabled. Enabling requires a port, baud rate, favorite node, and valid AMI configuration.",
   "NEXTION_SERIAL_PORT": "Serial port",
   "NEXTION_PORT_PLACEHOLDER": "Select or enter /dev/ttyUSB0",
-  "NEXTION_PORT_HELP": "ttyUSB and ttyACM ports are listed. Silicon Labs CP210x adapters (VID:PID 10c4:ea60) are identified in the list.",
+  "NEXTION_PORT_HELP": "The Amerimon server is a laptop, and the display connects over USB. ttyUSB/ttyACM ports are listed and the Silicon Labs CP210x adapter (VID:PID 10c4:ea60) is identified. GPIO connections apply to other setups with hardware that provides those pins.",
   "NEXTION_BAUD_RATE": "Communication speed (baud)",
   "NEXTION_NETWORK_INTERFACE": "Network interface for the displayed IP",
   "NEXTION_INTERFACE_AUTO": "Automatic",

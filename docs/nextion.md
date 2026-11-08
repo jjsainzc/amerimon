@@ -6,11 +6,15 @@ SQLite. El nodo local y las credenciales AMI se reutilizan desde la configuraci�
 existente de Asterisk/Amerimon. Es posible guardar valores incompletos mientras el
 controlador esté desactivado; al activarlo se validan todos los campos necesarios.
 
-La lista del puerto muestra los dispositivos `/dev/ttyUSB*` y `/dev/ttyACM*`.
-Cuando el USB expone el identificador `10c4:ea60`, se identifica como adaptador
-Silicon Labs CP210x. El botón de prueba abre el dispositivo con la velocidad
-elegida para confirmar que esté disponible y lo cierra inmediatamente; no envía
-comandos a la pantalla ni la ocupa de manera permanente.
+El servidor Amerimon de este montaje es una laptop y la pantalla se conecta por
+USB, mediante los dispositivos serie `/dev/ttyUSB*` y `/dev/ttyACM*`. Cuando el
+USB expone el identificador `10c4:ea60`, se identifica como adaptador Silicon
+Labs CP210x. La conexión GPIO/UART corresponde a otros montajes con hardware que
+disponga de esos pines; no es necesaria para esta laptop.
+
+El botón de prueba abre el dispositivo USB seleccionado con la velocidad elegida
+para confirmar que esté disponible y lo cierra inmediatamente; no envía comandos
+a la pantalla ni la ocupa de manera permanente.
 
 La interfaz de red que proporciona la dirección IP puede seleccionarse entre
 las interfaces activas no loopback; cada opción muestra su IPv4 y MAC. La IPv4
