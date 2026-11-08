@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, timer } from 'rxjs';
@@ -33,6 +33,7 @@ export class NextionComponent implements OnInit {
   protected readonly interfaces = signal<NextionNetworkInterface[]>([]);
   protected readonly favoritos = signal<Favorito[]>([]);
   protected readonly modelos = signal<NextionModel[]>([]);
+  protected readonly vistaPrevia = signal<NextionModel | null>(null);
   protected readonly runtime = signal<NextionRuntime>({ running: false, port: '' });
   protected readonly nodoLocal = signal('');
   protected readonly ipv4Actual = signal('--');
@@ -148,6 +149,21 @@ export class NextionComponent implements OnInit {
 
   protected previewUrl(model: NextionModel): string {
     return new URL(model.preview_url, document.baseURI).toString();
+  }
+
+  protected abrirVistaPrevia(model: NextionModel): void {
+    this.vistaPrevia.set(model);
+  }
+
+  protected cerrarVistaPrevia(): void {
+    this.vistaPrevia.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  protected cerrarVistaPreviaConEscape(): void {
+    if (this.vistaPrevia()) {
+      this.cerrarVistaPrevia();
+    }
   }
 
   private aplicarEstado(status: NextionStatus): void {

@@ -29,12 +29,20 @@ input[type="checkbox"] { accent-color: #178a8a; }
 .runtime-off { color: #a9bac5; border-color: #455b68; }
 .models { display: grid; gap: .75rem; }
 .model { display: grid; grid-template-columns: minmax(150px, 250px) minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: .8rem; border: 1px solid #30434f; border-radius: 6px; }
-.model img { display: block; width: 100%; max-height: 180px; object-fit: contain; background: #0e171d; }
+.preview-trigger { position: relative; display: block; width: 100%; padding: 0; overflow: hidden; border: 0; border-radius: 4px; background: #0e171d; cursor: zoom-in; }
+.preview-trigger img { display: block; width: 100%; max-height: 180px; object-fit: contain; }
+.preview-trigger i { position: absolute; right: .5rem; bottom: .5rem; padding: .45rem; border-radius: 50%; background: rgb(14 23 29 / 85%); color: #fff; opacity: 0; transition: opacity .2s; }
+.preview-trigger:hover i, .preview-trigger:focus-visible i { opacity: 1; }
+.preview-trigger:focus-visible { outline: 2px solid #a9bac5; outline-offset: 2px; }
 .model h3, .model p { margin: .25rem 0; }
 .model p { font-size: .9rem; }
 .downloads { display: flex; gap: .5rem; }
+.lightbox-overlay { position: fixed; z-index: 9999; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1.25rem; box-sizing: border-box; background: rgb(0 0 0 / 85%); backdrop-filter: blur(4px); }
+.lightbox-image { max-width: 90%; max-height: 90vh; border-radius: 8px; object-fit: contain; box-shadow: 0 5px 25px rgb(0 0 0 / 50%); animation: lightbox-zoom-in .25s ease-out; }
+.lightbox-close { position: absolute; top: 1rem; right: 1rem; width: 2.75rem; height: 2.75rem; background: #263641; }
+@keyframes lightbox-zoom-in { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @media (max-width: 600px) {
   .fields { grid-template-columns: minmax(0, 1fr); }
   .model { grid-template-columns: minmax(0, 1fr) auto; }
-  .model img { grid-column: 1 / -1; max-width: 100%; }
+  .preview-trigger { grid-column: 1 / -1; max-width: 100%; }
 }

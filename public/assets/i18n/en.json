@@ -741,6 +741,8 @@
   "NEXTION_FIRMWARE_HELP": "Each model and language is published with HMI and TFT files and a PNG preview sharing the same base name.",
   "NEXTION_MODEL": "Nextion display ${model} · Language: ${language}",
   "NEXTION_PREVIEW_ALT": "Preview of the Nextion ${model} display",
+  "NEXTION_PREVIEW_ZOOM": "Enlarge ${model} preview",
+  "NEXTION_PREVIEW_CLOSE": "Close enlarged preview",
   "NEXTION_DOWNLOAD_TFT": "Download ${model} TFT firmware",
   "NEXTION_DOWNLOAD_HMI": "Download ${model} HMI source file",
   "NEXTION_SD_INSTRUCTIONS": "Copy the TFT file to an SD card and use it to update the display.",

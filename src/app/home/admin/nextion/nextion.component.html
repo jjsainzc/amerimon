@@ -105,7 +105,13 @@
       <div class="models">
         @for (model of modelos(); track model.name) {
           <article class="model">
-            <img [src]="previewUrl(model)" [alt]="'NEXTION_PREVIEW_ALT' | translate:{model: model.model}">
+            <button type="button" class="preview-trigger"
+              [title]="'NEXTION_PREVIEW_ZOOM' | translate:{model: model.model}"
+              [attr.aria-label]="'NEXTION_PREVIEW_ZOOM' | translate:{model: model.model}"
+              (click)="abrirVistaPrevia(model)">
+              <img [src]="previewUrl(model)" [alt]="'NEXTION_PREVIEW_ALT' | translate:{model: model.model}">
+              <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+            </button>
             <div class="model-info">
               <h3>{{ 'NEXTION_MODEL' | translate:{model: model.model, language: model.language} }}</h3>
               <p>{{ 'NEXTION_SD_INSTRUCTIONS' | translate }}</p>
@@ -130,5 +136,18 @@
         }
       </div>
     </section>
+
+    @if (vistaPrevia(); as model) {
+      <div class="lightbox-overlay" role="dialog" aria-modal="true"
+        [attr.aria-label]="'NEXTION_PREVIEW_ALT' | translate:{model: model.model}" (click)="cerrarVistaPrevia()">
+        <button type="button" class="lightbox-close icon-button"
+          [title]="'NEXTION_PREVIEW_CLOSE' | translate"
+          [attr.aria-label]="'NEXTION_PREVIEW_CLOSE' | translate" (click)="cerrarVistaPrevia()">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <img class="lightbox-image" [src]="previewUrl(model)"
+          [alt]="'NEXTION_PREVIEW_ALT' | translate:{model: model.model}" (click)="$event.stopPropagation()">
+      </div>
+    }
   }
 </section>

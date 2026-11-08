@@ -744,6 +744,8 @@
   "NEXTION_FIRMWARE_HELP": "Cada modelo e idioma se publica con archivos HMI y TFT y una vista previa PNG con el mismo nombre base.",
   "NEXTION_MODEL": "Pantalla Nextion ${model} · Idioma: ${language}",
   "NEXTION_PREVIEW_ALT": "Vista previa de la pantalla Nextion ${model}",
+  "NEXTION_PREVIEW_ZOOM": "Ampliar vista previa de ${model}",
+  "NEXTION_PREVIEW_CLOSE": "Cerrar vista previa ampliada",
   "NEXTION_DOWNLOAD_TFT": "Descargar firmware TFT de ${model}",
   "NEXTION_DOWNLOAD_HMI": "Descargar archivo fuente HMI de ${model}",
   "NEXTION_SD_INSTRUCTIONS": "Copia el archivo TFT a una tarjeta SD y úsala para actualizar la pantalla.",

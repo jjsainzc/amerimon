@@ -80,4 +80,32 @@ describe('Nextion admin', () => {
     await fixture.whenStable();
     http.verify();
   });
+
+  it('opens the preview in a lightbox and closes it with overlay click or Escape', async () => {
+    const fixture = TestBed.createComponent(NextionComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/nextion`).flush(status());
+    http.expectOne(`${environment.apiUrl}/favoritos`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.preview-trigger').click();
+    fixture.detectChanges();
+    const overlay: HTMLElement = fixture.nativeElement.querySelector('.lightbox-overlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay.querySelector('.lightbox-image')?.getAttribute('src'))
+      .toContain('/assets/images/AMERINET_Nextion_NX4832K035-es.png');
+
+    overlay.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.lightbox-overlay')).toBeNull();
+
+    fixture.nativeElement.querySelector('.preview-trigger').click();
+    fixture.detectChanges();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.lightbox-overlay')).toBeNull();
+    http.verify();
+  });
 });
