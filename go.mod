@@ -6,7 +6,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.16.0
-	github.com/shirou/gopsutil/v4 v4.26.9
+	github.com/shirou/gopsutil/v4 v4.26.10
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.58.0
 	modernc.org/sqlite v1.60.1
@@ -14,7 +14,7 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.11.1 // indirect
+	github.com/ebitengine/purego v0.11.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
