@@ -3,7 +3,7 @@
 ## 1. Preparar el entorno
 
 - Abre la carpeta del proyecto en VS Code.
-- Instala Go con una versión compatible con [go.mod](../go.mod).
+- Instala Go con una versión compatible con [go.mod](../../go.mod).
 - Si aún no has instalado las dependencias de Angular, ejecuta desde la raíz:
 
   ```bash
@@ -13,7 +13,7 @@
 - Instala la extensión **Go** (`golang.go`). Si trabajas por SSH o WSL, instálala también en ese entorno.
 - Si VS Code solicita instalar **Delve**, acepta. Es el depurador del backend Go.
 
-Las configuraciones ya están en [launch.json](../.vscode/launch.json) y [tasks.json](../.vscode/tasks.json).
+Las configuraciones ya están en [launch.json](../../.vscode/launch.json) y [tasks.json](../../.vscode/tasks.json).
 
 ## 2. Liberar los puertos
 
@@ -46,7 +46,7 @@ La configuración conjunta inicia:
 | Go | `http://127.0.0.1:8082` | API y depuración del backend |
 | Audio interno | `127.0.0.1:8086` | Recepción de audio EAGI |
 
-Angular reenvía las peticiones `/mon` al backend mediante [proxy.conf.json](../proxy.conf.json). Es normal que el navegador muestre el puerto `4200` aunque Go también esté ejecutándose.
+Angular reenvía las peticiones `/mon` al backend mediante [proxy.conf.json](../../proxy.conf.json). Es normal que el navegador muestre el puerto `4200` aunque Go también esté ejecutándose.
 
 ## 4. Usar breakpoints
 
@@ -71,11 +71,11 @@ Un breakpoint Go se activa cuando una petición o tarea ejecuta esa línea; abri
 
 El backend del depurador usa:
 
-- Configuración: [packaging/amerimon.yaml](../packaging/amerimon.yaml).
+- Configuración: [packaging/amerimon.yaml](../../packaging/amerimon.yaml).
 - Base SQLite: `/tmp/amerimon-dev.db`, separada de la base del servicio instalado.
 - Secreto JWT: `dev-secret`, exclusivamente para desarrollo.
 
-Antes de iniciar el backend, la tarea **Preparar AMI para depurar** ejecuta [prepare-debug-env.cjs](../scripts/prepare-debug-env.cjs):
+Antes de iniciar el backend, la tarea **Preparar AMI para depurar** ejecuta [prepare-debug-env.cjs](../../scripts/prepare-debug-env.cjs):
 
 1. Usa `AMI_USER` y `AMI_SECRET` si están definidos en el entorno de VS Code.
 2. Si faltan, lee `/etc/asterisk/manager.conf` y selecciona la primera cuenta con `secret` definido directamente. Si ya definiste `AMI_USER`, busca esa cuenta. Las cuentas basadas únicamente en plantillas o archivos incluidos requieren definir ambas variables en el entorno.
@@ -93,7 +93,7 @@ El campo `ami.host` del YAML y el campo `host` de los servidores remotos en Allm
 
 El backend resuelve cada hostname antes de conectar. Para nombres `.local` usa `getent ahosts` y el soporte NSS/Avahi del sistema, incluso en binarios sin cgo; para los demás usa el resolvedor de Go. Si obtiene varias direcciones, intenta las siguientes si falla la conexión, compartiendo el timeout entre la resolución y los intentos TCP. Las IP literales se usan directamente. Los fallos de resolución incluyen el hostname en el error del backend.
 
-Para depurar ese paso, coloca un breakpoint en `dialAMI` dentro de [asteriskami.go](../internal/config/asteriskami.go). Inspecciona `host`, `addresses` y, tras conectar, `conn.RemoteAddr()` para ver la IP utilizada.
+Para depurar ese paso, coloca un breakpoint en `dialAMI` dentro de [asteriskami.go](../../internal/config/asteriskami.go). Inspecciona `host`, `addresses` y, tras conectar, `conn.RemoteAddr()` para ver la IP utilizada.
 
 **Importante:** las rutas de Asterisk y Allmon siguen siendo las indicadas en el YAML. Aunque la base SQLite sea de desarrollo, las acciones administrativas pueden modificar archivos y nodos reales.
 

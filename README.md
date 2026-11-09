@@ -29,13 +29,7 @@ PJSIP usa una IPv4 privada de una interfaz activa: prefiere la interfaz de la ru
 
 El paquete `.deb` declara `libc-bin`, `libnss-mdns` y `avahi-daemon` como dependencias para resolver servidores `nombre.local` mediante mDNS sin depender de cgo. APT instala esas dependencias automáticamente. `avahi-utils` es opcional para diagnóstico; no es necesario para ejecutar Amerimon. Para instalar un `.deb` descargado y resolver sus dependencias, usa `sudo apt install ./amerimon_<version>_<arquitectura>.deb`, no solamente `dpkg -i`.
 
-El servidor remoto debe publicar su nombre y la red debe permitir mDNS. Consulta [Usar hostname en la LAN](docs/hostname-lan.md). `install.sh` es una herramienta de instalación desde fuentes para desarrollo, no el mecanismo de distribución a otros equipos.
-
-### Limpieza posterior a la distribución
-
-Usa `make clean` para eliminar únicamente el frontend generado de `internal/web/dist`, conservando `.gitkeep` para `go:embed`. Al finalizar correctamente GoReleaser mediante `make release` (incluido en `make dist`), se llama automáticamente a ese mismo objetivo. Los binarios y paquetes de `dist/` ya contienen el frontend y no se modifican. Si la distribución falla, el frontend se conserva para diagnóstico. Si ejecutas GoReleaser directamente, la limpieza no es automática. Una compilación posterior vuelve a crear el frontend; puedes limpiarlo de nuevo con `make clean`. Para volver a ejecutar el binario desde fuentes con interfaz embebida, usa `make run` o ejecuta antes `npm run build`.
-
-Los tests se conservan junto al código que prueban: los `_test.go` en su paquete Go y los tests de instalación junto a los scripts en `packaging/`. La limpieza no los elimina ni los regenera. El script de limpieza se verifica con `node --test scripts/clean-web-dist.test.cjs`.
+El servidor remoto debe publicar su nombre y la red debe permitir mDNS. Consulta [Usar hostname en la LAN](docs/manuals/hostname-lan.md). `install.sh` es una herramienta de instalación desde fuentes para desarrollo, no el mecanismo de distribución a otros equipos.
 
 ## Administración
 
@@ -47,7 +41,7 @@ Abre `http(s)://<host>/amerimon/` con el proxy configurado, o `http://<IP-del-se
 
 **Administración → Pantalla Nextion** permite configurar el dispositivo serie, la velocidad, la interfaz de red y el nodo favorito. Las cuatro filas de enlaces muestran el número para IAX, el indicativo para IAXRpt y el indicativo disponible o número para EchoLink, sin prefijos; SIP conserva `SIP` seguido del caller ID o endpoint. Pulsar una fila mantiene la asociación con la conexión real aunque el texto mostrado sea un indicativo.
 
-Durante la actividad, `t0.txt` envía el indicativo o número del origen del audio junto a su descripción disponible en AstDB o el catálogo privado, por ejemplo `700001 - Remote station`, sin prefijos ni textos de evento. Si no hay descripción, muestra solo el identificador; varias fuentes activas se separan por comas. Las filas de enlaces no incorporan la descripción. Para COS local o TX sin recepción usa el número y la descripción disponible del nodo local. SIP sigue mostrando solo su caller ID o endpoint. Verde indica recepción y tiene prioridad si Asterisk retransmite simultáneamente el audio; rojo indica TX sin recepción; gris indica ausencia de actividad y el texto queda vacío. Los mensajes temporales del sistema y los avisos de desconexión siguen teniendo prioridad. Consulta el [manual de la pantalla Nextion](docs/nextion.md) para componentes, colores y eventos.
+Durante la actividad, `t0.txt` envía el indicativo o número del origen del audio junto a su descripción disponible en AstDB o el catálogo privado, por ejemplo `700001 - Remote station`, sin prefijos ni textos de evento. Si no hay descripción, muestra solo el identificador; varias fuentes activas se separan por comas. Las filas de enlaces no incorporan la descripción. Para COS local o TX sin recepción usa el número y la descripción disponible del nodo local. SIP sigue mostrando solo su caller ID o endpoint. Verde indica recepción y tiene prioridad si Asterisk retransmite simultáneamente el audio; rojo indica TX sin recepción; gris indica ausencia de actividad y el texto queda vacío. Los mensajes temporales del sistema y los avisos de desconexión siguen teniendo prioridad. Consulta el [manual de la pantalla Nextion](docs/manuals/nextion.md) para componentes, colores y eventos.
 
 Al agregar o editar favoritos, la búsqueda en AstDB se ejecuta con el botón de lupa o con Enter, no mientras se escribe. Si hay más de 50 coincidencias, se muestran solo las primeras 50 y un aviso para precisar la búsqueda, evitando renderizar listas demasiado grandes.
 
@@ -83,7 +77,7 @@ En reconexión automática, la tarjeta muestra **fuente ← destino**: el destin
 
 La tarjeta **Grabaciones del nodo principal** captura la escucha del nodo y sus estaciones conectadas en el servidor: iniciar, pausa manual, continuar y detener/guardar. Omite silencios automáticamente y reanuda al detectar audio sin anular una pausa manual. Permite escuchar solo en el navegador, borrar con confirmación o añadir una copia independiente a la biblioteca para emitirla o programarla después. Reutiliza EAGI/Listen Live; no modifica configuraciones de Asterisk. La captura sigue sin la web y se limita a 25 MiB por archivo; tras una interrupción del servicio se recupera el WAV, pero no se reanuda la captura sola.
 
-La pantalla Angular es un módulo reutilizable en `src/app/features/audio-management`. Para integrarlo en otra app se proporciona la URL del API, un traductor para las claves `AUDIO_*` y una ruta protegida por la autorización de administrador del proyecto. Consulta el [README del módulo](src/app/features/audio-management/README.md) y el [manual técnico](public/assets/docs/technical-operations-manual.es.md).
+La pantalla Angular es un módulo reutilizable en `src/app/features/audio-management`. Para integrarlo en otra app se proporciona la URL del API, un traductor para las claves `AUDIO_*` y una ruta protegida por la autorización de administrador del proyecto. Consulta la [guía del módulo](docs/manuals/audio-management.es.md) y el [manual técnico](public/assets/docs/technical-operations-manual.es.md).
 
 Los botones de audio usan iconos con descripciones y etiquetas accesibles ES/EN. En la biblioteca, los auriculares permiten escuchar localmente sin emitir ni cambiar la programación; el icono de emisión reproduce en Asterisk los audios activados de emisión única. Grabación y escucha local incluyen medidores RMS en dBFS. Durante las solicitudes se bloquean las otras acciones y el proceso aparece solo dentro del botón correspondiente, incluido el porcentaje de subida.
 
@@ -183,9 +177,37 @@ apt list --upgradable
 sudo apt upgrade
 ```
 
+## Desarrollo
+
+Esta sección es para quienes modifican o publican el proyecto. Para instalar o actualizar un servidor, utiliza APT como se indica al inicio; no necesitas estas herramientas.
+
+### Ejecución local sin depurador
+
+Necesitas Go compatible con `go.mod`, las dependencias Angular (`npm ci`) y acceso a una configuración Asterisk de pruebas. Para convertir audios instala `ffmpeg`; para resolver nombres `.local`, prepara `libc-bin`, `libnss-mdns` y `avahi-daemon`. `install.sh` comprueba `getent`, pero no instala ni configura Avahi/NSS.
+
+Antes de iniciar, detén el servicio instalado para liberar `8082` y `8086`:
+
+```bash
+sudo systemctl stop amerimon
+make run
+```
+
+`make run` compila Angular, lo incrusta y ejecuta Go en `127.0.0.1:8082`, con SQLite `/tmp/amerimon-dev.db`, JWT `dev-secret`, `packaging/amerimon.yaml` y las credenciales de `/etc/asterisk/manager.conf`. Termina con `Ctrl+C`. Para recarga separada, utiliza dos terminales: `make dev-backend` y `npm start`; Angular escucha en `localhost:4200` y reenvía `/mon` al backend.
+
+**La base de desarrollo no aísla Asterisk:** las acciones administrativas pueden modificar los archivos y nodos reales indicados en el YAML. No ejecutes dos backends ni una instancia local junto al servicio instalado.
+
+Para instalar el código actual en el servidor, ejecuta `./install.sh`. Recompila frontend/backend, actualiza `/usr/bin/amerimon` e instala EAGI, la migración del dialplan y los auxiliares del servicio. Ejecuta `packaging/postinstall.sh` para migrar Listen Live con respaldo, habilitar módulos disponibles, recargar el dialplan, aplicar el proxy y el temporizador AstDB y reiniciar Amerimon. Conserva configuración, credenciales y Allmon existentes. Este paso modifica el sistema; no lo uses como sustituto de APT para distribuir la aplicación.
+
+Al terminar una ejecución local, restaura el servicio si lo habías detenido:
+
+```bash
+sudo systemctl start amerimon
+sudo systemctl status amerimon --no-pager
+```
+
 ### Depuración en VS Code
 
-Consulta la [guía paso a paso de depuración de Angular y Go](docs/depuracion-vscode.md).
+Consulta la [guía paso a paso de depuración de Angular y Go](docs/manuals/depuracion-vscode.md).
 
 1. Instala las dependencias con `npm ci` si aún no están instaladas y asegúrate de tener Go (la versión indicada en `go.mod`).
 2. Instala la extensión recomendada **Go** (`golang.go`) en el entorno donde abres el proyecto (también en SSH/WSL, si corresponde). Si VS Code solicita instalar **Delve**, acepta.
@@ -198,10 +220,109 @@ La depuración usa `packaging/amerimon.yaml`, la base SQLite `/tmp/amerimon-dev.
 
 Antes de iniciar Go, una tarea prepara las credenciales AMI: usa `AMI_USER` y `AMI_SECRET` del entorno de VS Code o, si faltan, busca una cuenta con contraseña en `/etc/asterisk/manager.conf`. Las guarda en `.vscode/ami.env`, excluido de Git y con permisos `0600`. Si no puede leer la configuración o encontrar una cuenta, la tarea falla con un mensaje explícito. No guardes credenciales en `launch.json`.
 
+La tarea usa la primera cuenta con `secret` definido directamente, o la cuenta indicada por `AMI_USER`. Para cuentas definidas solo mediante plantillas o inclusiones, define ambas variables en el entorno de VS Code; en SSH/WSL debe ser el entorno remoto. No ejecutes VS Code como root para leer las credenciales.
+
+Para inspeccionar la resolución AMI, coloca un breakpoint en `dialAMI` de `internal/config/asteriskami.go` y revisa `host`, `addresses` y `conn.RemoteAddr()`. `.local` se resuelve mediante `getent ahosts` y NSS/Avahi, incluso con `CGO_ENABLED=0`; los demás nombres usan el resolvedor Go.
+
 **Angular + Go** ejecuta esa tarea automáticamente antes de resolver las configuraciones del depurador. Para iniciar **Backend Go** por separado, ejecuta primero **Tareas: Ejecutar tarea → Preparar AMI para depurar**.
 
 **Detener** finaliza las sesiones de depuración de Angular y Go. La tarea `npm: start` puede seguir activa: termínala con **Tareas: Terminar tarea** antes de volver a iniciarla. Si detuviste el servicio instalado, restáuralo al terminar con `sudo systemctl start amerimon`.
 
-### Manual técnico
+Coloca los breakpoints en líneas ejecutables y realiza la acción correspondiente desde el navegador. Inspecciona **Variables**, **Inspección** y **Pila de llamadas**; abrir una página no ejecuta todos los controladores Go.
+
+| Tecla | Acción |
+| --- | --- |
+| `F5` | Continuar |
+| `F10` | Paso por procedimientos |
+| `F11` | Entrar en una función |
+| `Shift+F11` | Salir de una función |
+| `Shift+F5` | Detener |
+
+Para diagnosticar puertos ocupados:
+
+```bash
+ss -ltn '( sport = :4200 or sport = :8082 or sport = :8086 )'
+```
+
+Detén la ejecución anterior; no inicies `make dev-backend` junto al depurador. Si solo inicia Angular, selecciona **Angular + Go**, no **ng serve**. Si Go no inicia, comprueba la extensión Go y Delve en el entorno del proyecto. Si AMI falla, revisa la tarea, permisos y conectividad; después de cambiar credenciales, detén Go y vuelve a iniciar con F5.
+
+Con ambos servicios activos, estas comprobaciones deben devolver `{"status":"ok"}`:
+
+```bash
+curl -fsS http://127.0.0.1:8082/mon/health
+curl -fsS http://localhost:4200/mon/health
+```
+
+### Integración del módulo Angular de audio
+
+El módulo standalone de `src/app/features/audio-management` puede reutilizarse en otra aplicación. El anfitrión proporciona autenticación, interceptores HTTP, autorización administrativa de ruta, navegación y traducciones. La guía completa se conserva fuera de la web en [español](docs/manuals/audio-management.es.md) e [inglés](docs/manuals/audio-management.en.md).
+
+- Importa `AudioManagementComponent` y registra `provideAudioManagement(baseUrl)` en los proveedores de la ruta protegida. La base real de Amerimon es `/mon/audio`; `/api/audio` en los ejemplos de integración es ilustrativo.
+- Proporciona `AUDIO_MANAGEMENT_TRANSLATE` o pasa un traductor a `provideAudioManagement`. El predeterminado devuelve claves; incluye traducciones `AUDIO_*`, `AUDIO_RECORD_*` y `AUDIO_LEVEL_*` para etiquetas, confirmaciones, éxito y errores.
+- `audioLabel` es impura. Si el anfitrión usa signals, el traductor debe leer la revisión de idioma/diccionario; Amerimon lee `TranslationService.revision()` para actualizar etiquetas al cambiar idioma o cargar traducciones.
+- `AUDIO_MANAGEMENT_MONITOR_URL` es opcional y de mismo origen; Amerimon usa `allstarlink`. El acceso directo permanece oculto sin proveedor. Las ventanas emergentes notifican bloqueos y no transfieren tokens.
+- `AudioRecordingsComponent` puede importarse por separado con los mismos proveedores. Al copiar una grabación, `AudioManagementService.libraryChanged` actualiza la biblioteca. Borrar el original no elimina su copia.
+- `AudioPlayerComponent` libera las URLs y el contexto Web Audio al destruirse y restablece el medidor al pausar/finalizar. `AudioLevelMeterComponent` se reutiliza con `dbfs` y `label`; mide señal, no volumen físico. Los niveles son transitorios y no requieren migración ni permiso de micrófono.
+- Los estilos globales de campos de texto deben excluir `input[type=range]` para no ocultar la línea de tiempo. Mantén `aria-busy`, etiquetas accesibles y progreso dentro del botón iniciador. El sondeo de grabaciones no debe bloquear los controles de captura.
+- Los errores incluyen `code: AUDIO_ERROR_*` y `message` de diagnóstico: muestra el código traducido, sin asumir que el mensaje del backend está localizado.
+
+Las siguientes rutas son relativas a la base de audio y requieren las solicitudes autenticadas del anfitrión:
+
+| Método y ruta | Contrato |
+| --- | --- |
+| `GET /tracks` | `{ status, data: AudioTrack[] }` |
+| `POST /tracks` | Multiparte: `name`, `playback_mode`, `interval_minutes` para modo silencio y `file` |
+| `PATCH /tracks/{id}` | Ajustes de pista y límites opcionales `start_ms`, `end_ms` |
+| `DELETE /tracks/{id}` | Elimina pista, archivo y programación |
+| `POST /tracks/{id}/play` | Sin cuerpo usa el segmento guardado; límites explícitos solo aplican a esa solicitud |
+| `GET /tracks/{id}/file` | WAV autenticado completo para vista previa/descarga |
+| `GET /recordings` | `{ status, data: AudioRecording[] }` |
+| `POST /recordings` | `{ name }`; inicio confirmado tras recibir PCM del servidor |
+| `PATCH /recordings/{id}` | `{ action: 'pause' \| 'resume' \| 'stop' }` |
+| `GET /recordings/{id}/file` | WAV autenticado |
+| `DELETE /recordings/{id}` | Elimina la grabación |
+| `POST /recordings/{id}/library` | Copia independiente sin transmitir |
+
+Los límites se envían juntos en milisegundos enteros, con inicio inclusivo y fin exclusivo: `0 <= start_ms < end_ms <= duration_ms`. `{ start_ms: 0, end_ms: 0 }` restaura el audio completo. La migración `0015` mantiene completas las pistas existentes. Guardar no transmite; transmitir guarda y luego emite. Cancelar descarta cambios y cambiar límites no reinicia el intervalo. La vista previa del diálogo utiliza `audioSegmentBlob` para cortar PCM normalizado en el navegador; nunca guarda ni transmite, y libera las URLs al cambiar límites o cerrar. Las vistas previas ordinarias y descargas siguen completas.
+
+La captura usa EAGI y la mezcla `Rpt(node,Pm)`, no el micrófono ni el WebSocket del navegador; cerrar el componente detiene el sondeo, no la captura del servidor. El nivel de entrada usa RMS `level_dbfs` con piso de −60 dBFS, retención de 500 ms y caducidad de un segundo; se sondea cada 500 ms durante captura y cada dos segundos en reposo. Los medidores de reproducción local muestrean cada 50 ms.
+
+### Pruebas
+
+Los tests se conservan junto al código que prueban: los `_test.go` en su paquete Go y los tests de instalación junto a los scripts en `packaging/`. Las pruebas de nodos privados, nodo principal y mantenimiento usan archivos temporales o comandos/AMI simulados, sin modificar ni reiniciar un nodo real.
+
+La pantalla EchoLink se encuentra en `src/app/home/admin/echolink` y reutiliza traducciones, controles compartidos y API administrativa. Las migraciones de instalación preparan las comprobaciones del dialplan en `[allstar-public]` sin modificar `[radio-secure]`.
+
+### Construcción y publicación
+
+`npm run build` genera el frontend en `internal/web/dist`, que Go incrusta mediante `go:embed`. `make dist` **publica realmente**, exige un árbol Git limpio y no es una comprobación de compilación.
+
+El pie de la aplicación muestra la versión inyectada en el backend: `make run` y `make dev-backend` utilizan `git describe --tags --always`; los paquetes reciben la versión del tag mediante GoReleaser. Un `go run` sin inyectar versión muestra `dev`.
+
+La publicación completa sigue estos pasos:
+
+1. Publica la rama actual y calcula/crea/sube el siguiente tag semver.
+2. Ejecuta `goreleaser release --clean`; sus hooks ejecutan `go mod tidy`, `npm ci` y `npm run build`.
+3. Genera paquetes `.deb` Linux `amd64` y `arm64` con CGO desactivado.
+4. Copia al repositorio local, conserva hasta tres versiones por arquitectura, regenera/firma índices y hace push a `jjsainzc/repo-deb`.
+
+```bash
+make dist
+make dist VERSION=v1.2.0
+make index-repo
+make push-repo
+```
+
+Los comandos son alternativas según la tarea; no ejecutes `make dist` dos veces para una misma publicación. Antes de anunciar una versión, comprueba que `https://jjsainzc.github.io/repo-deb/Packages` la incluya y que `apt-cache policy amerimon` muestre el `Candidate` esperado en el cliente.
+
+#### Limpieza posterior a la distribución
+
+Usa `make clean-web-dist` para eliminar únicamente el frontend generado de `internal/web/dist`, conservando `.gitkeep` para `go:embed`. La llamada automática desde `make release` está comentada en el Makefile actual: la limpieza es manual. Los binarios y paquetes de `dist/` ya contienen el frontend y no se modifican. Conserva el frontend si necesitas diagnosticar una distribución fallida. Para volver a ejecutar desde fuentes con interfaz embebida, usa `make run` o ejecuta antes `npm run build`.
+
+La limpieza no elimina ni regenera tests. El script se verifica con `node --test scripts/clean-web-dist.test.cjs`.
+
+## Documentación operativa
 
 Para configuración de nodos, puertos, SQLite, proxy, respaldos, operaciones administrativas y diagnóstico, consulta el [Manual de Operación Técnica](public/assets/docs/technical-operations-manual.es.md).
+
+Los originales de los manuales técnicos y Listen Live en español e inglés se mantienen en `public/assets/docs`; Angular los publica bajo `assets/docs`. Las guías complementarias se conservan en `docs/manuals`, fuera de la distribución web. Los manuales técnicos incorporan las instrucciones operativas de hostname, Nextion, PJSIP y audio. La depuración, integración Angular, ejecución local, pruebas y publicación se documentan aquí.

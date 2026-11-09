@@ -4,168 +4,13 @@
 
 Amerimon is a web application for querying AllStarLink, managing Allmon nodes, listening to live audio, and performing authorized Asterisk operations. The Angular frontend is compiled and embedded in a single Go service.
 
-This manual describes the current source-code tree. The reference published Debian version is `1.0.4`. Clients install and update Amerimon with APT; they do not need to compile the code or run publishing tasks.
+This manual describes installation, configuration, and operation of the Debian distribution. Users install and update Amerimon with APT; they do not need to compile the code or run publishing tasks.
 
 Amerimon queries Asterisk through AMI. Its post-install script prepares the modules and contexts required for Listen Live. An administrator can explicitly change the primary node's identity and access lists, and manage IAX users and PJSIP extensions from their dedicated pages. Other nodes and telephony users are not reconfigured automatically.
 
-### Nextion display
+This manual is for administrators and operators. For a new installation, start with section 2, then see section 3 for ports, section 4 for service operations, and section 5 for Asterisk integration. Section 6 explains the web application’s administrative features; the remaining sections cover data, backups, logs, maintenance, and troubleshooting.
 
-Under **Administration → Nextion display**, configure the USB serial device, baud rate, network interface and favorite node. The local node and AMI credentials are reused from Amerimon's configuration. The test button checks that the device can be opened and then closes it; it does not send display commands or replace an audio test.
-
-Components must have `vscope=global`. The controller sends these values:
-
-| Component | Content |
-| --- | --- |
-| `t_n1.txt`–`t_n4.txt` | Up to four active links: IAX shows the number; IAXRpt, the callsign; EchoLink, the available callsign or number. These three have no prefixes. SIP retains `SIP` followed by the caller ID or endpoint. Empty rows show `--`. |
-| `t0.txt` | The audio source's callsign or number followed by its available AstDB or private-directory description, for example `700001 - Remote station`. Without a description, only the identifier is shown. Location and event text such as “Transmitting” or “Receiving” are not added. SIP retains only the caller ID or endpoint, without `SIP`. Multiple active sources are separated by commas; link rows remain unchanged. |
-| `b_estado.bco`, `t0.bco` | Green `1024`: reception; red `63488`: transmission without reception; gray `33840`: no activity. |
-
-Reception is detected through local COS (`SignalOnInput`), active IAX/IAXRpt/EchoLink RX (`SawStat`) and SIP voice events for a connected channel. A connected SIP channel or active SIP PTT without detected voice is not enough to indicate reception. Reception takes priority over TX: when Asterisk keys the transmitter to relay received audio, the display stays green and shows that audio's source. Local COS or TX without reception shows the local node number and its available description, not a person's callsign that Asterisk has not identified.
-
-When activity ends, `t0.txt` becomes empty and the color turns gray, unless TX or another source remains active. Temporary system-operation messages and controller disconnection warnings retain priority over audio-source text.
-
-To disconnect a row, its long-press event must send `HOLD_N<number>` followed by a space, the visible text and LF; release must send `DISC_N<number>`. The controller keeps the actual connection identifier rather than using the displayed callsign in place of the EchoLink number or SIP channel. SIP is disconnected through its PJSIP channel; IAX, IAXRpt and EchoLink through the RPT link. See the [full Nextion manual (Spanish)](../../../docs/nextion.md) for all components, buttons and firmware files.
-
-### EchoLink configuration
-
-Module control and status use the local CLI (`asterisk -rx`), not AMI's `Command` action, which blacklists `module load` and `module unload`. The service needs access to the executable and Asterisk control socket. Only fixed EchoLink commands are executed, with a timeout; arbitrary browser-supplied commands are not accepted.
-
-On entry, the current `chan_echolink.so` state is highlighted in a green box when loaded or a red box when unloaded, with explicit text. This indicates module state, not an active connection to another client. It updates after confirmed activation/deactivation or pressing **Refresh**.
-
-**Important: incoming EchoLink connections are also subject to the node's access lists.** With `context=radio-secure`, they use the same context as AllStarLink connections. If `allowlist/<destination-node>` contains entries, only listed numbers are permitted; if empty, connections are permitted except those listed in `denylist/<destination-node>`. An allowlist match takes precedence over denylist. For EchoLink, use the connection number with the `3` prefix: EchoLink client `626066` is listed as `3626066` under the destination node. An outbound connection to a client can succeed while an incoming attempt from that client is rejected, because incoming connections evaluate these rules. The `peerip` patch does not remove or bypass this control.
-
-Postinstall applies `echolink-peerip.awk` only to the standard `peerip` checks in `[radio-secure]`: IAX2/SIP query the IP, while EchoLink proceeds without querying that property or receiving a fictitious local IP. Existing list policy and other contexts are preserved. Changes create a `.bak-echolink-peerip` backup, preserve ownership/permissions and use the postinstall dialplan reload without restarting Asterisk. Application is idempotent and rejects duplicate sections or partial modifications. This alone does not guarantee incoming EchoLink connectivity.
-
-Permanent activation supports both `load =` and `load =>` assignments in `modules.conf`. It switches the existing EchoLink line between `load` and `noload`, preserving formatting, comment and position. Duplicate EchoLink entries are removed, keeping only that line; an entry is added only if none exists. Other modules remain unchanged.
-
-Under **Radio and location**, **Get coordinates from browser** requests permission and fills latitude and longitude with the administrator's device location, not the server's. HTTPS or localhost is required. Check that it matches the station; you can correct the values manually. Nothing is saved or applied automatically: press **Save** after reviewing. Permission denial or lookup failure is reported and previous values are preserved.
-
-Optional `#tryinclude` directives targeting missing files without wildcards do not block the form and are preserved when saving. If an included file exists or its absence cannot be verified, editing is blocked to avoid ignoring options that Asterisk might be applying.
-
-Under **More options → EchoLink configuration** (`/admin/echolink`), administrators can edit existing `elN` sections in `echolink.conf`. Files are located beside the configured `rpt.conf` (normally `/etc/asterisk`). The screen is encapsulated in `src/app/home/admin/echolink` and uses Amerimon's translation service, shared controls and administrative API. The **Connection message** field spans a full row of the form grid.
-
-1. Select a section and review identity, radio and servers. `node` is the EchoLink number; `astnode` is saved as the current primary node number. The initial query excludes passwords: press the eye with an empty field to retrieve the saved password, or type a new one and use the eye to show or hide it. Retrieval requires administrator access, checks the file revision and disallows caching; use HTTPS. Leaving the field blank when saving preserves the existing password.
-2. **Save** creates a `.amerimon.bak` backup with `0600` permissions and updates only the selected section, preserving unknown options and other sections. External file or primary-node changes require refreshing before saving. Includes and ambiguous sections require manual editing.
-3. **Enable** runs `module load chan_echolink.so`; **Disable** runs `module unload -f chan_echolink.so` in both temporary and permanent modes after confirmation. Forced unloading disconnects links and may affect Asterisk stability when the module is in use; the confirmation warns about this risk. The unloaded state is checked afterwards. Selecting **Permanent change** also changes the same line to `noload` in `[modules]` of `modules.conf`. Otherwise, the file remains unchanged. Asterisk is not restarted.
-4. Saving does not automatically apply configuration. For an active module, request **Apply configuration: reload module** and confirm. Unsupported reloads, rejected unloads and unexpected module states are reported as errors. A permanent file change remains saved even if the module operation fails: review the file and logs before retrying.
-5. **Check ports** tests outbound TCP connections to configured servers on **5200** and checks local UDP sockets on **5198 and 5199**. It does not demonstrate Internet access or identify socket ownership.
-
-**Public Internet reachability is not Amerimon's responsibility.** Router, NAT, firewall and provider restrictions are the administrator's responsibility. Amerimon does not open ports or change network rules. These checks do not replace connection and audio testing with an external EchoLink client. Audio telemetry mode configuration remains independent (see the audio section).
-
-### Public password tools
-
-The **Password tools** link in the header opens a single page (`/password-tools`) with the generator and meter. The former `/password-generator` and `/password-meter` routes redirect to this page.
-
-The generator initially suggests a 12-character password and supports a minimum length of 8. You can combine uppercase letters, lowercase letters, numbers, and symbols; when selecting types manually, choose at least two. If none are selected, all four are used. Random selection uses the browser's cryptographic API and favors less-repeated characters to increase diversity. You can regenerate the password or copy it to the clipboard. The generated password is passed to the meter on the same page.
-
-The meter also accepts a password of up to 128 characters and lets you show or hide it. It displays a score, complexity, additions and deductions, Shannon entropy, and recommendations about length, diversity, character groups, repetitions, and predictable patterns. The stated minimum length is 8; recommendations suggest at least 12 characters.
-
-The displayed entropy is calculated from the observed character frequencies in the password. It describes the diversity of that sample; it is not a measure of the generator's cryptographic unpredictability or a guarantee that a password is secure. Generation and evaluation happen in the browser; these tools do not send or store the password in Amerimon's backend.
-
-### Audio management and playback
-
-Only administrators see the **record/playback** icon (circle and triangle) in the AllStarLink table header to open **Audio management in another window**. The **table** icon in Audio management opens the AllStarLink table. Both retain tooltips and accessible labels in Spanish and English. The original page remains open so connections and audio can be managed side by side. Allow popups for this site if blocked; the browser may choose a tab instead of a window. Credentials are not transferred: an unremembered session may require login in the new window. The audio route retains administrator authorization.
-
-**Administration → Audio management** (`/admin/audio`) is an administrator-only option. It provides a library of WAV audio that administrators can activate or deactivate when needed. Files and settings are stored by the backend and in SQLite; signing out or closing the page does not stop scheduling. Tracks remain until an administrator explicitly deletes them.
-
-- Upload formats: WAV, MP3, FLAC, OGG/Opus, M4A/MP4, AAC, WMA, AIFF, WebM, MKA, AMR and APE, depending on installed FFmpeg codecs. Uploads are no longer WAV-only: the server converts to 16-bit, 8000 Hz mono PCM WAV. Both input and converted output are limited to 25 MiB; conversions reaching the limit are rejected rather than saving truncated audio. One conversion runs at a time per service, with a 60-second timeout. Install `ffmpeg` before running the local installer; the Debian package declares it as a dependency. Already compatible WAV files do not require external conversion.
-- `broadcast_once`: the administrator clicks the **Play on Asterisk** broadcast icon; Asterisk starts a broadcast to the primary node and its linked stations. This is a one-time action and is not repeated merely because the track remains enabled.
-- `broadcast_silence`: each enabled track has its own interval, from 1 to 10080 minutes. Radio COS and receiving RPT/IAX and SIP links are checked on all monitored nodes, necessarily including the primary. Silent observations at least five seconds apart and a fresh check after preparing the audio are required before requesting playback. Activity or invalid AMI responses postpone transmission; overdue playback remains pending. The persistent claim advances the next due time before sending, in the same transaction as the playback lock, so two cycles cannot claim the same broadcast. Only one track is attempted per cycle. Activity detected at the final check cancels the claim and restores the pending due time. The reservation lasts the selected duration plus two seconds; if Asterisk rejects playback, the error is logged and the next interval is awaited.
-- To distribute audio from the primary node to linked nodes, `duplex` must be nonzero (modes 1–4); Amerimon validates the effective value, including inherited template values. The **Primary node** settings screen can set `duplex` and automatically runs `module reload app_rpt.so` after saving.
-
-**EchoLink:** `rpt playback` also depends on the EchoLink link's telemetry mode. In app_rpt 3.10.8, the default on-demand mode can prevent the link from transmitting the file even when AllStarLink links receive it. The postinstall shared by the local installer and Debian package sets `echolinkdefault = 1` in the `[node-main](!)` template, if present, and in the `rpt.conf` sections referenced by `astnode` in the `elN` sections of `echolink.conf`. Nodes inherit the template value unless they override it; nodes matching `astnode` are configured explicitly. It preserves the original as `rpt.conf.bak-echolink-telemetry` and reloads `app_rpt.so` if Asterisk is available. **Disconnect and reconnect the EchoLink links** so they adopt the setting; the installer does not disconnect them automatically. If Asterisk was not running, reload `app_rpt.so` first. This also enables other telemetry toward EchoLink; it is not limited to library files. Enabling all local telemetry or restarting Asterisk is unnecessary. Testing on 616262 confirmed audible EchoLink reception and `Tx Audio` increasing from 0 to 104 for a five-second file.
-
-Primary resolution uses the same nodes as the monitor: without Allmon, local nodes come from `rpt.conf` and the configured AMI credentials. Allmon does not need to be created for playback on that server's local Asterisk; if the primary is not monitored or AMI configuration is incomplete, no broadcast is sent and an error is logged. On another server, “primary” means the node in that server's own `rpt.conf`, not another machine's primary.
-
-These checks poll activity rather than locking out stations: they cannot guarantee detection of a transmission starting between queries or prevent someone speaking after playback begins. `rpt playback` does not automatically cancel audio when a new conversation starts.
-
-Scheduling runs in the Go service, not in the browser, and continues after sign-out or an Amerimon restart. Playback state prevents overlapping broadcasts after a backend restart. By default, WAV files are stored under `astdatadir/sounds/amerimon`, as configured in `/etc/asterisk/asterisk.conf`; both local and Debian installers prepare that directory as `root:asterisk` with mode `2750`. During upgrades, installers copy existing audio files from the previous directory without deleting the originals. You can override the root with `audio.storage_dir` in `amerimon.yaml`; it must be inside a sound path Asterisk searches, readable by Asterisk, and writable by Amerimon. `audio.poll_interval` controls polling (default `5s`; accepted range is 1 to 60 seconds). The node's AMI must be permitted to execute `rpt playback`.
-
-The `on_connection` welcome mode has been removed because `app_rpt` does not safely support playback to a single connected link. Migration 0013 changes existing tracks in that mode to `broadcast_once` without deleting their records or files. Previously stored 8-bit PCM tracks are converted to 16-bit the first time they are played.
-
-Buttons use icons with hover descriptions and accessible labels. The headphones icon (**Listen locally**) downloads the WAV through the authenticated API for browser playback with its signal meter, including disabled or scheduled tracks. It does not broadcast through Asterisk or change scheduling. The broadcast icon (**Play on Asterisk**) retains manual transmission for enabled one-time tracks. Changing previews or leaving the screen releases the player and its temporary URL.
-
-During a request, other library and recording actions and editable fields remain disabled until it finishes, including on failure. The initiating button displays its progress indicator and process text; upload percentage also appears there, without a duplicate outside the button. Errors and completion notices remain visible separately. An ongoing recording and background polling do not lock pause and stop controls.
-
-The panel, meters, icon descriptions, errors, and confirmations follow the header language, including switching between Spanish and English without leaving the screen. The Angular feature is isolated in `src/app/features/audio-management`; to reuse it in another application, see its README and provide the API URL, translator, and a route guarded by administrator authorization.
-
-### Primary node recordings
-
-In **Administration → Audio management**, the **Primary node recordings** card captures the node/link mix. It does not use the browser microphone or transmit audio to stations. It requires the dedicated `amerimon-record-node` context using `Rpt(node,Pm)` in monitor-only phone mode, together with the `listen-live-eagi` transport, EAGI script and local listener. Spying only on the radio `rxchannel` can yield silence while linked stations speak; recording does not use that source. The installer adds the recording context without changing Listen Live's radio context or existing custom blocks. After updating the backend and dialplan, stop and restart an older capture to change its source.
-
-- Enter a name and click **Start recording**. Only one capture can be active. Startup is confirmed after EAGI PCM arrives, not merely when AMI accepts Originate.
-- Silence is omitted automatically based on PCM energy (approximately −40 dBFS RMS), retaining 200 ms before and 500 ms after detection. This is level detection, not speech recognition: noise above the threshold is also retained. The status shows **Automatic pause: waiting for audio** and resumes when audio returns; duration measures only retained audio, including these margins.
-- **Pause** remains a manual pause even if audio arrives. **Continue** re-enables automatic detection. **Stop and save** finalizes the WAV and closes only the capture channel, without disconnecting stations.
-- Capture continues after closing the page or signing out. The 16-bit, 8000 Hz mono PCM WAV files are saved automatically in the private `recordings` subdirectory next to the service's SQLite database (directory `0700`, files `0600`). Each recording is capped at 25 MiB, approximately 27 minutes of retained audio; reaching the limit finalizes it automatically. Recordings are not deleted based on age.
-- If EAGI disconnects or Amerimon restarts, capture does not resume automatically. It is marked interrupted and received audio is retained; on startup, the WAV header is reconstructed from recovered PCM.
-- **Listen** downloads the WAV through the authenticated API for browser-only playback. **Add to library** makes an independent one-time-broadcast copy without broadcasting or scheduling it automatically. You can later change mode and interval in its library card. **Delete** requires confirmation and removes only the original recording, not an existing library copy.
-
-Additive migration `0014_audio_recordings.sql` creates `audio_recordings` without modifying existing audio or configurations. All routes require administrator authorization: `GET/POST /mon/audio/recordings`, `PATCH /mon/audio/recordings/:id` with `action: pause|resume|stop`, `GET /mon/audio/recordings/:id/file`, `DELETE /mon/audio/recordings/:id`, and `POST /mon/audio/recordings/:id/library`.
-
-#### Selecting, previewing and saving a segment
-
-1. On the library card, press **Configure broadcast segment**. This is also available for scheduled or disabled tracks. The manual broadcast icon opens the same dialog.
-2. Select **Choose a segment**. Drag the left handle for **Start** and the right handle for **End**, or enter **Start (s)** and **End (s)** with 0.001-second precision. The handles also support keyboard adjustment and cannot cross. The highlighted bar shows the selected portion. For example, start 5 and end 20 selects 15 seconds.
-3. To check without transmitting, press the **Listen to selection** headphones inside the dialog, then play in the player that appears. It includes a level meter and plays only the selected portion; **Complete audio** previews everything.
-4. Press the **Save changes** disk icon to remember the bounds without broadcasting. **Play in Asterisk** saves and then requests a broadcast; it is only available when the track is enabled in manual mode. **Cancel** closes without saving pending edits.
-
-The dialog preview is local only: it neither saves bounds nor transmits to Asterisk. Changing bounds or switching complete/segment stops and hides the previous preview; press **Listen to selection** again to load the new selection. Closing the dialog stops and releases the audio.
-
-When a track has saved bounds, its card displays a highlighted **Segment selected** badge with start, end and duration. Saved bounds survive reloads/restarts and apply to both manual and every scheduled broadcast, without changing when the next broadcast is due.
-
-To remove the selection, press **Reset to complete audio**, then **Save changes**. The card returns to **Complete audio**. Resetting and then cancelling does not change saved bounds.
-
-The library file is never trimmed: the card's headphones and download still provide the complete audio. Only the dialog preview and broadcasts use the segment. Additive migration `0015_audio_segments.sql` stores `start_ms` and `end_ms` per track; existing tracks remain complete until a selection is saved. The server creates a temporary WAV for each segment broadcast and reserves playback for its duration plus two seconds; it deletes the temporary file one minute after the expected playback time while the service remains running.
-
-#### Downloading audio
-
-The **Download WAV** icon is available for library tracks, including disabled or scheduled ones, and finalized nonempty recordings. It downloads through the authenticated API without broadcasting or changing activation or intervals. Downloads contain the stored Asterisk-compatible WAV, not the original compressed upload; conversion does not retain that original. The button displays **Downloading...** and locks other actions until the request finishes.
-
-#### Signal meters
-
-- **Recording input level:** measures RMS energy of PCM received from the node, including during manual pause. It updates every 500 ms while a capture is active. It does not necessarily represent stored audio: silence is omitted and manual pause discards audio.
-- **Playback level:** measures the WAV heard in the browser through Web Audio, sampled every 50 ms, for both recordings and library previews. It resets on pause or end. It does not measure Asterisk's output or physical speaker volume.
-- The scale runs from −60 to 0 dBFS, with green, yellow, and red zones; 0 dBFS is the digital maximum. The visual floor is −60 dBFS. Input returns to the floor when recent samples stop arriving. No microphone permission is required. If the browser cannot start the meter, an explicit error is displayed.
-
-## 2. Components and ports
-
-| Component | Default address | Use |
-| --- | --- | --- |
-| Amerimon HTTP | `0.0.0.0:8082` in the package; `127.0.0.1:8082` in development | Embedded frontend and REST API `/mon` |
-| EAGI audio | `127.0.0.1:8086` | Local audio input for Listen Live |
-| Asterisk AMI | `127.0.0.1:5038` | Asterisk queries and operations |
-| Angular dev server | `localhost:4200` | Development only, with `npm start` |
-
-Port `8086` must be available when Amerimon starts. The EAGI process and AMI connection are local to the server. If Apache or Nginx is not installed, Amerimon still works directly at `http://<server-IP>:8082`; without a proxy, the `/amerimon` path and HTTPS are not available.
-
-## 3. Technologies and data
-
-- Backend: Go `1.26`, Echo, and WebSocket.
-- Frontend: Angular 22, TypeScript 6, and Vitest.
-- Database: SQLite through `modernc.org/sqlite`, a pure-Go implementation with no separate SQLite server or CGO.
-- The database uses WAL, `busy_timeout`, and foreign keys.
-- Schemas are applied through embedded SQL migrations. Do not edit migrations that have already been published; add a new numbered migration.
-- Before migrating an existing database, Amerimon creates a `*.bak-<date>` copy and keeps the three most recent copies.
-
-### Main tables
-
-| Table | Purpose |
-| --- | --- |
-| `admin` | Administrator user and password hash |
-| `users`, `listenlive` | Listen Live sessions and users |
-| `asterisk_commands` | Catalog of allowed operations |
-| `allstarlink_node_activity` | Most recently observed activity between nodes |
-| `asterisk_connection_history` | History of observed links |
-| `favoritos` | Administrator favorites |
-| `enlaces_externos` | Links published and managed from the web |
-| `app_settings` | Header title and subtitle |
-| `terminal_credentials` | SSH credentials encrypted per destination |
-| `asterisk_operation_logs` | Asterisk operations, results, and diagnostics |
-| `audio_tracks` | Audio library, format, activation, and measured duration |
-| `audio_broadcast_schedules` | Intervals and next/last scheduled playback |
-| `audio_playback_state` | Persistent reservation preventing overlapping audio |
-
-## 4. Debian installation
+## 2. Debian installation
 
 The public APT repository is `https://jjsainzc.github.io/repo-deb/` and is signed with the `hc1lnm.gpg` key. On a Raspberry Pi ARM64 or Debian AMD64:
 
@@ -215,146 +60,17 @@ After a maintainer publishes a release, the APT index may take time to update. O
 
 `amerimon.env` and `amerimon.yaml` are installed as `config|noreplace`; an upgrade preserves existing local files.
 
-By default, `sources.privatenodes_path` uses `/var/lib/asterisk/privatenodes.txt`. At startup, Amerimon preserves any existing file at the configured path; if it is elsewhere and the default does not exist, Amerimon creates a symbolic link to it. If the default path is selected and the file is missing or empty, Amerimon first searches for files containing data at `/etc/allmon3/privatenodes.txt` and `/var/www/html/supermon/privatenodes.txt`, linking them so existing nodes can be displayed and edited without duplication. It never replaces a file containing data or an existing link. If no previous file exists, it creates the default file. The administrator can edit, add, and delete lines from **Private Nodes**; saving preserves the shared file's permissions and group. In production, the service runs as root and also preserves the owner; in unprivileged development, the replacement may become owned by the process user, and this is recorded in the log. Each entry uses `node|callsign|description|location`.
+## 3. Components and ports
 
-Upgrades do not replace `/etc/amerimon/allmon.ini`: the installer creates it only if it is missing. The Allmon node editor preserves sections it does not manage and creates an `.amerimon.bak` copy before saving.
+| Component | Default address | Use |
+| --- | --- | --- |
+| Amerimon HTTP | `0.0.0.0:8082` in the package | Embedded frontend and REST API `/mon` |
+| EAGI audio | `127.0.0.1:8086` | Local audio input for Listen Live |
+| Asterisk AMI | `127.0.0.1:5038` | Asterisk queries and operations |
 
-### Private nodes: directory and Asterisk configuration
+Port `8086` must be available when Amerimon starts. The EAGI process and AMI connection are local to the server. If Apache or Nginx is not installed, Amerimon still works directly at `http://<server-IP>:8082`; without a proxy, the `/amerimon` path and HTTPS are not available.
 
-**Admin → Private Nodes** provides two editors on the same screen:
-
-- **Directory:** `privatenodes.txt` lines using `node|callsign|description|location`, supplying descriptive information for AstDB.
-- **Private nodes in rpt.conf:** a list of four-digit sections and entries in the file selected by `ami.rpt_config_path` (default `/etc/asterisk/rpt.conf`). Create nodes, edit them in a popup card, or delete them after confirmation.
-
-Saves are independent. Creating a node in `rpt.conf` does not add a directory line; deleting a directory line does not remove its Asterisk section. Maintain both records in their respective editors when a node needs both descriptive information and configuration. Private nodes do not become the primary node; by default they do not create monitor server tables.
-
-Each list row has **Show as a server in AllStarLink**, unchecked by default. Change the checkboxes and click **Save changes**, as in the Allmon list. Saving is enabled only after changes and retains the selection if the request fails. A checked node gets its own table and appears in the local server selector, using global AMI credentials; its private category and primary-node selection remain unchanged. The next monitor refresh applies the setting both with and without Allmon. Unchecking does not disconnect its links; it only removes its server table and selector entry.
-
-The card separates the node number and `rxchannel` from the checkbox and its help. Action buttons use icons: a floppy disk for **Save changes**, an edit icon for **Edit**, and a trash can for **Delete**. They include hover help and translated accessible labels; the floppy disk becomes a busy indicator while saving.
-
-The preference is saved as a `; amerimon_show_as_server = yes` comment in the node's `rpt.conf` section, not as an Asterisk parameter or template setting. Unchecking removes the comment; deleting the node removes the preference too. Each node in `GET/PUT /mon/private-nodes/rpt` includes the boolean `show_as_server`.
-
-#### Creating or editing a node
-
-1. Select **Add private node** or **Edit** in the `rpt.conf` list.
-2. Enter an exactly four-digit number for a new node. The number cannot be changed when editing an existing node.
-3. Set `rxchannel` and adjust the relevant parameters. New forms start with the values from example node 1998:
-
-   | Parameter | Initial value |
-   | --- | --- |
-   | `rxchannel` | `USRP/127.0.0.1:34001:32001` |
-   | `duplex` | `0` |
-   | `hangtime` | `0` |
-   | `althangtime` | `0` |
-   | `holdofftelem` | `1` |
-   | `telemdefault` | `0` |
-   | `telemdynamic` | `0` |
-   | `linktolink` | `no` |
-   | `nounkeyct` | `1` |
-   | `totime` | `180000` |
-
-   These values are editable, not a universal configuration for every device. The commented `startup_macro` from the example is not enabled.
-4. The **Parameter** dropdown lists active `[node-main]` assignments not already configured in the node. `rxchannel` has a dedicated field and is not offered again. Selecting a parameter prefills its template value and displays immediately preceding comments and any inline comment. **Add override** adds the value to the node section without changing the template.
-5. **Enter a custom parameter…** accepts a custom name made of letters, numbers, or underscores and its value. Duplicate parameters are rejected. Edit existing parameters in their own fields.
-6. **Save changes** is enabled after changes; restoring the original form values disables it again. **Cancel** discards the popup edits without writing files.
-
-The interface is translated into Spanish and English. Documentation extracted from the file is displayed as plain text in its original language without automatic translation; missing comments produce a no-description notice. Dropdown extraction is limited to active `[node-main]` assignments in the main file: it does not include commented parameters or resolve included files and inherited templates.
-
-#### rxchannel help and validation
-
-Examples appear inside the editor card next to the field:
-
-| Example channel | Purpose |
-| --- | --- |
-| `Local/pseudo` | No radio (hub) |
-| `SimpleUSB/1999` | SimpleUSB |
-| `Radio/1999` | USBRadio (DSP) |
-| `Voter/1999` | RTCM device |
-| `Pi/1` | Raspberry Pi PiTA |
-| `Dahdi/1` | PCI Quad card |
-| `Beagle/1` | BeagleBoard |
-| `USRP/127.0.0.1:34001:32001` | GNU Radio USRP interface |
-
-Adjust the device and ports for your server. The selected driver must be available and enabled in Asterisk; this editor does not modify `modules.conf`. Duplicate numbers or `rxchannel` values are rejected. The same USRP port pair is also rejected even when the host differs, and directly configured public-node channels are checked for conflicts. Validation does not resolve inherited or included channels or test physical device availability.
-
-New nodes are added as `[<node>](node-main)` with a `<node> = radio@127.0.0.1/<node>,NONE` entry in `[nodes]`. Editing preserves existing entries, headers, comments, and parameters; only submitted values are overridden and missing ones added. Omitting a parameter does not delete it. **Delete** removes the entire node section, including its custom settings, and its `[nodes]` entry; it does not remove other drivers' files or external references.
-
-Before saving, private node numbers are checked against every PJSIP section ID (endpoints, auth, AOR, and templates). The check uses `ami.pjsip_config_path`, or `pjsip.conf` next to `rpt.conf` when unset. It follows `#include` and `#tryinclude`, including wildcards; relative paths resolve from the main PJSIP configuration directory. Conflicts return HTTP 409 without writing files, backups, or reloading Asterisk. Read failures, missing mandatory includes, cycles, or unsupported directives such as `#exec` block saving with a verification error; an unmatched `#tryinclude` is valid. This check runs when saving private nodes, not when creating extensions in the PJSIP editor.
-
-#### Saving, backups, and reload verification
-
-Before modifying `rpt.conf`, Amerimon creates `rpt.conf.amerimon.bak` (or the configured filename followed by `.amerimon.bak`) with `0600` permissions. Each save that changes the file updates the backup with the previous content. Writing preserves the target's permissions, owner, and group and respects symbolic links; the service needs permission to read, back up, and replace the file.
-
-After saving or deleting, Amerimon sends `module reload app_rpt.so` through AMI. It requires a successful reload response, then queries `module show like app_rpt.so`; success is reported only when the module appears loaded. Asterisk is not restarted. If reload or verification fails, the interface reports an error and the configuration may already be saved: inspect the logs and file before retrying. AMI failures do not trigger an automatic rollback.
-
-For manual diagnosis on the server:
-
-```bash
-sudo asterisk -rx 'module reload app_rpt.so'
-sudo asterisk -rx 'module show like app_rpt.so'
-```
-
-A loaded module does not prove that every node adopted all settings or has working audio; also test node connections and the selected channel.
-
-The API requires a JWT with the administrator role:
-
-| Method and route | Contents |
-| --- | --- |
-| `GET /mon/private-nodes` | Directory path, permissions, and lines |
-| `PUT /mon/private-nodes` | Saves `{ "lines": [...] }` |
-| `GET /mon/private-nodes/rpt` | `path`, `nodes`, `template_settings`, and `template_descriptions` |
-| `PUT /mon/private-nodes/rpt` | Saves `{ "nodes": [...] }`; each node has `id`, `rxchannel`, and `settings` |
-
-The `rpt.conf` PUT submits the complete set of private nodes: omitted nodes are deleted. Avoid editing from multiple browsers simultaneously; refresh the list before working on configuration changed outside the editor. Successful responses include `reloaded: true` and `module_loaded: true`. Automated tests use temporary files and simulated AMI without reloading a real Asterisk instance.
-
-### Access control: nodes and callsigns
-
-The dialplan contexts serve different purposes:
-
-- **`[radio-secure]`:** controls node-to-node connections. It checks `allowlist/<destination>/<source-node>` and `denylist/<destination>/<source-node>`, using `${EXTEN}` as the destination and `${CALLERID(num)}` as the source node. The `allstar-public` patch does not modify this context.
-- **`[allstar-public]`:** handles clients such as IAX Web Transceiver, Repeater Phone, and QSO One. It first authenticates the callsign through AllStarLink; invalid authentication ends the call. Here `${CALLSIGN}` is the authenticated callsign and `${NODENUM}`, taken from `${CALLERID(num)}`, is the destination node, not a source node.
-
-After authentication, `allstar-public` applies this order:
-
-For comparisons, it derives `CALLSIGN_BASE`: everything from the first `-` or `/` onward is removed, and the result is uppercased. For example, `HC1LNM-P`, `HC1LNM/RPT`, and `HC1LNM-P/RPT` are compared as `HC1LNM`. Store access entries using the base callsign without suffixes. The full authenticated callsign is retained in the connection identity and dialplan messages; an empty base is rejected. This normalization does not affect node numbers or `[radio-secure]`.
-
-1. If `allowlist/${NODENUM}/${CALLSIGN_BASE}` exists, connect directly.
-2. Otherwise, check `denylist/${NODENUM}/${CALLSIGN_BASE}`. If it exists, block the call.
-3. If the callsign appears in neither destination-scoped list, fall back to the global `whitelist/${CALLSIGN_BASE}` and `blacklist/${CALLSIGN_BASE}` filter. Other entries in `allowlist/<destination>` do not prevent this fallback.
-
-First-filter decisions are final: an `allowlist` match takes precedence over `denylist` and skips the global lists; a `denylist` match cannot be overridden by the global `whitelist`.
-
-The global filter preserves the patch's policy: both lists empty means access is allowed; a `whitelist` match allows access even if also present in `blacklist`; without a `whitelist` match, a `blacklist` match blocks access. If either global list contains entries and the callsign matches neither, access is also blocked, even when only `blacklist` is populated.
-
-In **Admin → Primary Node**, separate cards distinguish node-scoped lists (`allowlist/denylist`) from global callsign lists (`whitelist/blacklist`). Global entries have no node-number scope, and changes through AMI take effect immediately. Running `./install.sh` installs the patch in the existing `[allstar-public]` stanza and reloads the dialplan without modifying `[radio-secure]`.
-
-### Primary node configuration
-
-**Admin → Primary Node** provides functionality equivalent to options **1 Node number**, **2 Node Password**, **3 Node callsign**, and **7 Node access list** in `node-setup`.
-
-- **Number:** changes the public number of the primary node identified in `rpt.conf`. This monitor requires a public primary node (4 to 6 digits, not starting with 0 or 1); private nodes are managed as connections, not as the primary. Numbers already configured and forms left open for a primary node that has changed are rejected.
-- **Password:** this is the registration password obtained from the AllStarLink portal, not the Amerimon or AMI password. Only an administrator can retrieve the current password; it is hidden and can be revealed with the eye button. The active HTTP registration is preferred, falling back to the IAX registration if needed. The response is not cached; the password is not stored in browser storage or logs. Use HTTPS and a trusted device. Leaving the field unchanged or empty preserves the current password; a new password may contain 6 to 128 letters, numbers, hyphens, and underscores.
-- **Callsign:** updates `idrecording = |iCALLSIGN` directly in the primary section while preserving templates. An inherited `idrecording` or one based on an audio file is not presented as an editable callsign; enter the callsign you want to use.
-- **Duplex:** configures `duplex` (0–4) directly in the primary node section; if the value was inherited from a template, a local override is added without changing the template. The options are: 0, half duplex without telemetry or hang time (full duplex with `linktolink=yes`; preferred for an external multiport repeater controller; commenting out `idrecording` and `idtalkover` also suppresses IDs); 1, half duplex with telemetry and hang time, no repeated audio (preferred for a simplex node); 2, full duplex with telemetry and hang time (preferred for a repeater); 3, full duplex with telemetry and hang time, no repeated audio; 4, full duplex with telemetry and hang time, repeats audio only when the autopatch is down. Global audio broadcast to linked nodes requires a nonzero `duplex` mode (1–4).
-- **Access:** adds, updates, and deletes numbers or callsigns in AstDB's `allowlist/<primary>` and `denylist/<primary>`, with an optional reason. Changes are applied immediately through AMI. With no entries, these lists impose no restrictions. An allowlist limits which nodes are accepted; blocked nodes are rejected. Reasons can contain up to 200 characters and cannot contain double quotes, backslashes, or control characters.
-- **AMI access:** before the access lists, you can change the `secret` of the AMI user already configured in `ami.user`, the `[general]` `bindaddr`, and optionally add `permit`/`deny` networks to that same stanza. The secret is masked and can be revealed with the eye button. IPv4 networks accept an IP/prefix or IP/netmask; Amerimon calculates the normalized network. Existing rules are preserved only: the screen adds rules but does not delete or replace custom options. Any `deny` that covers loopback or the backend address is rejected, and explicit loopback access is added when restricting access with `permit`. If the backend AMI address cannot be resolved, ACL changes are not applied.
-- This editor creates `.amerimon.bak` backups of `manager.conf`, `amerimon.yaml`, and `amerimon.env`; updates `ami.host`, `ami.user`, and the secure `ami.secret: ${AMI_SECRET}` reference in YAML; and keeps the secret value in the environment file with its existing permissions. The installed service explicitly specifies `/etc/amerimon/amerimon.env`; for custom installations, set `AMERIMON_ENV_FILE` to the environment file used by the process. When a specific `bindaddr` is used, the YAML AMI host is synchronized with that address; with `0.0.0.0` or `::`, the current host is retained. Amerimon then runs `manager reload` (without restarting Asterisk) and checks a new AMI connection. If authentication fails, it attempts to restore the files and reload the previous configuration. Do not restart Asterisk if a restoration failure is reported.
-
-Editing changes only references to the selected node in `rpt.conf`, `rpt_http_registrations.conf`, `iax.conf`, and, if present, `savenode.conf`, `extensions.conf`, `simpleusb.conf`, `usbradio.conf`, and `voter.conf`. It also renames the corresponding section in the active Allmon file and in `/etc/allmon3/allmon3.ini`, when present. Other sections, registrations, and credentials are preserved. When renumbering, access lists are moved to the new number; a destination that already has lists is rejected.
-
-Edited definitions must be directly in those files: `#include` files, arbitrary customizations, and numeric references in external scripts are not rewritten. If the primary section is not defined directly, saving is rejected. The process must be able to read the files, create backups, and replace them in their directories while preserving owner, group, and permissions. The web application does not elevate privileges. Asterisk paths are derived from the directory of `ami.rpt_config_path`.
-
-Before modifying files, adjacent `*.amerimon.bak` backups are created with mode `0600`; they contain passwords and must not be published or copied to locations accessible over HTTP. The latest backup of each file is kept. If saving or migrating lists fails, Amerimon attempts to restore the previous configuration and explicitly reports any restoration failure. If a restoration failure is reported, do not restart Asterisk; check the backups first.
-
-**Saving automatically reloads `app_rpt.so`** through AMI using `module reload app_rpt.so`; it does not restart Asterisk. The screen confirms the save only if AMI accepts the reload. If reload fails, the files have already been saved with `.amerimon.bak` backups; check the Asterisk logs and do not repeat identity changes until you confirm which configuration is active. If you changed the node number and use Allmon3, restart Allmon3 manually. Schedule changes during a maintenance window and consider their impact on node operation.
-
-The **Clear Allowed** and **Clear Blocked** buttons remove only entries from the selected primary-node list, after confirmation, without touching the other list or other nodes. The change is immediate and cannot be undone. Clearing the allowlist removes the restriction to authorized nodes; the denylist still applies. If a deletion fails, the interface reports that clearing may be partial and the list should be reloaded.
-
-**Export Lists** downloads both lists and their reasons to `listas-acceso-<node>.json`, querying AstDB again. The document uses `format: "amerimon-node-access"`, `version: 1`, `node` (source), and `entries` with `type`, `node`, and `reason`. It does not include passwords. **Import Lists** lets you select that JSON (up to 1 MiB and 1000 entries) and confirm the destination node. It always merges: entries not present in the file are preserved, and reasons for matching entries are updated by list and node/callsign. A file from another node can be imported, but it is applied only to the current primary node. Duplicate entries in the same list and the destination node itself are not allowed. The complete file is validated before writing, saved entries are verified, and Amerimon attempts to restore changes if an operation fails, reporting any incomplete restoration. Changes are immediate. Export requires `GET /mon/primary-node/access/export`; import requires `POST /mon/primary-node/access/import` with `primary_node` and `document`; both are restricted to administrators.
-
-The API requires a JWT with the administrator role for `GET/PUT /mon/primary-node`, `GET/PUT /mon/primary-node/ami`, `GET/PUT/DELETE /mon/primary-node/access`, and `POST /mon/primary-node/access/clear`. Clearing requires `primary_node`, `type` (`allowlist` or `denylist`), and `confirmation` (`VACIAR allowlist` or `VACIAR denylist`). These feature tests use temporary files and simulated AMI; they do not modify the real node configuration.
-
-## 5. systemd service
+## 4. systemd service
 
 The unit is `amerimon.service`. It starts automatically when the package is installed and restarts if it fails.
 
@@ -389,7 +105,7 @@ sudo journalctl -u amerimon -n 100 --no-pager
 
 Do not publish `amerimon.env`, `jwt.secret`, database copies, or AMI passwords.
 
-## 6. Asterisk and node configuration
+## 5. Asterisk and node configuration
 
 ### Global AMI
 
@@ -447,6 +163,27 @@ systemctl status amerimon-pjsip-firewall.service --no-pager
 
 Compare the bind in `pjsip.conf` with the active Asterisk transport and the `netstat` socket: these are separate checks. If Asterisk reports `allow_reload : false`, `Module 'res_pjsip.so' reloaded successfully` does not confirm that an existing transport changed its bind. Amerimon does not automatically enable `allow_reload` or restart Asterisk. If `0.0.0.0:5060` remains active, first verify the public-port block, then apply the private bind through a manual Asterisk restart during a maintenance window; restarting interrupts connections and listening sessions. This protection covers UDP/IPv4 on port 5060, not other transports, ports, or IPv6.
 
+#### Common PJSIP endpoint options
+
+The options below illustrate settings often reviewed for PJSIP endpoints, such as phones behind NAT. Amerimon does not apply them automatically, and they are not a universal template. Confirm that each option is supported and appropriate for your Asterisk version, transport, and device. Check the documentation for your installed version before editing `pjsip.conf`.
+
+| Option | Purpose |
+| --- | --- |
+| `rtp_symmetric=yes` | Sends RTP packets back to the same IP address and port from which they were received. This helps when NAT makes the address advertised by the device unreachable. |
+| `force_rport=yes` | Replies to the actual UDP source port of the SIP packet instead of trusting the port stated in the request. This is useful when a NAT router changes the source port. |
+| `rewrite_contact=yes` | Replaces the `Contact` address advertised during registration with the address and port from which Asterisk received the packet. This prevents attempts to contact an unreachable private IP. |
+| `ice_support=yes` | Enables ICE media-path negotiation when both endpoints support it. ICE can evaluate network candidates, including those obtained through STUN/TURN; it does not configure or replace those services. |
+| `direct_media=no` | Prevents Asterisk from removing its media from the call path: audio continues through Asterisk. This can be required for recording, conferences, attended transfers, or strict NAT. Older documentation may call this `canreinvite=no`. |
+| `disable_direct_media_on_nat=yes` | On versions that support it, disables direct media when NAT is detected even if `direct_media` is enabled. Check availability and interaction with `direct_media` for your version. |
+| `use_avpf=no` | Disables AVPF and uses conventional RTP/AVP when that is the profile negotiated by the phone. It is not a general setting for WebRTC endpoints and does not replace codec configuration. |
+| `inband_progress=no` | Does not generate progress tones (such as ringing or call progress) inside the audio; it lets SIP signaling and the device handle tones out of band. Confirm the expected behavior with your phones. |
+| `tos_audio=ef`, `tos_video=af41` | Marks audio and video packets with DSCP Expedited Forwarding and Assured Forwarding values, respectively. These marks prioritize traffic only if switches and routers along the path are configured to honor them. |
+| `cos_audio=5`, `cos_video=4` | Requests layer-2 CoS/IEEE 802.1p priority for audio and video. It has an effect only on Ethernet/VLAN links and equipment that support and apply these marks. |
+| `allow_subscribe=no` | Rejects SIP `SUBSCRIBE` requests for the endpoint, for example when a trunk or phone does not need BLF or voicemail notifications. |
+| `media_encryption=no` | Disables SRTP, leaving audio and video unencrypted. Do not use it as a default on untrusted networks; configure compatible transport and encryption when signaling and audio need protection. |
+
+These settings are separate from the UDP/5060 protection above. A private bind and firewall rules do not replace secure credentials, TLS/SRTP, or Asterisk ACLs.
+
 The `[sip-phones]` context routes PJSIP calls through a Local channel before passing them to `app_rpt`, avoiding direct PJSIP dialplan handling that can cause Asterisk to fail:
 
 ```ini
@@ -472,6 +209,89 @@ If either context already exists without an `_X.` route, the installer adds the 
 If Asterisk is running, post-install loads Sorcery, PJPROJECT, and RTP first, followed by base PJSIP resources and finally the channel driver. Only modules with status `Running`, not `Not Running`, count as active. It automatically retries pending modules while other loads resolve dependencies, without a two-pass limit. If progress stops with required modules missing, it exits with an error and displays Asterisk's response; it does not report successful activation or remove configuration or backups. It verifies `[transport-udp]` in Asterisk and confirms the UDP socket for the configured address and port with `netstat`. If the bind changed or either check fails, it runs `module reload res_pjsip.so` and checks again. If the expected socket remains absent, it reports Asterisk's response without restarting the service; some transports require a manual restart to change their bind. The Debian package includes `net-tools`, `iproute2`, and the alternative `iptables | firewalld`. `res_pjsip_publish_asterisk.so` is disabled with `noload`: it exchanges PUBLISH events between servers and is not required for SIP extensions, PJSIP phones, or Listen Live. This prevents failed-load messages for the optional module during installation and Asterisk startup. If your installation needs inter-server PUBLISH, first configure a valid Asterisk Entity ID, then change its `noload` directive to `load` in `modules.conf`; diagnose any load failure with `asterisk -rx 'core show settings'` and the Asterisk log. If Asterisk is stopped, persistent directives take effect at the next start. Dialplan directives are added during post-install; review any warnings when a custom route exists.
 
 ### Allmon node selection and syntax
+
+Upgrades do not replace `/etc/amerimon/allmon.ini`: the installer creates it only if it is missing. The Allmon node editor preserves sections it does not manage and creates an `.amerimon.bak` copy before saving.
+
+#### Connecting to a remote server by hostname
+
+The name must resolve on the server running Amerimon's backend, not only in the browser or on the computer used to administer the server. The `hostname` command shows the computer's local name, but does not register it in network DNS by itself. For a small LAN, the recommended option is mDNS with Avahi and a full name such as `device.local`; for multiple subnets or VLANs, configure local DNS.
+
+##### Recommended option: mDNS / Avahi
+
+1. **On the remote Asterisk server**, check the hostname and mDNS service:
+
+   ```bash
+   hostname
+   systemctl status avahi-daemon --no-pager
+   ```
+
+   On Debian, Ubuntu, or Raspberry Pi OS, install and enable Avahi if needed:
+
+   ```bash
+   sudo apt update
+   sudo apt install avahi-daemon
+   sudo systemctl enable --now avahi-daemon
+   ```
+
+   To change the hostname, choose a unique name on the LAN with `sudo hostnamectl set-hostname device`. Only if you change it, review `sudoedit /etc/hosts` and update the old local entry (often `127.0.1.1`), keeping `localhost`; then run `sudo systemctl restart avahi-daemon`. If the name is already correct and `device.local` resolves, do not change anything.
+
+2. **On the Amerimon backend server**, check resolution; testing from an SSH workstation is not enough:
+
+   ```bash
+   getent ahosts device.local
+   ```
+
+   If it does not resolve, on Debian/Ubuntu systems using Avahi and NSS, install the missing components:
+
+   ```bash
+   sudo apt update
+   sudo apt install avahi-daemon avahi-utils libnss-mdns
+   sudo systemctl enable --now avahi-daemon
+   ```
+
+   Check `grep '^hosts:' /etc/nsswitch.conf`, `avahi-resolve-host-name -4 device.local`, and `getent ahosts device.local`. A common NSS line is `hosts: files myhostname mdns4_minimal [NOTFOUND=return] dns`; it is an example, not a line to replace blindly: retain your distribution's modules. On systems with `systemd-resolved`, mDNS may be managed there instead of Avahi/NSS.
+
+   Amerimon resolves names ending in `.local` with `getent ahosts`, which queries NSS/Avahi without using public DNS. Other hostnames use Go's resolver, and IP addresses are used directly. The Debian package declares `libc-bin`, `libnss-mdns`, and `avahi-daemon` as dependencies. If logs still show `lookup ...local on 1.1.1.1:53`, check the installed version and update with APT as described in section 2; then check the restarted service log.
+
+3. **Check the network and AMI.** mDNS usually works only on the same LAN and uses UDP multicast `5353`; Wi-Fi, firewalls, or client isolation may block it. It generally does not cross subnets or VLANs without additional configuration. After hostname resolution, check the AMI port:
+
+   ```bash
+   nc -vz -w 5 device.local 5038
+   ```
+
+   If the name resolves but TCP does not respond, check AMI's listener, the firewall, and remote access restrictions. A successful TCP connection does not validate the username or password.
+
+4. **Configure the remote node** under **Admin → Allmon configuration**, saving the complete hostname in **Host** and the port separately:
+
+   ```text
+   Host:   device.local
+   Port:   5038
+   ```
+
+   Use that server's AMI credentials. Do not include `http://`, `ssh://`, or the port in Host. Amerimon does not append `.local` automatically. If you changed `ami.host` in YAML instead of configuring a remote Allmon server, restart the backend to apply the change.
+
+##### Alternatives: local DNS and `/etc/hosts`
+
+For multiple subnets/VLANs or networks where mDNS is unsuitable, configure local DNS on the router or network server; for example, records associated with DHCP reservations and a `home.arpa` zone. Do not use `.local` as a unicast DNS zone because it is reserved for mDNS. Have DHCP provide the local DNS server to all clients, including the Amerimon backend, and verify from that backend with `getent ahosts device.home.arpa`. To use only `device`, the resolver must have that name directly or a search domain such as `home.arpa`. Do not edit a system-generated `/etc/resolv.conf` directly; configure the network manager or router. Public DNS servers such as `1.1.1.1` and `8.8.8.8` do not know private LAN names.
+
+As a last resort, add an entry to `/etc/hosts` **on the backend server**:
+
+```text
+192.168.1.20 device
+```
+
+This allows `device` to be used, but depends on a fixed or reserved IP; update the entry if the address changes and repeat it on each machine that must resolve the name.
+
+| Symptom | What to check |
+| --- | --- |
+| SSH resolves the host, but Amerimon does not | Windows and Linux may use different resolvers; test on the backend server. |
+| `device` fails and `device.local` works | Save the full name with `.local`. |
+| Name resolves, but TCP/5038 fails | Check the AMI listener, firewall, network route, and access permissions. |
+| TCP responds, but AMI rejects access | Check the remote AMI username, password, and configuration. |
+| Works on one LAN, but not across VLANs | Use local DNS or explicitly configure mDNS infrastructure. |
+
+Do not expose AMI to the Internet or disable its access controls.
+
 
 `allmon.ini` is searched in this order:
 
@@ -637,26 +457,294 @@ All routes require JWT and administrator role:
 
 Create/update bodies contain `source_node` (server ID, or empty for **Current primary**), `node`, `enabled`, `interval_seconds`, `action` (`connect`, `monitor`, `localmonitor`) and `permanent`. List entries also include `id`, `last_check_at`, `next_check_at` (Unix seconds; `0` when not yet available), `last_result` (translation key) and `last_details`. The same destination is allowed from different sources, subject to topology protection. Duplicate pairs and self-links return HTTP `409`; invalid parameters return `400`, missing IDs `404`, and configuration/storage errors `503/500`.
 
-## 7. Database, migrations, and backups
+## 6. Administration and application features
 
-In production, the database is `/var/lib/amerimon/amerimon.db`; in development with `make run`, it is `/tmp/amerimon-dev.db`. Changing `AMERIMON_DB` selects another file.
+On first access, click **Admin** and define the username and password. The username must be 3 to 32 characters allowed by the application; the password must be at least 8 characters and is stored with bcrypt. Administrative endpoints require a JWT with the administrator role.
 
-Migrations are applied when the database is opened. If migrations have already been applied, a date-suffixed backup is created before applying new ones, and the three most recent copies are kept.
+### Nextion display
 
-For a consistent manual copy:
+Under **Administration → Nextion display**, configure the USB serial device, baud rate, network interface and favorite node. The enabled state, device, baud rate, and favorite are stored in SQLite; the local node and AMI credentials are reused from Amerimon's configuration. Active non-loopback interfaces are listed with their IPv4 address and MAC; automatic mode selects an available IPv4 address. The favorite is selected from the Favorites list. Incomplete values can be saved while the controller is disabled; all required fields are validated when it is enabled. The test button opens the selected USB serial device at the chosen baud rate and closes it immediately; it does not send display commands or occupy the port permanently. GPIO/UART applies only to installations with compatible hardware.
+
+USB serial devices are listed as `/dev/ttyUSB*` or `/dev/ttyACM*`. USB identifier `10c4:ea60` identifies a Silicon Labs CP210x adapter. The local node is detected from Asterisk's RPT configuration; the current IPv4 address also appears below the interface selector.
+
+Every component referenced by code must have `vscope=global`. In Nextion, `txt` means text and `bco` means background color. The controller sends these values:
+
+| Component | Content |
+| --- | --- |
+| `t_nodo.txt` | Local node number with the `Nodo Local:` prefix. |
+| `t_ip.txt` | IPv4 address selected for the interface. |
+| `t_date.txt`, `t_time.txt` | Local date `YYYY-MM-DD` and 24-hour time `HH:mm:ss`. |
+| `t_temp.txt` | CPU temperature in °C; `--` when unavailable. |
+| `t_links.txt` | `ENLACES ACTIVOS` heading; includes the count when there are more than four links. |
+| `t_n1.txt`–`t_n4.txt` | Up to four active links: IAX shows the number; IAXRpt, the callsign; EchoLink, the available callsign or number. These three have no prefixes. SIP retains `SIP` followed by the caller ID or endpoint. Empty rows show `--`. |
+| `t0.txt` | The audio source's callsign or number followed by its available AstDB or private-directory description, for example `700001 - Remote station`. Without a description, only the identifier is shown. Location and event text such as “Transmitting” or “Receiving” are not added. SIP retains only the caller ID or endpoint, without `SIP`. Multiple active sources are separated by commas; link rows remain unchanged. |
+| `b_estado.bco`, `t0.bco` | Green `1024`: reception; red `63488`: transmission without reception; gray `33840`: no activity. |
+| `b_d1`–`b_d4` | Transparent buttons over each row; visible only when a link is active. |
+| `va_alive.val` | Heartbeat set to `4` by Amerimon once per second. |
+
+Reception is detected through local COS (`SignalOnInput`), active IAX/IAXRpt/EchoLink RX (`SawStat`) and SIP voice events for a connected channel. A connected SIP channel or active SIP PTT without detected voice is not enough to indicate reception. Reception takes priority over TX: when Asterisk keys the transmitter to relay received audio, the display stays green and shows that audio's source. Local COS or TX without reception shows the local node number and its available description, not a person's callsign that Asterisk has not identified.
+
+When activity ends, `t0.txt` becomes empty and the color turns gray, unless TX or another source remains active. Temporary system-operation messages and controller disconnection warnings retain priority over audio-source text.
+
+Configure each action in **Touch Release Event** with the exact string shown, without quotes or an additional terminator:
+
+| Action | String | Result |
+| --- | --- | --- |
+| Connect favorite | `CONN_FAV` | Connects the configured favorite if it is not already connected. |
+| Disconnect all | `DISC_ALL` | Runs the equivalent of `*70` (`ilink 6`) on the local node. |
+| Press and hold a row | `HOLD_N<number>` + space + row text + LF | Registers the actual connection associated with the row. |
+| Release a row | `DISC_N<number>` | Disconnects the registered link if it is still active. |
+| Arm Asterisk/Linux restart or Linux shutdown | `SYS_ARM_RESTART`, `SYS_ARM_REBOOT`, or `SYS_ARM_OFF` | Arms the action for 10 seconds; confirmation is required. |
+| Confirm or cancel a system action | `SYS_CONFIRM` / `SYS_CANCEL` | Runs the armed action if still valid, or cancels it. |
+
+`DISC_N1`–`DISC_N4` alone cannot disconnect a link: the row's long-press event must be received first. The controller keeps the actual connection identifier instead of using the displayed callsign in place of the EchoLink number or SIP channel. SIP is disconnected through its PJSIP channel; IAX, IAXRpt and EchoLink through the RPT link. Nextion's standard `sendme` response resets the interface state when the display reconnects.
+
+Files for each model and language use the same base name:
+
+- `public/assets/firmware/AMERINET_Nextion_<model>-<language>.HMI`: editable source.
+- `public/assets/firmware/AMERINET_Nextion_<model>-<language>.tft`: firmware for SD-card installation.
+- `public/assets/images/AMERINET_Nextion_<model>-<language>.png`: preview image.
+
+For example, `AMERINET_Nextion_NX4832K035-es` identifies the NX4832K035 files in Spanish. The administrative catalog groups files, displays the preview, and offers separate TFT and, when available, HMI downloads. Copy the TFT to an SD card to update the display; other models and languages follow the same naming format. Files are installed under `/usr/share/amerimon/nextion/`; the authenticated administrative route serves the directory, which is excluded from public Angular assets.
+
+### EchoLink configuration
+
+Module control and status use the local CLI (`asterisk -rx`), not AMI's `Command` action, which blacklists `module load` and `module unload`. The service needs access to the executable and Asterisk control socket. Only fixed EchoLink commands are executed, with a timeout; arbitrary browser-supplied commands are not accepted.
+
+On entry, the current `chan_echolink.so` state is highlighted in a green box when loaded or a red box when unloaded, with explicit text. This indicates module state, not an active connection to another client. It updates after confirmed activation/deactivation or pressing **Refresh**.
+
+**Important: incoming EchoLink connections are also subject to the node's access lists.** With `context=radio-secure`, they use the same context as AllStarLink connections. If `allowlist/<destination-node>` contains entries, only listed numbers are permitted; if empty, connections are permitted except those listed in `denylist/<destination-node>`. An allowlist match takes precedence over denylist. For EchoLink, use the connection number with the `3` prefix: EchoLink client `626066` is listed as `3626066` under the destination node. An outbound connection to a client can succeed while an incoming attempt from that client is rejected, because incoming connections evaluate these rules. The `peerip` patch does not remove or bypass this control.
+
+Postinstall applies `echolink-peerip.awk` only to the standard `peerip` checks in `[radio-secure]`: IAX2/SIP query the IP, while EchoLink proceeds without querying that property or receiving a fictitious local IP. Existing list policy and other contexts are preserved. Changes create a `.bak-echolink-peerip` backup, preserve ownership/permissions and use the postinstall dialplan reload without restarting Asterisk. Application is idempotent and rejects duplicate sections or partial modifications. This alone does not guarantee incoming EchoLink connectivity.
+
+Permanent activation supports both `load =` and `load =>` assignments in `modules.conf`. It switches the existing EchoLink line between `load` and `noload`, preserving formatting, comment and position. Duplicate EchoLink entries are removed, keeping only that line; an entry is added only if none exists. Other modules remain unchanged.
+
+Under **Radio and location**, **Get coordinates from browser** requests permission and fills latitude and longitude with the administrator's device location, not the server's. HTTPS or localhost is required. Check that it matches the station; you can correct the values manually. Nothing is saved or applied automatically: press **Save** after reviewing. Permission denial or lookup failure is reported and previous values are preserved.
+
+Optional `#tryinclude` directives targeting missing files without wildcards do not block the form and are preserved when saving. If an included file exists or its absence cannot be verified, editing is blocked to avoid ignoring options that Asterisk might be applying.
+
+Under **More options → EchoLink configuration** (`/admin/echolink`), administrators can edit existing `elN` sections in `echolink.conf`. Files are located beside the configured `rpt.conf` (normally `/etc/asterisk`). The **Connection message** field spans a full row of the form grid.
+
+1. Select a section and review identity, radio and servers. `node` is the EchoLink number; `astnode` is saved as the current primary node number. The initial query excludes passwords: press the eye with an empty field to retrieve the saved password, or type a new one and use the eye to show or hide it. Retrieval requires administrator access, checks the file revision and disallows caching; use HTTPS. Leaving the field blank when saving preserves the existing password.
+2. **Save** creates a `.amerimon.bak` backup with `0600` permissions and updates only the selected section, preserving unknown options and other sections. External file or primary-node changes require refreshing before saving. Includes and ambiguous sections require manual editing.
+3. **Enable** runs `module load chan_echolink.so`; **Disable** runs `module unload -f chan_echolink.so` in both temporary and permanent modes after confirmation. Forced unloading disconnects links and may affect Asterisk stability when the module is in use; the confirmation warns about this risk. The unloaded state is checked afterwards. Selecting **Permanent change** also changes the same line to `noload` in `[modules]` of `modules.conf`. Otherwise, the file remains unchanged. Asterisk is not restarted.
+4. Saving does not automatically apply configuration. For an active module, request **Apply configuration: reload module** and confirm. Unsupported reloads, rejected unloads and unexpected module states are reported as errors. A permanent file change remains saved even if the module operation fails: review the file and logs before retrying.
+5. **Check ports** tests outbound TCP connections to configured servers on **5200** and checks local UDP sockets on **5198 and 5199**. It does not demonstrate Internet access or identify socket ownership.
+
+**Public Internet reachability is not Amerimon's responsibility.** Router, NAT, firewall and provider restrictions are the administrator's responsibility. Amerimon does not open ports or change network rules. These checks do not replace connection and audio testing with an external EchoLink client. Audio telemetry mode configuration remains independent (see the audio section).
+
+### Private nodes: directory and Asterisk configuration
+
+**Admin → Private Nodes** provides two editors on the same screen:
+
+- **Directory:** `privatenodes.txt` lines using `node|callsign|description|location`, supplying descriptive information for AstDB.
+- **Private nodes in rpt.conf:** a list of four-digit sections and entries in the file selected by `ami.rpt_config_path` (default `/etc/asterisk/rpt.conf`). Create nodes, edit them in a popup card, or delete them after confirmation.
+
+Saves are independent. Creating a node in `rpt.conf` does not add a directory line; deleting a directory line does not remove its Asterisk section. Maintain both records in their respective editors when a node needs both descriptive information and configuration. Private nodes do not become the primary node; by default they do not create monitor server tables.
+
+Each list row has **Show as a server in AllStarLink**, unchecked by default. Change the checkboxes and click **Save changes**, as in the Allmon list. Saving is enabled only after changes and retains the selection if the request fails. A checked node gets its own table and appears in the local server selector, using global AMI credentials; its private category and primary-node selection remain unchanged. The next monitor refresh applies the setting both with and without Allmon. Unchecking does not disconnect its links; it only removes its server table and selector entry.
+
+The card separates the node number and `rxchannel` from the checkbox and its help. Action buttons use icons: a floppy disk for **Save changes**, an edit icon for **Edit**, and a trash can for **Delete**. They include hover help and translated accessible labels; the floppy disk becomes a busy indicator while saving.
+
+The preference is saved as a `; amerimon_show_as_server = yes` comment in the node's `rpt.conf` section, not as an Asterisk parameter or template setting. Unchecking removes the comment; deleting the node removes the preference too. Each node in `GET/PUT /mon/private-nodes/rpt` includes the boolean `show_as_server`.
+
+
+By default, `sources.privatenodes_path` uses `/var/lib/asterisk/privatenodes.txt`. At startup, Amerimon preserves any existing file at the configured path; if it is elsewhere and the default does not exist, Amerimon creates a symbolic link to it. If the default path is selected and the file is missing or empty, Amerimon first searches for files containing data at `/etc/allmon3/privatenodes.txt` and `/var/www/html/supermon/privatenodes.txt`, linking them so existing nodes can be displayed and edited without duplication. It never replaces a file containing data or an existing link. If no previous file exists, it creates the default file. The administrator can edit, add, and delete lines from **Private Nodes**; saving preserves the shared file's permissions and group. The installed service runs as root and also preserves the owner; in a custom unprivileged installation, the replacement may become owned by the process user, and this is recorded in the log. Each entry uses `node|callsign|description|location`.
+
+#### Creating or editing a node
+
+1. Select **Add private node** or **Edit** in the `rpt.conf` list.
+2. Enter an exactly four-digit number for a new node. The number cannot be changed when editing an existing node.
+3. Set `rxchannel` and adjust the relevant parameters. New forms start with the values from example node 1998:
+
+   | Parameter | Initial value |
+   | --- | --- |
+   | `rxchannel` | `USRP/127.0.0.1:34001:32001` |
+   | `duplex` | `0` |
+   | `hangtime` | `0` |
+   | `althangtime` | `0` |
+   | `holdofftelem` | `1` |
+   | `telemdefault` | `0` |
+   | `telemdynamic` | `0` |
+   | `linktolink` | `no` |
+   | `nounkeyct` | `1` |
+   | `totime` | `180000` |
+
+   These values are editable, not a universal configuration for every device. The commented `startup_macro` from the example is not enabled.
+4. The **Parameter** dropdown lists active `[node-main]` assignments not already configured in the node. `rxchannel` has a dedicated field and is not offered again. Selecting a parameter prefills its template value and displays immediately preceding comments and any inline comment. **Add override** adds the value to the node section without changing the template.
+5. **Enter a custom parameter…** accepts a custom name made of letters, numbers, or underscores and its value. Duplicate parameters are rejected. Edit existing parameters in their own fields.
+6. **Save changes** is enabled after changes; restoring the original form values disables it again. **Cancel** discards the popup edits without writing files.
+
+The interface is translated into Spanish and English. Documentation extracted from the file is displayed as plain text in its original language without automatic translation; missing comments produce a no-description notice. Dropdown extraction is limited to active `[node-main]` assignments in the main file: it does not include commented parameters or resolve included files and inherited templates.
+
+#### rxchannel help and validation
+
+Examples appear inside the editor card next to the field:
+
+| Example channel | Purpose |
+| --- | --- |
+| `Local/pseudo` | No radio (hub) |
+| `SimpleUSB/1999` | SimpleUSB |
+| `Radio/1999` | USBRadio (DSP) |
+| `Voter/1999` | RTCM device |
+| `Pi/1` | Raspberry Pi PiTA |
+| `Dahdi/1` | PCI Quad card |
+| `Beagle/1` | BeagleBoard |
+| `USRP/127.0.0.1:34001:32001` | GNU Radio USRP interface |
+
+Adjust the device and ports for your server. The selected driver must be available and enabled in Asterisk; this editor does not modify `modules.conf`. Duplicate numbers or `rxchannel` values are rejected. The same USRP port pair is also rejected even when the host differs, and directly configured public-node channels are checked for conflicts. Validation does not resolve inherited or included channels or test physical device availability.
+
+New nodes are added as `[<node>](node-main)` with a `<node> = radio@127.0.0.1/<node>,NONE` entry in `[nodes]`. Editing preserves existing entries, headers, comments, and parameters; only submitted values are overridden and missing ones added. Omitting a parameter does not delete it. **Delete** removes the entire node section, including its custom settings, and its `[nodes]` entry; it does not remove other drivers' files or external references.
+
+Before saving, private node numbers are checked against every PJSIP section ID (endpoints, auth, AOR, and templates). The check uses `ami.pjsip_config_path`, or `pjsip.conf` next to `rpt.conf` when unset. It follows `#include` and `#tryinclude`, including wildcards; relative paths resolve from the main PJSIP configuration directory. Conflicts return HTTP 409 without writing files, backups, or reloading Asterisk. Read failures, missing mandatory includes, cycles, or unsupported directives such as `#exec` block saving with a verification error; an unmatched `#tryinclude` is valid. This check runs when saving private nodes, not when creating extensions in the PJSIP editor.
+
+#### Saving, backups, and reload verification
+
+Before modifying `rpt.conf`, Amerimon creates `rpt.conf.amerimon.bak` (or the configured filename followed by `.amerimon.bak`) with `0600` permissions. Each save that changes the file updates the backup with the previous content. Writing preserves the target's permissions, owner, and group and respects symbolic links; the service needs permission to read, back up, and replace the file.
+
+After saving or deleting, Amerimon sends `module reload app_rpt.so` through AMI. It requires a successful reload response, then queries `module show like app_rpt.so`; success is reported only when the module appears loaded. Asterisk is not restarted. If reload or verification fails, the interface reports an error and the configuration may already be saved: inspect the logs and file before retrying. AMI failures do not trigger an automatic rollback.
+
+For manual diagnosis on the server:
 
 ```bash
-sudo systemctl stop amerimon
-sudo cp -a /var/lib/amerimon/amerimon.db \
-  "/var/lib/amerimon/amerimon.db.manual-$(date +%Y%m%d-%H%M%S)"
-sudo systemctl start amerimon
+sudo asterisk -rx 'module reload app_rpt.so'
+sudo asterisk -rx 'module show like app_rpt.so'
 ```
 
-To restore, stop the service, keep a copy of the current database, replace the file with the backup, and start the service again. Preserve root ownership and permissions, and check the status with `journalctl`.
+A loaded module does not prove that every node adopted all settings or has working audio; also test node connections and the selected channel.
 
-## 8. Administration and endpoints
+The API requires a JWT with the administrator role:
 
-On first access, click **Admin** and set the username and password. The username must contain 3 to 32 characters allowed by the application; the password must contain at least 8 characters and is stored with bcrypt. Administrative endpoints require an administrator-role JWT.
+| Method and route | Contents |
+| --- | --- |
+| `GET /mon/private-nodes` | Directory path, permissions, and lines |
+| `PUT /mon/private-nodes` | Saves `{ "lines": [...] }` |
+| `GET /mon/private-nodes/rpt` | `path`, `nodes`, `template_settings`, and `template_descriptions` |
+| `PUT /mon/private-nodes/rpt` | Saves `{ "nodes": [...] }`; each node has `id`, `rxchannel`, and `settings` |
+
+The `rpt.conf` PUT submits the complete set of private nodes: omitted nodes are deleted. Avoid editing from multiple browsers simultaneously; refresh the list before working on configuration changed outside the editor. Successful responses include `reloaded: true` and `module_loaded: true`.
+
+### Access control: nodes and callsigns
+
+The dialplan contexts serve different purposes:
+
+- **`[radio-secure]`:** controls node-to-node connections. It checks `allowlist/<destination>/<source-node>` and `denylist/<destination>/<source-node>`, using `${EXTEN}` as the destination and `${CALLERID(num)}` as the source node. The `allstar-public` patch does not modify this context.
+- **`[allstar-public]`:** handles clients such as IAX Web Transceiver, Repeater Phone, and QSO One. It first authenticates the callsign through AllStarLink; invalid authentication ends the call. Here `${CALLSIGN}` is the authenticated callsign and `${NODENUM}`, taken from `${CALLERID(num)}`, is the destination node, not a source node.
+
+After authentication, `allstar-public` applies this order:
+
+For comparisons, it derives `CALLSIGN_BASE`: everything from the first `-` or `/` onward is removed, and the result is uppercased. For example, `HC1LNM-P`, `HC1LNM/RPT`, and `HC1LNM-P/RPT` are compared as `HC1LNM`. Store access entries using the base callsign without suffixes. The full authenticated callsign is retained in the connection identity and dialplan messages; an empty base is rejected. This normalization does not affect node numbers or `[radio-secure]`.
+
+1. If `allowlist/${NODENUM}/${CALLSIGN_BASE}` exists, connect directly.
+2. Otherwise, check `denylist/${NODENUM}/${CALLSIGN_BASE}`. If it exists, block the call.
+3. If the callsign appears in neither destination-scoped list, fall back to the global `whitelist/${CALLSIGN_BASE}` and `blacklist/${CALLSIGN_BASE}` filter. Other entries in `allowlist/<destination>` do not prevent this fallback.
+
+First-filter decisions are final: an `allowlist` match takes precedence over `denylist` and skips the global lists; a `denylist` match cannot be overridden by the global `whitelist`.
+
+The global filter preserves the patch's policy: both lists empty means access is allowed; a `whitelist` match allows access even if also present in `blacklist`; without a `whitelist` match, a `blacklist` match blocks access. If either global list contains entries and the callsign matches neither, access is also blocked, even when only `blacklist` is populated.
+
+In **Admin → Primary Node**, separate cards distinguish node-scoped lists (`allowlist/denylist`) from global callsign lists (`whitelist/blacklist`). Global entries have no node-number scope, and changes through AMI take effect immediately. Installation prepares the checks in the existing `[allstar-public]` stanza and reloads the dialplan without modifying `[radio-secure]`.
+
+### Primary node configuration
+
+**Admin → Primary Node** provides functionality equivalent to options **1 Node number**, **2 Node Password**, **3 Node callsign**, and **7 Node access list** in `node-setup`.
+
+- **Number:** changes the public number of the primary node identified in `rpt.conf`. This monitor requires a public primary node (4 to 6 digits, not starting with 0 or 1); private nodes are managed as connections, not as the primary. Numbers already configured and forms left open for a primary node that has changed are rejected.
+- **Password:** this is the registration password obtained from the AllStarLink portal, not the Amerimon or AMI password. Only an administrator can retrieve the current password; it is hidden and can be revealed with the eye button. The active HTTP registration is preferred, falling back to the IAX registration if needed. The response is not cached; the password is not stored in browser storage or logs. Use HTTPS and a trusted device. Leaving the field unchanged or empty preserves the current password; a new password may contain 6 to 128 letters, numbers, hyphens, and underscores.
+- **Callsign:** updates `idrecording = |iCALLSIGN` directly in the primary section while preserving templates. An inherited `idrecording` or one based on an audio file is not presented as an editable callsign; enter the callsign you want to use.
+- **Duplex:** configures `duplex` (0–4) directly in the primary node section; if the value was inherited from a template, a local override is added without changing the template. The options are: 0, half duplex without telemetry or hang time (full duplex with `linktolink=yes`; preferred for an external multiport repeater controller; commenting out `idrecording` and `idtalkover` also suppresses IDs); 1, half duplex with telemetry and hang time, no repeated audio (preferred for a simplex node); 2, full duplex with telemetry and hang time (preferred for a repeater); 3, full duplex with telemetry and hang time, no repeated audio; 4, full duplex with telemetry and hang time, repeats audio only when the autopatch is down. Global audio broadcast to linked nodes requires a nonzero `duplex` mode (1–4).
+- **Access:** adds, updates, and deletes numbers or callsigns in AstDB's `allowlist/<primary>` and `denylist/<primary>`, with an optional reason. Changes are applied immediately through AMI. With no entries, these lists impose no restrictions. An allowlist limits which nodes are accepted; blocked nodes are rejected. Reasons can contain up to 200 characters and cannot contain double quotes, backslashes, or control characters.
+- **AMI access:** before the access lists, you can change the `secret` of the AMI user already configured in `ami.user`, the `[general]` `bindaddr`, and optionally add `permit`/`deny` networks to that same stanza. The secret is masked and can be revealed with the eye button. IPv4 networks accept an IP/prefix or IP/netmask; Amerimon calculates the normalized network. Existing rules are preserved only: the screen adds rules but does not delete or replace custom options. Any `deny` that covers loopback or the backend address is rejected, and explicit loopback access is added when restricting access with `permit`. If the backend AMI address cannot be resolved, ACL changes are not applied.
+- This editor creates `.amerimon.bak` backups of `manager.conf`, `amerimon.yaml`, and `amerimon.env`; updates `ami.host`, `ami.user`, and the secure `ami.secret: ${AMI_SECRET}` reference in YAML; and keeps the secret value in the environment file with its existing permissions. The installed service explicitly specifies `/etc/amerimon/amerimon.env`; for custom installations, set `AMERIMON_ENV_FILE` to the environment file used by the process. When a specific `bindaddr` is used, the YAML AMI host is synchronized with that address; with `0.0.0.0` or `::`, the current host is retained. Amerimon then runs `manager reload` (without restarting Asterisk) and checks a new AMI connection. If authentication fails, it attempts to restore the files and reload the previous configuration. Do not restart Asterisk if a restoration failure is reported.
+
+Editing changes only references to the selected node in `rpt.conf`, `rpt_http_registrations.conf`, `iax.conf`, and, if present, `savenode.conf`, `extensions.conf`, `simpleusb.conf`, `usbradio.conf`, and `voter.conf`. It also renames the corresponding section in the active Allmon file and in `/etc/allmon3/allmon3.ini`, when present. Other sections, registrations, and credentials are preserved. When renumbering, access lists are moved to the new number; a destination that already has lists is rejected.
+
+Edited definitions must be directly in those files: `#include` files, arbitrary customizations, and numeric references in external scripts are not rewritten. If the primary section is not defined directly, saving is rejected. The process must be able to read the files, create backups, and replace them in their directories while preserving owner, group, and permissions. The web application does not elevate privileges. Asterisk paths are derived from the directory of `ami.rpt_config_path`.
+
+Before modifying files, adjacent `*.amerimon.bak` backups are created with mode `0600`; they contain passwords and must not be published or copied to locations accessible over HTTP. The latest backup of each file is kept. If saving or migrating lists fails, Amerimon attempts to restore the previous configuration and explicitly reports any restoration failure. If a restoration failure is reported, do not restart Asterisk; check the backups first.
+
+**Saving automatically reloads `app_rpt.so`** through AMI using `module reload app_rpt.so`; it does not restart Asterisk. The screen confirms the save only if AMI accepts the reload. If reload fails, the files have already been saved with `.amerimon.bak` backups; check the Asterisk logs and do not repeat identity changes until you confirm which configuration is active. If you changed the node number and use Allmon3, restart Allmon3 manually. Schedule changes during a maintenance window and consider their impact on node operation.
+
+The **Clear Allowed** and **Clear Blocked** buttons remove only entries from the selected primary-node list, after confirmation, without touching the other list or other nodes. The change is immediate and cannot be undone. Clearing the allowlist removes the restriction to authorized nodes; the denylist still applies. If a deletion fails, the interface reports that clearing may be partial and the list should be reloaded.
+
+**Export Lists** downloads both lists and their reasons to `listas-acceso-<node>.json`, querying AstDB again. The document uses `format: "amerimon-node-access"`, `version: 1`, `node` (source), and `entries` with `type`, `node`, and `reason`. It does not include passwords. **Import Lists** lets you select that JSON (up to 1 MiB and 1000 entries) and confirm the destination node. It always merges: entries not present in the file are preserved, and reasons for matching entries are updated by list and node/callsign. A file from another node can be imported, but it is applied only to the current primary node. Duplicate entries in the same list and the destination node itself are not allowed. The complete file is validated before writing, saved entries are verified, and Amerimon attempts to restore changes if an operation fails, reporting any incomplete restoration. Changes are immediate. Export requires `GET /mon/primary-node/access/export`; import requires `POST /mon/primary-node/access/import` with `primary_node` and `document`; both are restricted to administrators.
+
+The API requires a JWT with the administrator role for `GET/PUT /mon/primary-node`, `GET/PUT /mon/primary-node/ami`, `GET/PUT/DELETE /mon/primary-node/access`, and `POST /mon/primary-node/access/clear`. Clearing requires `primary_node`, `type` (`allowlist` or `denylist`), and `confirmation` (`VACIAR allowlist` or `VACIAR denylist`).
+
+### Public password tools
+
+The **Password tools** link in the header opens a single page (`/password-tools`) with the generator and meter. The former `/password-generator` and `/password-meter` routes redirect to this page.
+
+The generator initially suggests a 12-character password and supports a minimum length of 8. You can combine uppercase letters, lowercase letters, numbers, and symbols; when selecting types manually, choose at least two. If none are selected, all four are used. Random selection uses the browser's cryptographic API and favors less-repeated characters to increase diversity. You can regenerate the password or copy it to the clipboard. The generated password is passed to the meter on the same page.
+
+The meter also accepts a password of up to 128 characters and lets you show or hide it. It displays a score, complexity, additions and deductions, Shannon entropy, and recommendations about length, diversity, character groups, repetitions, and predictable patterns. The stated minimum length is 8; recommendations suggest at least 12 characters.
+
+The displayed entropy is calculated from the observed character frequencies in the password. It describes the diversity of that sample; it is not a measure of the generator's cryptographic unpredictability or a guarantee that a password is secure. Generation and evaluation happen in the browser; these tools do not send or store the password in Amerimon's backend.
+
+### Audio management and playback
+
+Only administrators see the **record/playback** icon (circle and triangle) in the AllStarLink table header to open **Audio management in another window**. The **table** icon in Audio management opens the AllStarLink table. Both retain tooltips and accessible labels in Spanish and English. The original page remains open so connections and audio can be managed side by side. Allow popups for this site if blocked; the browser may choose a tab instead of a window. Credentials are not transferred: an unremembered session may require login in the new window. The audio route retains administrator authorization.
+
+**Administration → Audio management** (`/admin/audio`) is an administrator-only option. It provides a library of WAV audio that administrators can activate or deactivate when needed. Files and settings are stored by the backend and in SQLite; signing out or closing the page does not stop scheduling. Tracks remain until an administrator explicitly deletes them.
+
+- Upload formats: WAV, MP3, FLAC, OGG/Opus, M4A/MP4, AAC, WMA, AIFF, WebM, MKA, AMR and APE, depending on installed FFmpeg codecs. Uploads are no longer WAV-only: the server converts to 16-bit, 8000 Hz mono PCM WAV. Both input and converted output are limited to 25 MiB; conversions reaching the limit are rejected rather than saving truncated audio. One conversion runs at a time per service, with a 60-second timeout. Install `ffmpeg` before running the local installer; the Debian package declares it as a dependency. Already compatible WAV files do not require external conversion.
+- `broadcast_once`: the administrator clicks the **Play on Asterisk** broadcast icon; Asterisk starts a broadcast to the primary node and its linked stations. This is a one-time action and is not repeated merely because the track remains enabled.
+- `broadcast_silence`: each enabled track has its own interval, from 1 to 10080 minutes. Radio COS and receiving RPT/IAX and SIP links are checked on all monitored nodes, necessarily including the primary. Silent observations at least five seconds apart and a fresh check after preparing the audio are required before requesting playback. Activity or invalid AMI responses postpone transmission; overdue playback remains pending. The persistent claim advances the next due time before sending, in the same transaction as the playback lock, so two cycles cannot claim the same broadcast. Only one track is attempted per cycle. Activity detected at the final check cancels the claim and restores the pending due time. The reservation lasts the selected duration plus two seconds; if Asterisk rejects playback, the error is logged and the next interval is awaited.
+- To distribute audio from the primary node to linked nodes, `duplex` must be nonzero (modes 1–4); Amerimon validates the effective value, including inherited template values. The **Primary node** settings screen can set `duplex` and automatically runs `module reload app_rpt.so` after saving.
+
+**EchoLink:** `rpt playback` also depends on the EchoLink link's telemetry mode. In app_rpt 3.10.8, the default on-demand mode can prevent the link from transmitting the file even when AllStarLink links receive it. The postinstall shared by the local installer and Debian package sets `echolinkdefault = 1` in the `[node-main](!)` template, if present, and in the `rpt.conf` sections referenced by `astnode` in the `elN` sections of `echolink.conf`. Nodes inherit the template value unless they override it; nodes matching `astnode` are configured explicitly. It preserves the original as `rpt.conf.bak-echolink-telemetry` and reloads `app_rpt.so` if Asterisk is available. **Disconnect and reconnect the EchoLink links** so they adopt the setting; the installer does not disconnect them automatically. If Asterisk was not running, reload `app_rpt.so` first. This also enables other telemetry toward EchoLink; it is not limited to library files. Enabling all local telemetry or restarting Asterisk is unnecessary. Testing on 616262 confirmed audible EchoLink reception and `Tx Audio` increasing from 0 to 104 for a five-second file.
+
+Primary resolution uses the same nodes as the monitor: without Allmon, local nodes come from `rpt.conf` and the configured AMI credentials. Allmon does not need to be created for playback on that server's local Asterisk; if the primary is not monitored or AMI configuration is incomplete, no broadcast is sent and an error is logged. On another server, “primary” means the node in that server's own `rpt.conf`, not another machine's primary.
+
+These checks poll activity rather than locking out stations: they cannot guarantee detection of a transmission starting between queries or prevent someone speaking after playback begins. `rpt playback` does not automatically cancel audio when a new conversation starts.
+
+Scheduling runs in the Go service, not in the browser, and continues after sign-out or an Amerimon restart. Playback state prevents overlapping broadcasts after a backend restart. By default, WAV files are stored under `astdatadir/sounds/amerimon`, as configured in `/etc/asterisk/asterisk.conf`; both local and Debian installers prepare that directory as `root:asterisk` with mode `2750`. During upgrades, installers copy existing audio files from the previous directory without deleting the originals. You can override the root with `audio.storage_dir` in `amerimon.yaml`; it must be inside a sound path Asterisk searches, readable by Asterisk, and writable by Amerimon. `audio.poll_interval` controls polling (default `5s`; accepted range is 1 to 60 seconds). The node's AMI must be permitted to execute `rpt playback`.
+
+The `on_connection` welcome mode has been removed because `app_rpt` does not safely support playback to a single connected link. Migration 0013 changes existing tracks in that mode to `broadcast_once` without deleting their records or files. Previously stored 8-bit PCM tracks are converted to 16-bit the first time they are played.
+
+Buttons use icons with hover descriptions and accessible labels. The headphones icon (**Listen locally**) downloads the WAV through the authenticated API for browser playback with its signal meter, including disabled or scheduled tracks. It does not broadcast through Asterisk or change scheduling. The broadcast icon (**Play on Asterisk**) retains manual transmission for enabled one-time tracks. Changing previews or leaving the screen releases the player and its temporary URL.
+
+During a request, other library and recording actions and editable fields remain disabled until it finishes, including on failure. The initiating button displays its progress indicator and process text; upload percentage also appears there, without a duplicate outside the button. Errors and completion notices remain visible separately. An ongoing recording and background polling do not lock pause and stop controls.
+
+The panel, meters, icon descriptions, errors, and confirmations follow the header language, including switching between Spanish and English without leaving the screen. Audio errors include an `AUDIO_ERROR_*` code and a diagnostic message; retain both when requesting support.
+
+#### Primary node recordings
+
+In **Administration → Audio management**, the **Primary node recordings** card captures the node/link mix. It does not use the browser microphone or transmit audio to stations. It requires the dedicated `amerimon-record-node` context using `Rpt(node,Pm)` in monitor-only phone mode, together with the `listen-live-eagi` transport, EAGI script and local listener. Spying only on the radio `rxchannel` can yield silence while linked stations speak; recording does not use that source. The installer adds the recording context without changing Listen Live's radio context or existing custom blocks. After updating the backend and dialplan, stop and restart an older capture to change its source.
+
+- Enter a name and click **Start recording**. Only one capture can be active. Startup is confirmed after EAGI PCM arrives, not merely when AMI accepts Originate.
+- Silence is omitted automatically based on PCM energy (approximately −40 dBFS RMS), retaining 200 ms before and 500 ms after detection. This is level detection, not speech recognition: noise above the threshold is also retained. The status shows **Automatic pause: waiting for audio** and resumes when audio returns; duration measures only retained audio, including these margins.
+- **Pause** remains a manual pause even if audio arrives. **Continue** re-enables automatic detection. **Stop and save** finalizes the WAV and closes only the capture channel, without disconnecting stations.
+- Capture continues after closing the page or signing out. The 16-bit, 8000 Hz mono PCM WAV files are saved automatically in the private `recordings` subdirectory next to the service's SQLite database (directory `0700`, files `0600`). Each recording is capped at 25 MiB, approximately 27 minutes of retained audio; reaching the limit finalizes it automatically. Recordings are not deleted based on age.
+- If EAGI disconnects or Amerimon restarts, capture does not resume automatically. It is marked interrupted and received audio is retained; on startup, the WAV header is reconstructed from recovered PCM.
+- **Listen** downloads the WAV through the authenticated API for browser-only playback. **Add to library** makes an independent one-time-broadcast copy without broadcasting or scheduling it automatically. You can later change mode and interval in its library card. **Delete** requires confirmation and removes only the original recording, not an existing library copy.
+
+Additive migration `0014_audio_recordings.sql` creates `audio_recordings` without modifying existing audio or configurations. All routes require administrator authorization: `GET/POST /mon/audio/recordings`, `PATCH /mon/audio/recordings/:id` with `action: pause|resume|stop`, `GET /mon/audio/recordings/:id/file`, `DELETE /mon/audio/recordings/:id`, and `POST /mon/audio/recordings/:id/library`.
+
+#### Selecting, previewing and saving a segment
+
+1. On the library card, press **Configure broadcast segment**. This is also available for scheduled or disabled tracks. The manual broadcast icon opens the same dialog.
+2. Select **Choose a segment**. Drag the left handle for **Start** and the right handle for **End**, or enter **Start (s)** and **End (s)** with 0.001-second precision. The handles also support keyboard adjustment and cannot cross. The highlighted bar shows the selected portion. For example, start 5 and end 20 selects 15 seconds.
+3. To check without transmitting, press the **Listen to selection** headphones inside the dialog, then play in the player that appears. It includes a level meter and plays only the selected portion; **Complete audio** previews everything.
+4. Press the **Save changes** disk icon to remember the bounds without broadcasting. **Play in Asterisk** saves and then requests a broadcast; it is only available when the track is enabled in manual mode. **Cancel** closes without saving pending edits.
+
+The dialog preview is local only: it neither saves bounds nor transmits to Asterisk. Changing bounds or switching complete/segment stops and hides the previous preview; press **Listen to selection** again to load the new selection. Closing the dialog stops and releases the audio.
+
+When a track has saved bounds, its card displays a highlighted **Segment selected** badge with start, end and duration. Saved bounds survive reloads/restarts and apply to both manual and every scheduled broadcast, without changing when the next broadcast is due.
+
+To remove the selection, press **Reset to complete audio**, then **Save changes**. The card returns to **Complete audio**. Resetting and then cancelling does not change saved bounds.
+
+The library file is never trimmed: the card's headphones and download still provide the complete audio. Only the dialog preview and broadcasts use the segment. Additive migration `0015_audio_segments.sql` stores `start_ms` and `end_ms` per track; existing tracks remain complete until a selection is saved. The server creates a temporary WAV for each segment broadcast and reserves playback for its duration plus two seconds; it deletes the temporary file one minute after the expected playback time while the service remains running.
+
+#### Downloading audio
+
+The **Download WAV** icon is available for library tracks, including disabled or scheduled ones, and finalized nonempty recordings. It downloads through the authenticated API without broadcasting or changing activation or intervals. Downloads contain the stored Asterisk-compatible WAV, not the original compressed upload; conversion does not retain that original. The button displays **Downloading...** and locks other actions until the request finishes.
+
+#### Signal meters
+
+- **Recording input level:** measures RMS energy of PCM received from the node, including during manual pause. It updates every 500 ms while a capture is active. It does not necessarily represent stored audio: silence is omitted and manual pause discards audio.
+- **Playback level:** measures the WAV heard in the browser through Web Audio, sampled every 50 ms, for both recordings and library previews. It resets on pause or end. It does not measure Asterisk's output or physical speaker volume.
+- The scale runs from −60 to 0 dBFS, with green, yellow, and red zones; 0 dBFS is the digital maximum. The visual floor is −60 dBFS. Input returns to the floor when recent samples stop arriving. No microphone permission is required. If the browser cannot start the meter, an explicit error is displayed.
 
 ### Warning and confirmation preferences
 
@@ -766,7 +854,7 @@ The interface uses only the dark theme, including forms and manual diagrams. Tit
 
 If there are multiple servers, **Show Server** lets you select a local node or **All**. On wide screens, the compact selector appears next to **Search Connections**; on mobile, they stack without overflowing.
 
-The compact footer shows the Amerimon Git version and **Powered by Angular Framework, SQLite3, and Go Language** credits, with local logos adapted to the dark theme. `make run` and `make dev-backend` inject `git describe --tags --always`; packages receive the tag version through GoReleaser. A direct `go run` without an injected version displays `dev`. The footer has no legal links or visit counter and is hidden when printing.
+The compact footer shows the Amerimon version and **Powered by Angular Framework, SQLite3, and Go Language** credits, with local logos adapted to the dark theme. The footer has no legal links or visit counter and is hidden when printing.
 
 ### External links
 
@@ -797,6 +885,50 @@ The Listen Live sessions report no longer shows the **User** and **Callsign** co
 | `/mon/favoritos` | Administrator | Favorites |
 | `/mon/enlaces-externos` | Public | Active links only |
 | `/mon/admin/enlaces-externos`, `/mon/admin/enlaces-externos/:id` | Administrator | External links CRUD |
+
+## 7. Database, migrations, and backups
+
+The installed service's database is `/var/lib/amerimon/amerimon.db`. Changing `AMERIMON_DB` selects another file.
+
+Migrations are applied when the database is opened. If migrations have already been applied, a date-suffixed backup is created before applying new ones, and the three most recent copies are kept.
+
+For a consistent manual copy:
+
+```bash
+sudo systemctl stop amerimon
+sudo cp -a /var/lib/amerimon/amerimon.db \
+  "/var/lib/amerimon/amerimon.db.manual-$(date +%Y%m%d-%H%M%S)"
+sudo systemctl start amerimon
+```
+
+To restore, stop the service, keep a copy of the current database, replace the file with the backup, and start the service again. Preserve root ownership and permissions, and check the status with `journalctl`.
+
+## 8. Technologies and data
+
+- Backend: Go `1.26`, Echo, and WebSocket.
+- Frontend: Angular 22, TypeScript 6, and Vitest.
+- Database: SQLite through `modernc.org/sqlite`, a pure-Go implementation with no separate SQLite server or CGO.
+- The database uses WAL, `busy_timeout`, and foreign keys.
+- Schemas are applied through embedded SQL migrations. Do not edit migrations that have already been published; add a new numbered migration.
+- Before migrating an existing database, Amerimon creates a `*.bak-<date>` copy and keeps the three most recent copies.
+
+### Main tables
+
+| Table | Purpose |
+| --- | --- |
+| `admin` | Administrator user and password hash |
+| `users`, `listenlive` | Listen Live sessions and users |
+| `asterisk_commands` | Catalog of allowed operations |
+| `allstarlink_node_activity` | Most recently observed activity between nodes |
+| `asterisk_connection_history` | History of observed links |
+| `favoritos` | Administrator favorites |
+| `enlaces_externos` | Links published and managed from the web |
+| `app_settings` | Header title and subtitle |
+| `terminal_credentials` | SSH credentials encrypted per destination |
+| `asterisk_operation_logs` | Asterisk operations, results, and diagnostics |
+| `audio_tracks` | Audio library, format, activation, and measured duration |
+| `audio_broadcast_schedules` | Intervals and next/last scheduled playback |
+| `audio_playback_state` | Persistent reservation preventing overlapping audio |
 
 ## 9. Asterisk operation logs
 
@@ -846,7 +978,7 @@ Under **Admin → System**, the administrator can **Restart Asterisk**, **Reboot
 - **Diagnostics:** displays `asterisk.service` journal errors since the request and recent errors from the standard `/var/log/asterisk/messages.log` file (last 256 KiB, up to 40 lines). If either source cannot be queried, this is indicated. Startup errors are shown as warnings even when the service and AMI respond; for example, a USB interface may be missing. A custom log file must be checked separately.
 - **Linux:** schedules `shutdown -r +1` or `shutdown -P +1`, with a one-minute delay. The response confirms that the action was scheduled, not that the reboot/power-off completed. Powering off may require physical access to turn the device back on. To cancel from a console before it occurs, run `sudo shutdown -c`.
 
-Requests and results are recorded in **Asterisk Logs** and Amerimon's journal. The installed service runs as root; a development instance without those permissions returns a system error and does not attempt privilege escalation. Do not test Linux actions on shared or production equipment without authorization. Tests for these actions simulate every command; they do not reboot or power off the machine.
+Requests and results are recorded in **Asterisk Logs** and Amerimon's journal. The installed service runs as root; an instance without those permissions returns a system error and does not attempt privilege escalation. Do not test Linux actions on shared or production equipment without authorization.
 
 The **System** popup requires an administrator session. It includes:
 
@@ -908,48 +1040,7 @@ sudo journalctl -u amerimon-astdb.service -n 50 --no-pager
 
 The YAML must point `sources.astdb_path` to the file that is actually updated.
 
-## 13. Local development (developers only)
-
-Before starting development mode, stop the installed service to free ports `8082` and `8086`:
-
-```bash
-sudo systemctl stop amerimon
-make run
-```
-
-`make run` compiles Angular, embeds it, and runs Go at `127.0.0.1:8082`, with database `/tmp/amerimon-dev.db` and JWT secret `dev-secret`. It uses credentials from `/etc/asterisk/manager.conf` and `packaging/amerimon.yaml`. Stop it with `Ctrl+C`.
-
-To switch to the installed service using the current code:
-
-```bash
-./install.sh
-```
-
-`install.sh` recompiles the frontend/backend, updates `/usr/bin/amerimon`, installs the EAGI script, dialplan migration, and service support files. It runs the same `packaging/postinstall.sh` as the Debian package to migrate Listen Live with a backup, enable available modules, reload the dialplan, and restart Amerimon even if it is already active. It preserves existing configuration, credentials, and Allmon files. It also applies the package's web proxy configuration and AstDB timer. Do not run `make run` and `amerimon.service` simultaneously because they share ports.
-
-For separate frontend and backend reloading, use two terminals: `make dev-backend` and `npm start`.
-
-## 14. Build and release (developers only)
-
-This section is for the team that develops and publishes Amerimon only. **It does not apply to clients**: install or update with APT as described in section 4. `make dist` requires a clean Git tree and performs an actual release. It:
-
-1. Calculates and pushes the next semver tag.
-2. Runs `goreleaser release --clean`; its hooks run `go mod tidy`, `npm ci`, and `npm run build`.
-3. Builds `.deb` packages for Linux `amd64` and `arm64` with CGO disabled.
-4. Copies packages to the local repository, keeps up to three versions per architecture, regenerates/signs indexes, and pushes to `jjsainzc/repo-deb`.
-
-Related commands:
-
-```bash
-make dist
-make dist VERSION=v1.2.0
-make index-repo
-make push-repo
-```
-
-Before providing APT instructions, confirm that `https://jjsainzc.github.io/repo-deb/Packages` includes the published version. On client machines, verify with `apt-cache policy amerimon` that `Candidate` matches.
-
-## 15. Quick troubleshooting
+## 13. Quick troubleshooting
 
 | Symptom | Checks |
 | --- | --- |
