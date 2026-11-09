@@ -15,7 +15,7 @@ run_configuration() {
     return 0
 }
 
-configure_files() (
+configure_jwt() (
 set -e
 # Secreto JWT: solo root lo lee; systemd lo entrega al servicio como credencial.
 mkdir -p /etc/amerimon
@@ -25,7 +25,11 @@ if [ ! -s /etc/amerimon/jwt.secret ]; then
 fi
 chown root:root /etc/amerimon/jwt.secret
 chmod 600 /etc/amerimon/jwt.secret
+)
 
+configure_ami() (
+set -e
+mkdir -p /etc/amerimon
 # Credenciales AMI desde manager.conf (primer usuario distinto de [general]); solo si faltan.
 ENV_FILE=/etc/amerimon/amerimon.env
 MGR_CONF=/etc/asterisk/manager.conf
@@ -43,17 +47,27 @@ else
 fi
 chown root:root "$ENV_FILE"
 chmod 600 "$ENV_FILE"
+)
 
+configure_allmon() (
+set -e
+mkdir -p /etc/amerimon
 # allmon.ini propio (lo usa el editor de la web si no hay uno en allmon3/supermon).
 OWN_INI=/etc/amerimon/allmon.ini
 [ -e "$OWN_INI" ] || : > "$OWN_INI"
 chown root:root "$OWN_INI"
 chmod 600 "$OWN_INI"
+)
 
+configure_state_directory() (
+set -e
 mkdir -p /var/lib/amerimon
 chown -R root:root /var/lib/amerimon
 chmod 750 /var/lib/amerimon
+)
 
+configure_audio_directory() (
+set -e
 # Store uploaded WAVs below Asterisk's configured sound tree. The setgid bit
 # lets files created by the root-run Amerimon service inherit Asterisk's group.
 ASTERISK_DATA_DIR=$(awk -F '=>' '
@@ -79,7 +93,11 @@ if getent group asterisk >/dev/null 2>&1; then
 else
     echo "Aviso: no existe el grupo asterisk; la reproducción de audio requiere configurar permisos en $AUDIO_DIR." >&2
 fi
+)
 
+configure_terminal_key() (
+set -e
+mkdir -p /var/lib/amerimon
 if [ ! -s /var/lib/amerimon/terminal-credentials.key ]; then
     umask 077
     head -c 32 /dev/urandom > /var/lib/amerimon/terminal-credentials.key
@@ -89,14 +107,9 @@ chmod 600 /var/lib/amerimon/terminal-credentials.key
 
 )
 
-configure_services() (
+configure_web_proxy() (
 set -e
 if [ -d /run/systemd/system ]; then
-    systemctl daemon-reload
-    systemctl enable amerimon.service
-    systemctl restart amerimon.service
-    systemctl enable --now amerimon-astdb.timer
-
     # Prefer the active frontend when both web servers are installed.
     if command -v nginx >/dev/null 2>&1 && systemctl is-active --quiet nginx; then
         if [ -x /usr/lib/amerimon/configure-nginx.sh ]; then
@@ -442,8 +455,19 @@ EOF
     fi
 )
 
-run_configuration "ficheros y credenciales" configure_files
-run_configuration "servicios y proxy web" configure_services
+run_configuration "secreto JWT" configure_jwt
+run_configuration "credenciales AMI" configure_ami
+run_configuration "allmon.ini" configure_allmon
+run_configuration "directorio de estado" configure_state_directory
+run_configuration "directorio de audio" configure_audio_directory
+run_configuration "clave de terminal" configure_terminal_key
+if [ -d /run/systemd/system ]; then
+    run_configuration "recarga de systemd" systemctl daemon-reload
+    run_configuration "habilitación de Amerimon" systemctl enable amerimon.service
+    run_configuration "reinicio de Amerimon" systemctl restart amerimon.service
+    run_configuration "temporizador astdb" systemctl enable --now amerimon-astdb.timer
+fi
+run_configuration "proxy web" configure_web_proxy
 
 AST_DIR=/etc/asterisk
 EXTENSIONS_CONF="$AST_DIR/extensions.conf"

@@ -30,58 +30,9 @@ fi
 if ! "${SUDO[@]}" test -e /etc/amerimon/amerimon.yaml; then
 	"${SUDO[@]}" install -m 0644 packaging/amerimon.yaml /etc/amerimon/amerimon.yaml
 fi
-if ! "${SUDO[@]}" test -s /etc/amerimon/jwt.secret; then
-	"${SUDO[@]}" sh -c 'umask 077; head -c 48 /dev/urandom | base64 | tr -d "\n" > /etc/amerimon/jwt.secret'
-fi
-"${SUDO[@]}" chown root:root /etc/amerimon/amerimon.env /etc/amerimon/amerimon.yaml /etc/amerimon/jwt.secret
-"${SUDO[@]}" chmod 0600 /etc/amerimon/amerimon.env /etc/amerimon/jwt.secret
+"${SUDO[@]}" chown root:root /etc/amerimon/amerimon.env /etc/amerimon/amerimon.yaml
+"${SUDO[@]}" chmod 0600 /etc/amerimon/amerimon.env
 "${SUDO[@]}" chmod 0644 /etc/amerimon/amerimon.yaml
-
-# Keep uploaded WAVs in the sound tree searched by Asterisk.
-ASTERISK_DATA_DIR="$("${SUDO[@]}" awk -F '=>' '
-	/^[[:space:]]*astdatadir[[:space:]]*=>/ {
-		value = $2
-		sub(/[;#].*$/, "", value)
-		gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-		if (value ~ /^\//) configured = value
-	}
-	END { print configured }
-' /etc/asterisk/asterisk.conf 2>/dev/null || true)"
-if [[ "$ASTERISK_DATA_DIR" != /* ]]; then
-	ASTERISK_DATA_DIR=/var/lib/asterisk
-fi
-AUDIO_DIR="$ASTERISK_DATA_DIR/sounds/amerimon"
-LEGACY_AUDIO_DIR=/var/lib/asterisk/sounds/amerimon
-if getent group asterisk >/dev/null 2>&1; then
-	"${SUDO[@]}" install -d -o root -g asterisk -m 2750 "$AUDIO_DIR"
-	if [[ -d "$LEGACY_AUDIO_DIR" && "$LEGACY_AUDIO_DIR" != "$AUDIO_DIR" ]]; then
-		"${SUDO[@]}" cp -an "$LEGACY_AUDIO_DIR/." "$AUDIO_DIR/"
-	fi
-else
-	echo "Aviso: no existe el grupo asterisk; no se podrán probar reproducciones hasta configurar permisos en $AUDIO_DIR." >&2
-fi
-
-if [[ -r /etc/asterisk/manager.conf ]]; then
-	AMI_USER="$(grep -E '^\s*\[.+\]' /etc/asterisk/manager.conf | grep -v '\[general\]' | head -n 1 | tr -d '[] ')"
-	AMI_SECRET="$(grep -E '^\s*secret\s*=' /etc/asterisk/manager.conf | head -n 1 | cut -d= -f2 | tr -d ' ')"
-	if [[ -n "$AMI_USER" && -n "$AMI_SECRET" ]]; then
-		if ! "${SUDO[@]}" grep -q '^AMI_USER=' /etc/amerimon/amerimon.env; then
-			printf 'AMI_USER="%s"\n' "$AMI_USER" | "${SUDO[@]}" tee -a /etc/amerimon/amerimon.env >/dev/null
-		fi
-		if ! "${SUDO[@]}" grep -q '^AMI_SECRET=' /etc/amerimon/amerimon.env; then
-			printf 'AMI_SECRET="%s"\n' "$AMI_SECRET" | "${SUDO[@]}" tee -a /etc/amerimon/amerimon.env >/dev/null
-		fi
-	else
-		echo "Aviso: no se pudieron leer las credenciales AMI de /etc/asterisk/manager.conf." >&2
-	fi
-else
-	echo "Aviso: no existe /etc/asterisk/manager.conf; AMI queda sin configurar." >&2
-fi
-
-if ! "${SUDO[@]}" test -e /etc/amerimon/allmon.ini; then
-	"${SUDO[@]}" install -m 0600 /dev/null /etc/amerimon/allmon.ini
-fi
-"${SUDO[@]}" chown root:root /etc/amerimon/allmon.ini
 "${SUDO[@]}" install -d -m 0755 /usr/lib/amerimon /usr/share/amerimon/nextion
 if compgen -G "public/assets/firmware/AMERINET_Nextion_*" >/dev/null; then
 	"${SUDO[@]}" cp -a public/assets/firmware/AMERINET_Nextion_* /usr/share/amerimon/nextion/
@@ -103,4 +54,6 @@ fi
 "${SUDO[@]}" install -m 0644 packaging/amerimon-astdb.service packaging/amerimon-astdb.timer /etc/systemd/system/
 "${SUDO[@]}" install -m 0644 packaging/amerimon.service /etc/systemd/system/amerimon.service
 "${SUDO[@]}" sh packaging/postinstall.sh
-"${SUDO[@]}" systemctl --no-pager --full status amerimon.service
+if ! "${SUDO[@]}" systemctl --no-pager --full status amerimon.service; then
+	echo "Aviso: Amerimon no está activo; revisa los errores anteriores y el journal del servicio. La instalación de archivos terminó, pero el servicio requiere atención." >&2
+fi
