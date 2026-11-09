@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la biblioteca de audio y sus operaciones de administración y emisión.
+
 import (
 	"bufio"
 	"bytes"

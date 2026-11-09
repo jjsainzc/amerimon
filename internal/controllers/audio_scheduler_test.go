@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la programación y coordinación de emisiones de audio.
+
 import (
 	"context"
 	"errors"

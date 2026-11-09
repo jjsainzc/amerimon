@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la consulta y presentación del estado y las conexiones de nodos AllStarLink.
+
 import (
 	"fmt"
 	htmlstd "html"

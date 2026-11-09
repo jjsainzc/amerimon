@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la administración del acceso público al nodo principal.
+
 import (
 	"errors"
 	"fmt"

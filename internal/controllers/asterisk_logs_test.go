@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para el registro y la consulta del historial de operaciones de Asterisk.
+
 import (
 	"context"
 	"encoding/json"

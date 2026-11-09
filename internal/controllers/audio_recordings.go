@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la gestión de grabaciones de audio del nodo principal.
+
 import (
 	"context"
 	"database/sql"

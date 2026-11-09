@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la vista previa local de pistas de audio.
+
 import (
 	"bytes"
 	"net/http"

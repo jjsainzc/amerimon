@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la consulta y actualización de la configuración general del sitio.
+
 import (
 	"context"
 	"database/sql"

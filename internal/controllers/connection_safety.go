@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la protección de conexiones RPT frente a bucles y cambios simultáneos.
+
 import (
 	"amerimon/internal/config"
 	"context"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la configuración y comunicación AMI del nodo principal.
+
 import (
 	"context"
 	"errors"

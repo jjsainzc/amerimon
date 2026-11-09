@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la validación y reproducción de fragmentos de audio.
+
 import (
 	"encoding/binary"
 	"errors"

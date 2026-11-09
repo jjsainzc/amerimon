@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la exportación e importación de permisos del nodo principal.
+
 import (
 	"encoding/json"
 	"errors"

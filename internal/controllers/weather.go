@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la consulta y presentación de información meteorológica.
+
 import (
 	"context"
 	"encoding/json"

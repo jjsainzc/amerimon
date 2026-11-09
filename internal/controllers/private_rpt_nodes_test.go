@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la administración de nodos privados definidos en rpt.conf.
+
 import (
 	"encoding/json"
 	"net/http"

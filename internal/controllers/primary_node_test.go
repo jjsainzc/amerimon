@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para las operaciones principales de control del nodo local.
+
 import (
 	"encoding/json"
 	"errors"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa las conexiones de terminal y la administración de hosts conocidos.
+
 import (
 	"context"
 	"encoding/json"

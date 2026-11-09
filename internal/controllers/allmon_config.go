@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la lectura, validación y filtrado de la configuración de Allmon.
+
 import (
 	"errors"
 	"net/http"

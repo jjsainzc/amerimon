@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa las sesiones y operaciones del servicio Listen Live.
+
 import (
 	"amerimon/internal/config"
 	"database/sql"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la configuración y comunicación AMI del nodo principal.
+
 import (
 	"encoding/json"
 	"errors"

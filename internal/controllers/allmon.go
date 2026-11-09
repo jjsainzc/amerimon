@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la carga y selección de instancias de Allmon.
+
 import (
 	"amerimon/internal/config"
 	"bufio"

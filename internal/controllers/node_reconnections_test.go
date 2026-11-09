@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la configuración y ejecución de reconexiones automáticas de nodos.
+
 import (
 	"context"
 	"encoding/json"

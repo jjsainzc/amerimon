@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la configuración y ejecución de reconexiones automáticas de nodos.
+
 import (
 	"context"
 	"database/sql"

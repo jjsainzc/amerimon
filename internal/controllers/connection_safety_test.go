@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la protección de conexiones RPT frente a bucles y cambios simultáneos.
+
 import (
 	"amerimon/internal/config"
 	"amerimon/internal/db"

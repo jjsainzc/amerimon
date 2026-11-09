@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la asociación de las conexiones con sus canales de audio.
+
 import (
 	"amerimon/internal/config"
 	"fmt"

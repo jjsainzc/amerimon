@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la gestión de grabaciones de audio del nodo principal.
+
 import (
 	"bytes"
 	"encoding/binary"

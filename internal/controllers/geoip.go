@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la resolución de ubicaciones a partir de direcciones IP.
+
 import (
 	"encoding/json"
 	"fmt"

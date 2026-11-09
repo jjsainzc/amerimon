@@ -1,3 +1,5 @@
+// Este archivo implementa la comunicación y actualización de la pantalla Nextion.
+
 /*
 =================================================================================
 

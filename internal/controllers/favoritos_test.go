@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la consulta, búsqueda y administración de nodos favoritos.
+
 import (
 	"encoding/json"
 	"errors"

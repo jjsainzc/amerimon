@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para los cambios de modalidad de conexión y las desconexiones dirigidas.
+
 import (
 	"amerimon/internal/config"
 	"context"

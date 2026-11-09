@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa las estructuras y utilidades de comunicación AMI con Asterisk.
+
 import (
 	"net/http"
 	"amerimon/internal/config"

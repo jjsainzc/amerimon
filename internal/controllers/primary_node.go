@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa las operaciones principales de control del nodo local.
+
 import (
 	"errors"
 	"fmt"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la lectura, validación y actualización del catálogo de nodos privados.
+
 import (
 	"os"
 	"path/filepath"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la recopilación de información del sistema operativo y del servidor.
+
 import (
 	"fmt"
 	"net/http"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa el descubrimiento y las operaciones de nodos AllStarLink.
+
 import (
 	"bufio"
 	"fmt"

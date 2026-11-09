@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa el almacenamiento seguro de credenciales de terminal por destino.
+
 import (
 	"crypto/aes"
 	"crypto/cipher"

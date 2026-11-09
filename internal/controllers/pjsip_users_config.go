@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la lectura y administración de usuarios y extensiones PJSIP.
+
 import (
 	"errors"
 	"fmt"

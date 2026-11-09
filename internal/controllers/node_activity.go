@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la detección y publicación en vivo de actividad de nodos.
+
 import (
 	"amerimon/internal/config"
 	"context"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la validación y reproducción de fragmentos de audio.
+
 import (
 	"bytes"
 	"context"

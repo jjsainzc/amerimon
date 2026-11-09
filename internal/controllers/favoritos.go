@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la consulta, búsqueda y administración de nodos favoritos.
+
 import (
 	"fmt"
 	"log"

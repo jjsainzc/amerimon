@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la consulta y administración de enlaces externos.
+
 import (
 	"encoding/json"
 	"net/http"

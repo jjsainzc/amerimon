@@ -1,3 +1,5 @@
+// Este archivo contiene pruebas para la actividad de recepción de nodos en tiempo real.
+
 /**
  * @file node_activity_live_test.go
  * @brief Pruebas en vivo de la actividad de los nodos StarLink.

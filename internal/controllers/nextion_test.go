@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la comunicación y actualización de la pantalla Nextion.
+
 import (
 	"amerimon/internal/config"
 	"bytes"

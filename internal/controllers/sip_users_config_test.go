@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la lectura y administración de usuarios IAX y extensiones PJSIP.
+
 import (
 	"encoding/json"
 	"errors"

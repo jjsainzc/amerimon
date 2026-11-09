@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la lectura, validación y actualización del catálogo de nodos privados.
+
 import (
 	"bufio"
 	"errors"

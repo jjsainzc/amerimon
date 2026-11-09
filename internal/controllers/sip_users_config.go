@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la lectura y administración de usuarios IAX y extensiones PJSIP.
+
 import (
 	"net/http"
 	"path/filepath"

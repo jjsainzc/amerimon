@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la consulta y presentación de información meteorológica.
+
 import (
 	"context"
 	"net/http"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la autenticación y las operaciones de acceso del administrador.
+
 import (
 	"database/sql"
 	"net/http"

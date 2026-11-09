@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la consulta de entradas de AstDB.
+
 import (
 	"bufio"
 	"net/http"

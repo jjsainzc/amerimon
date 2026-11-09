@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para las operaciones administrativas de control y recuperación del sistema.
+
 import (
 	"context"
 	"errors"

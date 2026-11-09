@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para las operaciones de conexión y desconexión de nodos mediante Asterisk.
+
 import (
 	"amerimon/internal/config"
 	"amerimon/internal/db"

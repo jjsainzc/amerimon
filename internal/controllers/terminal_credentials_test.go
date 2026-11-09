@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para el almacenamiento seguro de credenciales de terminal por destino.
+
 import (
 	"bytes"
 	"encoding/json"

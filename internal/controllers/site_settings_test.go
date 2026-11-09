@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la consulta y actualización de la configuración general del sitio.
+
 import (
 	"encoding/json"
 	"net/http"

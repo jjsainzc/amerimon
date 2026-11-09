@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la administración de nodos privados definidos en rpt.conf.
+
 import (
 	"errors"
 	"fmt"

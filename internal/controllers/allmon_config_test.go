@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la lectura, validación y filtrado de la configuración de Allmon.
+
 import (
 	"os"
 	"path/filepath"

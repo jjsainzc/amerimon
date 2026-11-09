@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para el descubrimiento y las operaciones de nodos AllStarLink.
+
 import (
 	"amerimon/internal/config"
 	"encoding/json"

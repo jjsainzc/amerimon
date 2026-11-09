@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la programación y coordinación de emisiones de audio.
+
 import (
 	"context"
 	"database/sql"

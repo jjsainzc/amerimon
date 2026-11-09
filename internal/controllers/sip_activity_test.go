@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la detección de actividad de canales SIP.
+
 import (
 	"context"
 	"encoding/json"

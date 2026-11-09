@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la validación y conversión de archivos de audio.
+
 import (
 	"bytes"
 	"context"

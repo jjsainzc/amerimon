@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la lectura y actualización de la configuración de EchoLink.
+
 import (
 	"bytes"
 	"encoding/json"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la detección de actividad de canales SIP.
+
 import (
 	"amerimon/internal/config"
 	"context"

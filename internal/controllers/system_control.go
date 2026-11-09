@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa las operaciones administrativas de control y recuperación del sistema.
+
 import (
 	"bufio"
 	"context"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la autenticación JWT y la autorización de solicitudes.
+
 import (
 	"errors"
 	"fmt"

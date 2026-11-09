@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la consulta y administración de enlaces externos.
+
 import (
 	"fmt"
 	"log"

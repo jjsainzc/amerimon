@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para las conexiones de terminal y la administración de hosts conocidos.
+
 import (
 	"bytes"
 	"crypto/ed25519"

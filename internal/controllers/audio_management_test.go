@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la biblioteca de audio y sus operaciones de administración y emisión.
+
 import (
 	"bytes"
 	"context"

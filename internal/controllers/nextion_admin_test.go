@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la lectura y administración de la configuración Nextion.
+
 import (
 	"errors"
 	"net"

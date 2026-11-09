@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo contiene pruebas para la validación y construcción de canales para Listen Live.
+
 import (
 	"amerimon/internal/config"
 	"os"

@@ -1,5 +1,7 @@
 package controllers
 
+// Este archivo implementa la lectura y actualización de la configuración de EchoLink.
+
 import (
 	"context"
 	"crypto/sha256"
