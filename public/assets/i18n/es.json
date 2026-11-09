@@ -719,7 +719,7 @@
   "NEXTION_SEND_LABELS_HELP": "Envía los textos de botones y títulos según el idioma elegido en la web. Desactívalo si usas un diseño HMI propio y quieres conservar tus etiquetas; solo se enviarán los valores.",
   "NEXTION_SERIAL_PORT": "Puerto serie",
   "NEXTION_PORT_PLACEHOLDER": "Selecciona o escribe /dev/ttyUSB0",
-  "NEXTION_PORT_HELP": "El servidor Amerimon es una laptop y la pantalla se conecta por USB. Se enumeran puertos ttyUSB/ttyACM y se identifica el adaptador CP210x Silicon Labs (VID:PID 10c4:ea60). La conexión GPIO corresponde a otros montajes con hardware que disponga de esos pines.",
+  "NEXTION_PORT_HELP": "En servidores AMD/ARM que la pantalla se conecta por USB. Se enumeran puertos ttyUSB/ttyACM y se identifica el adaptador CP210x Silicon Labs (VID:PID 10c4:ea60). La conexión GPIO corresponde a otros montajes con hardware que disponga de esos pines.",
   "NEXTION_BAUD_RATE": "Velocidad de comunicación (baudios)",
   "NEXTION_NETWORK_INTERFACE": "Interfaz de red para mostrar la IP",
   "NEXTION_INTERFACE_AUTO": "Automática",
