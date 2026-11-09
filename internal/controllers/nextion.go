@@ -15,7 +15,7 @@ Asegúrate de que la propiedad 'vscope' de cada componente esté configurada en 
   - t_date   : Fecha del servidor en formato YYYY-MM-DD.
   - t_time   : Hora del servidor en formato HH:mm:ss (24 horas).
   - t_temp   : Temperatura actual del procesador. (Ej: "CPU: 45.2 °C")
-  - t0       : Estado operativo de AllStarLink. (Ej: "Sistema Listo", "Transmitiendo...")
+  - t0       : Indicativo o número del origen del audio; vacío sin actividad.
   - t_n1     : Indicativo o caller ID de la primera conexión activa.
   - t_n2     : Indicativo o caller ID de la segunda conexión activa.
   - t_n3     : Indicativo o caller ID de la tercera conexión activa.
@@ -196,12 +196,15 @@ func nextionNodeLabel(node string, info AstDBEntry, echoCallsign string) string 
 		if callsign == "" {
 			callsign = node
 		}
-		return nextionDisplayText("EchoLink " + callsign)
+		return nextionDisplayText(callsign)
+	}
+	if isNumericNode(node) {
+		return nextionDisplayText(node)
 	}
 	if callsign := strings.TrimSpace(info.Callsign); callsign != "" {
-		return nextionDisplayText("IAXRpt " + callsign)
+		return nextionDisplayText(callsign)
 	}
-	return nextionDisplayText("IAXRpt " + node)
+	return nextionDisplayText(node)
 }
 
 func (a *ami) echoLinkCallsign(node, lookupNumber string) string {
@@ -304,16 +307,25 @@ func (a *ami) status() (radioStatus, error) {
 	if (tx != "YES" && tx != "NO") || (rx != "YES" && rx != "NO") || !haveLinks {
 		return radioStatus{}, errors.New("NodeStat no devolvió PTT, COS y enlaces directos")
 	}
-	result := radioStatus{label: "Sistema Listo", color: idleColor}
-	switch {
-	case tx == "YES":
-		result.label, result.color = "Transmitiendo...", txColor
-	case rx == "YES":
-		result.label, result.color = "Recibiendo...", rxColor
+	result := radioStatus{color: idleColor}
+	sawStat, err := config.ExecuteAMIRptStatus(a.host, a.port, a.username, a.secret, a.node, "SawStat", 2*time.Second)
+	if err != nil {
+		return radioStatus{}, fmt.Errorf("recepción de enlaces Nextion: %w", err)
 	}
+	receivingLinks, connectedLinks, err := parseRPTReceiveState(sawStat, a.node, time.Now().UTC())
+	if err != nil {
+		return radioStatus{}, fmt.Errorf("recepción de enlaces Nextion: %w", err)
+	}
+	receiving := rx == "YES" || len(receivingLinks) > 0
 	for _, item := range strings.Split(links, ",") {
 		node := strings.TrimSpace(item)
-		if nodeNumber.MatchString(node) && !hasNode(result.nodes, node) {
+		if (nodeNumber.MatchString(node) || (!isNumericNode(node) && isValidRemoteNodeID(node))) &&
+			!hasNode(result.nodes, node) {
+			result.nodes = append(result.nodes, node)
+		}
+	}
+	for _, node := range connectedLinks {
+		if !hasNode(result.nodes, node) {
 			result.nodes = append(result.nodes, node)
 		}
 	}
@@ -325,6 +337,16 @@ func (a *ami) status() (radioStatus, error) {
 		return len(a) < len(b)
 	})
 	result.labels = a.nodeLabels(result.nodes)
+	sources := make([]string, 0)
+	if rx == "YES" && a.node != "" {
+		sources = append(sources, nextionDisplayText(a.node))
+	}
+	for _, link := range receivingLinks {
+		source := result.labels[link.RemoteNode]
+		if source != "" && !hasNode(sources, source) {
+			sources = append(sources, source)
+		}
+	}
 	channels, err := config.ExecuteAMICommand(a.host, a.port, a.username, a.secret,
 		"core show channels concise", 2*time.Second)
 	if err != nil {
@@ -338,6 +360,30 @@ func (a *ami) status() (radioStatus, error) {
 			result.nodes = append(result.nodes, channel.ID)
 			result.labels[channel.ID] = "SIP " + channel.CallerID
 		}
+		server := sipActivityServer{a.host, a.port, a.username, a.secret}
+		sipReceiveActivity.RLock()
+		for channel, talking := range sipReceiveActivity.byServer[server] {
+			if talking.node != a.node {
+				continue
+			}
+			label := result.labels["SIP:"+channel]
+			if label == "" {
+				continue
+			}
+			source := strings.TrimPrefix(label, "SIP ")
+			receiving = true
+			if !hasNode(sources, source) {
+				sources = append(sources, source)
+			}
+		}
+		sipReceiveActivity.RUnlock()
+	}
+	switch {
+	case receiving:
+		sort.Strings(sources)
+		result.label, result.color = nextionDisplayText(strings.Join(sources, ", ")), rxColor
+	case tx == "YES":
+		result.label, result.color = nextionDisplayText(a.node), txColor
 	}
 	return result, nil
 }
@@ -366,12 +412,15 @@ type demo struct {
 }
 
 func (d *demo) status() (radioStatus, error) {
-	result := radioStatus{label: "Sistema Listo", color: idleColor, nodes: d.nodes}
+	result := radioStatus{color: idleColor, nodes: d.nodes}
 	switch int(time.Since(d.start)/time.Second/4) % 4 {
 	case 1:
-		result.label, result.color = "Recibiendo...", rxColor
+		result.color = rxColor
 	case 2:
-		result.label, result.color = "Transmitiendo...", txColor
+		result.color = txColor
+	}
+	if result.color != idleColor && len(d.nodes) > 0 {
+		result.label = d.nodes[0]
 	}
 	return result, nil
 }

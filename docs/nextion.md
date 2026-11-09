@@ -36,11 +36,24 @@ es el color de fondo. Todos los componentes referenciados por código deben tene
 | `t_time.txt` | Hora local del servidor en formato `HH:mm:ss` de 24 horas. |
 | `t_temp.txt` | Temperatura de CPU en °C; `--` cuando no se puede leer. |
 | `t_links.txt` | Título `ENLACES ACTIVOS` y cantidad adicional cuando hay más de cuatro enlaces. |
-| `t0.txt` | Estado de Asterisk: listo, recibiendo, transmitiendo o mensaje temporal del sistema. |
+| `t0.txt` | Solo el indicativo o número del origen del audio, sin texto de evento: `HC1`, `1005` o `616265`. Vacío sin actividad; los mensajes temporales del sistema conservan su prioridad. |
 | `b_estado.bco`, `t0.bco` | Color del estado: gris `33840` (espera), rojo `63488` (TX), verde `1024` (RX). |
-| `t_n1.txt`–`t_n4.txt` | Los primeros cuatro enlaces activos: SIP con caller ID (o endpoint), IAXRpt y EchoLink con indicativo si está disponible; `--` si la posición está vacía. |
+| `t_n1.txt`–`t_n4.txt` | Los primeros cuatro enlaces activos: SIP conserva el prefijo `SIP` y su caller ID (o endpoint); IAX muestra el número e IAXRpt el indicativo, sin prefijos; EchoLink muestra el indicativo disponible o el número, sin prefijo; `--` si la posición está vacía. |
 | `b_d1`–`b_d4` | Botones transparentes sobre sus respectivos nodos; solo son visibles cuando hay un enlace. |
 | `va_alive.val` | Latido que Amerimon actualiza a `4` cada segundo. |
+
+La recepción tiene prioridad sobre TX: COS local (`SignalOnInput`), RX activo de
+enlaces IAX/IAXRpt/EchoLink (`SawStat`) o voz SIP detectada por los eventos AMI
+producen color verde, aunque Asterisk active también el transmisor para
+retransmitir ese audio. Solo TX sin recepción produce color rojo; sin ambos,
+el estado es gris y el texto queda vacío.
+
+En recepción, el texto usa el mismo indicativo o número que la fila del enlace,
+pero sin el prefijo `SIP`;
+para COS local y transmisión sin recepción usa el número del nodo local. Si hay
+varias fuentes de audio activas, se muestran separadas por comas. Al terminar el
+audio se retiran del texto; los mensajes temporales del sistema mantienen su
+prioridad.
 
 ## Botones y eventos
 
