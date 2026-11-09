@@ -11,13 +11,15 @@ Asegúrate de que la propiedad 'vscope' de cada componente esté configurada en 
 1. COMPONENTES DE TEXTO (SALIDAS DE INFORMACIÓN)
 ---------------------------------------------------------------------------------
   - t_nodo   : Muestra el número de tu nodo local. (Ej: "Nodo Local: 616262")
-  - t_ip     : Dirección IP asignada a la Raspberry Pi. (Ej: "IP: 192.168.0.177")
+  - t_ip     : Dirección IP de la laptop/servidor Amerimon. (Ej: "IP: 192.168.0.177")
+  - t_date   : Fecha del servidor en formato YYYY-MM-DD.
+  - t_time   : Hora del servidor en formato HH:mm:ss (24 horas).
   - t_temp   : Temperatura actual del procesador. (Ej: "CPU: 45.2 °C")
   - t0       : Estado operativo de AllStarLink. (Ej: "Sistema Listo", "Transmitiendo...")
-  - t_n1     : Ranura 1 de información de nodo remoto conectado en tiempo real.
-  - t_n2     : Ranura 2 de información de nodo remoto conectado en tiempo real.
-  - t_n3     : Ranura 3 de información de nodo remoto conectado en tiempo real.
-  - t_n4     : Ranura 4 de información de nodo remoto conectado en tiempo real.
+  - t_n1     : Indicativo o caller ID de la primera conexión activa.
+  - t_n2     : Indicativo o caller ID de la segunda conexión activa.
+  - t_n3     : Indicativo o caller ID de la tercera conexión activa.
+  - t_n4     : Indicativo o caller ID de la cuarta conexión activa.
 
 ---------------------------------------------------------------------------------
 2. COMPONENTES DE BOTÓN / INTERFACES TÁCTILES (ENTRADAS DESDE PANTALLA)
@@ -66,6 +68,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -90,6 +93,7 @@ var (
 		"SYS_ARM_REBOOT":  {[]string{"reboot"}, "Reiniciar Linux", "Reiniciando Linux"},
 		"SYS_ARM_OFF":     {[]string{"poweroff"}, "Apagar Linux", "Apagando Linux"},
 	}
+	nextionSIPChannelName = regexp.MustCompile(`^PJSIP/[A-Za-z0-9_.-]{1,64}-[A-Za-z0-9_.-]{1,64}$`)
 )
 
 type systemAction struct {
@@ -109,10 +113,164 @@ func executeSystem(action systemAction) error {
 	return nil
 }
 
+type nextionSIPChannel struct {
+	ID       string
+	CallerID string
+}
+
+func parseNextionSIPChannels(raw string, callerIDs map[string]string) []nextionSIPChannel {
+	channels := make([]nextionSIPChannel, 0)
+	seen := make(map[string]struct{})
+	for _, line := range config.ParseAMIOutputToLines(raw) {
+		fields := strings.Split(strings.TrimSpace(line), "!")
+		if len(fields) < 5 || !strings.EqualFold(strings.TrimSpace(fields[4]), "Up") {
+			continue
+		}
+		channel := strings.TrimSpace(fields[0])
+		if !nextionSIPChannelName.MatchString(channel) {
+			continue
+		}
+		endpoint := strings.TrimPrefix(channel, "PJSIP/")
+		endpoint = endpoint[:strings.LastIndex(endpoint, "-")]
+		id := "SIP:" + channel
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+
+		callerID := ""
+		if len(fields) > 7 {
+			callerID = strings.TrimSpace(fields[7])
+			if callerID == "<unknown>" {
+				callerID = ""
+			}
+		}
+		if callerID == "" {
+			callerID = callerIDs[endpoint]
+		}
+		if callerID == "" {
+			callerID = endpoint
+		}
+		channels = append(channels, nextionSIPChannel{ID: id, CallerID: nextionDisplayText(callerID)})
+	}
+	return channels
+}
+
+func (a *ami) nodeLabels(nodes []string) map[string]string {
+	labels := make(map[string]string, len(nodes))
+	if len(nodes) == 0 {
+		return labels
+	}
+	astdb := map[string]AstDBEntry{}
+	astdbPath := strings.TrimSpace(config.App.Sources.AstDBPath)
+	if astdbPath == "" {
+		astdbPath = "/var/www/html/supermon/astdb.txt"
+	}
+	if entries, err := readAstDBEntries(astdbPath); err == nil {
+		astdb = entries
+	} else if !errors.Is(err, os.ErrNotExist) {
+		log.Printf("nextion: no se pudo leer %s: %v", astdbPath, err)
+	}
+	privateNodes, err := readAstDBEntries(privateNodesFilePath())
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("nextion: no se pudieron leer los indicativos de nodos privados: %v", err)
+	}
+	for _, node := range nodes {
+		echoNumber, isEchoLink := echoLinkLookupNumber(node)
+		info := lookupNodeInfo(node, astdb, privateNodes)
+		echoCallsign := ""
+		if isEchoLink && strings.TrimSpace(info.Callsign) == "" {
+			echoCallsign = a.echoLinkCallsign(node, echoNumber)
+		}
+		labels[node] = nextionNodeLabel(node, info, echoCallsign)
+	}
+	return labels
+}
+
+func nextionNodeLabel(node string, info AstDBEntry, echoCallsign string) string {
+	if _, isEchoLink := echoLinkLookupNumber(node); isEchoLink {
+		callsign := strings.TrimSpace(info.Callsign)
+		if callsign == "" {
+			callsign = strings.TrimSpace(echoCallsign)
+		}
+		if callsign == "" {
+			callsign = node
+		}
+		return nextionDisplayText("EchoLink " + callsign)
+	}
+	if callsign := strings.TrimSpace(info.Callsign); callsign != "" {
+		return nextionDisplayText("IAXRpt " + callsign)
+	}
+	return nextionDisplayText("IAXRpt " + node)
+}
+
+func (a *ami) echoLinkCallsign(node, lookupNumber string) string {
+	a.echoLinkMu.Lock()
+	if callsign, ok := a.echoLinkCallsigns[node]; ok {
+		a.echoLinkMu.Unlock()
+		return callsign
+	}
+	if lastQuery := a.echoLinkLookups[node]; time.Since(lastQuery) < 30*time.Second {
+		a.echoLinkMu.Unlock()
+		return ""
+	}
+	if a.echoLinkLookups == nil {
+		a.echoLinkLookups = make(map[string]time.Time)
+	}
+	a.echoLinkLookups[node] = time.Now()
+	a.echoLinkMu.Unlock()
+
+	command := "echolink dbget nodename " + lookupNumber
+	raw, err := config.ExecuteAMICommand(a.host, a.port, a.username, a.secret, command, 2*time.Second)
+	if err != nil {
+		log.Printf("nextion: no se pudo consultar el indicativo EchoLink %s: %v", node, err)
+		return ""
+	}
+	entry, found := parseEchoLinkDBResponse(node, lookupNumber, raw)
+	if !found || strings.TrimSpace(entry.Callsign) == "" {
+		return ""
+	}
+	a.echoLinkMu.Lock()
+	if a.echoLinkCallsigns == nil {
+		a.echoLinkCallsigns = make(map[string]string)
+	}
+	a.echoLinkCallsigns[node] = entry.Callsign
+	a.echoLinkMu.Unlock()
+	return entry.Callsign
+}
+
+func (a *ami) pjsipCallerIDs() map[string]string {
+	path := strings.TrimSpace(config.CurrentAMI().PJSIPConfigPath)
+	if path == "" {
+		path = "/etc/asterisk/pjsip.conf"
+	}
+	callerIDs, err := readPJSIPEndpointCallerIDs(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("nextion: no se pudieron leer los caller ID de PJSIP: %v", err)
+	}
+	return callerIDs
+}
+
+func nextionDisplayText(value string) string {
+	var result strings.Builder
+	for _, char := range strings.TrimSpace(value) {
+		switch {
+		case char == '"' || char < 0x20 || char == 0x7f || char == 0xff:
+			continue
+		case char > 0xff:
+			result.WriteByte('?')
+		default:
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
+}
+
 type radioStatus struct {
-	label string
-	color int
-	nodes []string
+	label  string
+	color  int
+	nodes  []string
+	labels map[string]string
 }
 
 type radio interface {
@@ -123,6 +281,9 @@ type radio interface {
 
 type ami struct {
 	host, port, username, secret, node string
+	echoLinkMu                         sync.Mutex
+	echoLinkCallsigns                  map[string]string
+	echoLinkLookups                    map[string]time.Time
 }
 
 func (a *ami) close() {}
@@ -163,10 +324,34 @@ func (a *ami) status() (radioStatus, error) {
 		}
 		return len(a) < len(b)
 	})
+	result.labels = a.nodeLabels(result.nodes)
+	channels, err := config.ExecuteAMICommand(a.host, a.port, a.username, a.secret,
+		"core show channels concise", 2*time.Second)
+	if err != nil {
+		log.Printf("nextion: no se pudieron consultar canales SIP activos: %v", err)
+	} else {
+		callerIDs := a.pjsipCallerIDs()
+		for _, channel := range parseNextionSIPChannels(channels, callerIDs) {
+			if hasNode(result.nodes, channel.ID) {
+				continue
+			}
+			result.nodes = append(result.nodes, channel.ID)
+			result.labels[channel.ID] = "SIP " + channel.CallerID
+		}
+	}
 	return result, nil
 }
 
 func (a *ami) link(method, node string) error {
+	if method == "1" && strings.HasPrefix(node, "SIP:") {
+		channel := strings.TrimPrefix(node, "SIP:")
+		if !nextionSIPChannelName.MatchString(channel) {
+			return fmt.Errorf("canal SIP Nextion inválido")
+		}
+		_, err := config.ExecuteAMICommand(a.host, a.port, a.username, a.secret,
+			"channel request hangup "+channel, 5*time.Second)
+		return err
+	}
 	command := fmt.Sprintf("rpt cmd %s ilink %s", a.node, method)
 	if node != "" {
 		command += " " + node
@@ -234,6 +419,7 @@ type panel struct {
 	online                   bool
 	lastError                string
 	slots                    [4]string
+	slotLabels               [4]string
 	held                     [4]press
 	sent                     map[string]string
 	incoming                 []byte
@@ -260,6 +446,7 @@ func (p *panel) refresh() {
 	for i, node := range p.slots {
 		if !hasNode(current.nodes, node) {
 			p.slots[i] = ""
+			p.slotLabels[i] = ""
 		}
 	}
 	for _, node := range current.nodes {
@@ -269,6 +456,10 @@ func (p *panel) refresh() {
 		for i := range p.slots {
 			if p.slots[i] == "" {
 				p.slots[i] = node
+				p.slotLabels[i] = current.labels[node]
+				if p.slotLabels[i] == "" {
+					p.slotLabels[i] = node
+				}
 				break
 			}
 		}
@@ -302,8 +493,8 @@ func (p *panel) handle(command, node string) {
 		i := int(command[len(command)-1] - '1') // El decodificador admite solo los sufijos 1–4.
 		if strings.HasPrefix(command, "HOLD_") {
 			p.held[i] = press{}
-			if nodeNumber.MatchString(node) {
-				p.held[i] = press{node, time.Now()}
+			if slot := p.slots[i]; slot != "" {
+				p.held[i] = press{slot, time.Now()}
 			}
 			return
 		}
@@ -368,15 +559,15 @@ stream:
 			}
 		}
 		if bytes.HasPrefix(head, []byte("HOLD_N")) {
-			if end := bytes.IndexByte(head, '\n'); end >= 0 && end <= 32 {
+			if end := bytes.IndexByte(head, '\n'); end >= 0 && end <= 128 {
 				fields := strings.Fields(string(head[:end]))
 				p.incoming = head[end+1:]
-				if len(fields) == 2 && len(fields[0]) == 7 && fields[0][6] >= '1' && fields[0][6] <= '4' {
-					p.handle(fields[0], fields[1])
+				if len(fields) >= 1 && len(fields[0]) == 7 && fields[0][6] >= '1' && fields[0][6] <= '4' {
+					p.handle(fields[0], strings.Join(fields[1:], " "))
 				}
 				continue
 			}
-			if len(head) <= 32 {
+			if len(head) <= 128 {
 				return
 			}
 		}
@@ -411,7 +602,8 @@ func nextion(w io.Writer, instruction string) error {
 }
 
 func (p *panel) render(w io.Writer) error {
-	heading := "NODOS DIRECTOS"
+	now := time.Now()
+	heading := "ENLACES ACTIVOS"
 	if extra := len(p.status.nodes) - len(p.slots); extra > 0 {
 		heading += fmt.Sprintf("  +%d", extra)
 	}
@@ -423,6 +615,8 @@ func (p *panel) render(w io.Writer) error {
 	values := [][2]string{
 		{"t_nodo.txt", "=\"Nodo Local: " + p.local + "\""},
 		{"t_ip.txt", "=\"IP: " + p.ip + "\""},
+		{"t_date.txt", "=\"" + now.Format("2006-01-02") + "\""},
+		{"t_time.txt", "=\"" + now.Format("15:04:05") + "\""},
 		{"t_temp.txt", "=\"CPU: " + p.temp + "\""},
 		{"t_links.txt", "=\"" + heading + "\""},
 		{"b_estado.bco", "=" + color}, {"t0.bco", "=" + color},
@@ -432,6 +626,8 @@ func (p *panel) render(w io.Writer) error {
 		visible := "1"
 		if node == "" {
 			node, visible = "--", "0"
+		} else if p.slotLabels[i] != "" {
+			node = p.slotLabels[i]
 		}
 		text := fmt.Sprintf("t_n%d.txt", i+1)
 		button := fmt.Sprintf("b_d%d", i+1)

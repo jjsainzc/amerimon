@@ -32,11 +32,13 @@ es el color de fondo. Todos los componentes referenciados por código deben tene
 | --- | --- |
 | `t_nodo.txt` | Número del nodo local, con el prefijo `Nodo Local:`. |
 | `t_ip.txt` | Dirección IPv4 seleccionada automáticamente. |
+| `t_date.txt` | Fecha local del servidor en formato `YYYY-MM-DD`. |
+| `t_time.txt` | Hora local del servidor en formato `HH:mm:ss` de 24 horas. |
 | `t_temp.txt` | Temperatura de CPU en °C; `--` cuando no se puede leer. |
-| `t_links.txt` | Título `NODOS DIRECTOS` y cantidad adicional cuando hay más de cuatro enlaces. |
+| `t_links.txt` | Título `ENLACES ACTIVOS` y cantidad adicional cuando hay más de cuatro enlaces. |
 | `t0.txt` | Estado de Asterisk: listo, recibiendo, transmitiendo o mensaje temporal del sistema. |
 | `b_estado.bco`, `t0.bco` | Color del estado: gris `33840` (espera), rojo `63488` (TX), verde `1024` (RX). |
-| `t_n1.txt`–`t_n4.txt` | Los cuatro primeros nodos conectados directamente; `--` si la posición está vacía. |
+| `t_n1.txt`–`t_n4.txt` | Los primeros cuatro enlaces activos: SIP con caller ID (o endpoint), IAXRpt y EchoLink con indicativo si está disponible; `--` si la posición está vacía. |
 | `b_d1`–`b_d4` | Botones transparentes sobre sus respectivos nodos; solo son visibles cuando hay un enlace. |
 | `va_alive.val` | Latido que Amerimon actualiza a `4` cada segundo. |
 
@@ -50,7 +52,7 @@ la pantalla pueden usar iconos; el controlador procesa los nombres de evento.
 | --- | --- | --- |
 | Conectar favorito | `CONN_FAV` | Conecta el nodo favorito configurado, si no está conectado. |
 | Desconectar todos | `DISC_ALL` | Ejecuta el equivalente a `*70` (`ilink 6`) en el nodo local. |
-| Mantener pulsada la fila 1–4 | `HOLD_N<número>` + espacio + `<nodo>` + LF | Registra temporalmente el nodo de esa fila para permitir su desconexión. |
+| Mantener pulsada la fila 1–4 | `HOLD_N<número>` + espacio + texto de la fila + LF | Registra la conexión activa asociada a esa fila para permitir su desconexión; el texto puede ser un indicativo y no el identificador interno. |
 | Soltar la fila 1–4 | `DISC_N<número>` | Desconecta ese nodo si la fila se había mantenido pulsada y el enlace sigue activo. |
 | Preparar reinicio de Asterisk | `SYS_ARM_RESTART` | Arma la acción durante 10 segundos; requiere `SYS_CONFIRM` para ejecutarla. |
 | Preparar reinicio de Linux | `SYS_ARM_REBOOT` | Arma el reinicio durante 10 segundos; requiere `SYS_CONFIRM`. |
@@ -59,7 +61,9 @@ la pantalla pueden usar iconos; el controlador procesa los nombres de evento.
 | Cancelar acción de sistema | `SYS_CANCEL` | Cancela la acción armada. |
 
 Las cadenas `DISC_N1`–`DISC_N4` por sí solas no bastan para desconectar: el
-controlador exige primero el evento de pulsación larga con el número del nodo.
+controlador exige primero el evento de pulsación larga de la fila. Las conexiones
+SIP se cuelgan por su canal PJSIP; IAXRpt y EchoLink usan la acción de desconexión
+del nodo RPT.
 La respuesta estándar `sendme` de Nextion reinicia el estado de interfaz al
 reconectarse la pantalla.
 
