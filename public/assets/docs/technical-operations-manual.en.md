@@ -8,6 +8,24 @@ This manual describes the current source-code tree. The reference published Debi
 
 Amerimon queries Asterisk through AMI. Its post-install script prepares the modules and contexts required for Listen Live. An administrator can explicitly change the primary node's identity and access lists, and manage IAX users and PJSIP extensions from their dedicated pages. Other nodes and telephony users are not reconfigured automatically.
 
+### Nextion display
+
+Under **Administration → Nextion display**, configure the USB serial device, baud rate, network interface and favorite node. The local node and AMI credentials are reused from Amerimon's configuration. The test button checks that the device can be opened and then closes it; it does not send display commands or replace an audio test.
+
+Components must have `vscope=global`. The controller sends these values:
+
+| Component | Content |
+| --- | --- |
+| `t_n1.txt`–`t_n4.txt` | Up to four active links: IAX shows the number; IAXRpt, the callsign; EchoLink, the available callsign or number. These three have no prefixes. SIP retains `SIP` followed by the caller ID or endpoint. Empty rows show `--`. |
+| `t0.txt` | Only the audio source's callsign or number, without prefixes or event text such as “Transmitting” or “Receiving”. SIP also omits `SIP`. Multiple active sources are separated by commas. |
+| `b_estado.bco`, `t0.bco` | Green `1024`: reception; red `63488`: transmission without reception; gray `33840`: no activity. |
+
+Reception is detected through local COS (`SignalOnInput`), active IAX/IAXRpt/EchoLink RX (`SawStat`) and SIP voice events for a connected channel. A connected SIP channel or active SIP PTT without detected voice is not enough to indicate reception. Reception takes priority over TX: when Asterisk keys the transmitter to relay received audio, the display stays green and shows that audio's source. Local COS or TX without reception shows the local node number, not a person's callsign that Asterisk has not identified.
+
+When activity ends, `t0.txt` becomes empty and the color turns gray, unless TX or another source remains active. Temporary system-operation messages and controller disconnection warnings retain priority over audio-source text.
+
+To disconnect a row, its long-press event must send `HOLD_N<number>` followed by a space, the visible text and LF; release must send `DISC_N<number>`. The controller keeps the actual connection identifier rather than using the displayed callsign in place of the EchoLink number or SIP channel. SIP is disconnected through its PJSIP channel; IAX, IAXRpt and EchoLink through the RPT link. See the [full Nextion manual (Spanish)](../../../docs/nextion.md) for all components, buttons and firmware files.
+
 ### EchoLink configuration
 
 Module control and status use the local CLI (`asterisk -rx`), not AMI's `Command` action, which blacklists `module load` and `module unload`. The service needs access to the executable and Asterisk control socket. Only fixed EchoLink commands are executed, with a timeout; arbitrary browser-supplied commands are not accepted.

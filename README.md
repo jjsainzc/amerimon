@@ -2,6 +2,12 @@
 
 Interfaz web para consultar AllStarLink, administrar nodos Allmon y escuchar el nodo principal de Asterisk.
 
+### Pantalla Nextion
+
+**Administración → Pantalla Nextion** permite configurar el dispositivo serie, la velocidad, la interfaz de red y el nodo favorito. Las cuatro filas de enlaces muestran el número para IAX, el indicativo para IAXRpt y el indicativo disponible o número para EchoLink, sin prefijos; SIP conserva `SIP` seguido del caller ID o endpoint. Pulsar una fila mantiene la asociación con la conexión real aunque el texto mostrado sea un indicativo.
+
+Durante la actividad, `t0.txt` envía solo el indicativo o número del origen del audio, sin prefijos ni textos de evento; varias fuentes activas se separan por comas. Para COS local o TX sin recepción usa el número del nodo local. Verde indica recepción y tiene prioridad si Asterisk retransmite simultáneamente el audio; rojo indica TX sin recepción; gris indica ausencia de actividad y el texto queda vacío. Los mensajes temporales del sistema y los avisos de desconexión siguen teniendo prioridad. Consulta el [manual de la pantalla Nextion](docs/nextion.md) para componentes, colores y eventos.
+
 Al agregar o editar favoritos, la búsqueda en AstDB se ejecuta con el botón de lupa o con Enter, no mientras se escribe. Si hay más de 50 coincidencias, se muestran solo las primeras 50 y un aviso para precisar la búsqueda, evitando renderizar listas demasiado grandes.
 
 Los campos de IP, nodo e indicativo y sus valores en tablas y vistas incluyen un icono para copiar el valor actual al portapapeles, sin enviar formularios ni abrir los enlaces. No se incluyen contraseñas ni secretos AMI. En nodos privados se copia la línea completa del editor. El control confirma «Copiado» o muestra un error si el navegador bloquea la operación. En HTTP sin API de portapapeles se intenta la copia compatible del navegador; si tampoco está permitida, se indica copiar manualmente.

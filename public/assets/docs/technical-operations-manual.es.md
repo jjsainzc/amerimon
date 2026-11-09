@@ -8,6 +8,24 @@ Este manual describe el árbol de código actual. La versión Debian publicada d
 
 Amerimon consulta Asterisk mediante AMI. Su postinstalador prepara los módulos y contextos necesarios para Listen Live. El administrador puede cambiar explícitamente la identidad y las listas de acceso del nodo principal, así como administrar usuarios IAX y extensiones PJSIP desde sus páginas específicas. No se reconfiguran automáticamente los demás nodos ni los usuarios de telefonía.
 
+### Pantalla Nextion
+
+En **Administración → Pantalla Nextion**, configura el dispositivo serie USB, la velocidad, la interfaz de red y el nodo favorito. El nodo local y las credenciales AMI se reutilizan desde la configuración de Amerimon. El botón de prueba comprueba que el dispositivo se puede abrir y lo cierra; no envía comandos a la pantalla ni sustituye una prueba de audio.
+
+Los componentes deben tener `vscope=global`. El controlador envía estos valores:
+
+| Componente | Contenido |
+| --- | --- |
+| `t_n1.txt`–`t_n4.txt` | Hasta cuatro enlaces activos: IAX muestra el número; IAXRpt, el indicativo; EchoLink, el indicativo disponible o el número. Estos tres no llevan prefijos. SIP conserva `SIP` seguido del caller ID o endpoint. Una fila vacía muestra `--`. |
+| `t0.txt` | Solo el indicativo o número del origen del audio, sin prefijos ni textos como «Transmitiendo» o «Recibiendo». Para SIP también se omite `SIP`. Si hay varias fuentes activas, se separan por comas. |
+| `b_estado.bco`, `t0.bco` | Verde `1024`: recepción; rojo `63488`: transmisión sin recepción; gris `33840`: sin actividad. |
+
+La recepción se detecta por COS local (`SignalOnInput`), RX activo de enlaces IAX/IAXRpt/EchoLink (`SawStat`) y eventos de voz SIP del canal conectado. Un canal SIP conectado o su PTT activo, sin voz detectada, no basta para indicar recepción. La recepción tiene prioridad sobre TX: si Asterisk activa el transmisor para retransmitir audio recibido, la pantalla permanece verde y muestra quien origina ese audio. Para COS local o TX sin recepción, se muestra el número del nodo local, no un indicativo de persona que Asterisk no ha identificado.
+
+Al terminar la actividad, `t0.txt` queda vacío y el color pasa a gris, salvo que continúe TX u otra fuente activa. Los mensajes temporales de operaciones del sistema y los avisos de desconexión del controlador mantienen su prioridad sobre el texto de audio.
+
+Para desconectar una fila, su evento de pulsación larga debe enviar `HOLD_N<número>` seguido de un espacio, el texto visible y LF; al soltar, debe enviar `DISC_N<número>`. El controlador conserva el identificador real de la conexión y no usa el indicativo mostrado como sustituto del número EchoLink o del canal SIP. SIP se desconecta por su canal PJSIP; IAX, IAXRpt y EchoLink mediante el enlace RPT. Consulta el [manual completo de Nextion](../../../docs/nextion.md) para todos los componentes, botones y archivos de firmware.
+
 ### Configuración de EchoLink
 
 El control del módulo y su estado utilizan el CLI local (`asterisk -rx`), no la acción AMI `Command`, que bloquea `module load` y `module unload`. El servicio requiere acceso al ejecutable y al socket de control de Asterisk. Solo ejecuta comandos fijos de EchoLink, con tiempo límite; no acepta comandos arbitrarios del navegador.

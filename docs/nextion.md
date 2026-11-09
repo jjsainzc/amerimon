@@ -52,8 +52,10 @@ En recepción, el texto usa el mismo indicativo o número que la fila del enlace
 pero sin el prefijo `SIP`;
 para COS local y transmisión sin recepción usa el número del nodo local. Si hay
 varias fuentes de audio activas, se muestran separadas por comas. Al terminar el
-audio se retiran del texto; los mensajes temporales del sistema mantienen su
-prioridad.
+audio se retiran del texto. Un canal SIP conectado o su PTT activo sin voz
+detectada no se considera recepción. Los mensajes temporales del sistema y los
+avisos de desconexión del controlador mantienen su prioridad sobre el texto de
+audio.
 
 ## Botones y eventos
 
@@ -75,7 +77,7 @@ la pantalla pueden usar iconos; el controlador procesa los nombres de evento.
 
 Las cadenas `DISC_N1`–`DISC_N4` por sí solas no bastan para desconectar: el
 controlador exige primero el evento de pulsación larga de la fila. Las conexiones
-SIP se cuelgan por su canal PJSIP; IAXRpt y EchoLink usan la acción de desconexión
+SIP se cuelgan por su canal PJSIP; IAX, IAXRpt y EchoLink usan la acción de desconexión
 del nodo RPT.
 La respuesta estándar `sendme` de Nextion reinicia el estado de interfaz al
 reconectarse la pantalla.
