@@ -82,6 +82,25 @@ func TestNextionNodeLabelsShowOnlyCallsignsOrNumbers(t *testing.T) {
 	}
 }
 
+func TestNextionActivityLabelIncludesOnlyAvailableDescription(t *testing.T) {
+	for _, test := range []struct {
+		name, label, description, want string
+	}{
+		{name: "number with description", label: "700001", description: "Remote station", want: "700001 - Remote station"},
+		{name: "callsign with description", label: "HC1", description: "Club radio", want: "HC1 - Club radio"},
+		{name: "missing description", label: "700001", want: "700001"},
+		{name: "blank description", label: "HC1", description: " \t ", want: "HC1"},
+		{name: "unsafe display characters", label: "700001", description: " \"Remote\"\nstation ", want: "700001 - Remotestation"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			info := AstDBEntry{Descripcion: test.description, Ubicacion: "Not part of activity text"}
+			if got := nextionActivityLabel(test.label, info); got != test.want {
+				t.Fatalf("activity label = %q; want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestAMIStatusIncludesSIPIAXRptAndEchoLinkLabels(t *testing.T) {
 	dir := t.TempDir()
 	astdbPath := filepath.Join(dir, "astdb.txt")
@@ -153,6 +172,7 @@ func TestNextionStatusPrioritizesReceptionAndRendersMatchingColors(t *testing.T)
 
 	for _, test := range []struct {
 		name, tx, rx, sawStat string
+		astdb, privateNodes   string
 		sipVoice, sipUp       bool
 		wantLabel             string
 		wantColor             int
@@ -170,10 +190,24 @@ func TestNextionStatusPrioritizesReceptionAndRendersMatchingColors(t *testing.T)
 		{name: "simultaneous sources", tx: "YES", rx: "YES", sawStat: "Conn: HC1 1 0 -1\r\nConn: 700001 1 0 -1\r\nConn: HC1 1 0 -1\r\nConn: HC2 0 0 0", sipVoice: true, sipUp: true, wantLabel: "1005, 616265, 700001, HC1", wantColor: rxColor},
 		{name: "connected SIP without voice is not reception", tx: "YES", rx: "NO", sawStat: "Conn: SIP/phone-portal 1 0 -1", sipUp: true, wantLabel: "616265", wantColor: txColor},
 		{name: "disconnected SIP voice is ignored", tx: "NO", rx: "NO", sipVoice: true, wantLabel: "", wantColor: idleColor},
+		{name: "active IAX node description", tx: "YES", rx: "NO", sawStat: "Conn: 700001 1 0 -1", astdb: "700001|EA4ABC|Remote station|Madrid\n", wantLabel: "700001 - Remote station", wantColor: rxColor},
+		{name: "active IAXRpt description", tx: "YES", rx: "NO", sawStat: "Conn: HC1 1 0 -1", astdb: "HC1|HC1|Club radio|Quito\n", wantLabel: "HC1 - Club radio", wantColor: rxColor},
+		{name: "active EchoLink description", tx: "YES", rx: "NO", sawStat: "Conn: 3001234 1 0 -1", astdb: "3001234|K1ABC|EchoLink station|Boston\n", wantLabel: "K1ABC - EchoLink station", wantColor: rxColor},
+		{name: "local TX description", tx: "YES", rx: "NO", astdb: "616265|HC1|Local station|Quito\n", wantLabel: "616265 - Local station", wantColor: txColor},
+		{name: "local COS description", tx: "NO", rx: "YES", astdb: "616265|HC1|Local station|Quito\n", wantLabel: "616265 - Local station", wantColor: rxColor},
+		{name: "private node description takes precedence", tx: "YES", rx: "NO", sawStat: "Conn: 1998 1 0 -1", astdb: "1998|HC1|Public description|Quito\n", privateNodes: "1998|HC1|Private station|Quito\n", wantLabel: "1998 - Private station", wantColor: rxColor},
 		{name: "malformed reception reports error", tx: "YES", rx: "NO", sawStat: "Conn: HC1 2 0 0", wantError: true},
 		{name: "failed reception query reports error", tx: "YES", rx: "NO", sawStat: "Response: Error\r\nMessage: simulated failure", wantError: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			for name, content := range map[string]string{
+				"astdb.txt":        test.astdb,
+				"privatenodes.txt": test.privateNodes,
+			} {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
 			host, port := mockConnectionAMI(t, func(fields map[string]string) string {
 				switch fields["Command"] {
 				case "NodeStat":
@@ -211,6 +245,11 @@ func TestNextionStatusPrioritizesReceptionAndRendersMatchingColors(t *testing.T)
 			}
 			if status.label != test.wantLabel || status.color != test.wantColor {
 				t.Fatalf("status=%+v; want label %q and color %d", status, test.wantLabel, test.wantColor)
+			}
+			for node, label := range status.labels {
+				if strings.Contains(label, " - ") {
+					t.Errorf("link row %q unexpectedly includes a description: %q", node, label)
+				}
 			}
 			p := &panel{status: status, sent: make(map[string]string)}
 			var output bytes.Buffer

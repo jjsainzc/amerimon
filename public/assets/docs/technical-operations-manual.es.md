@@ -17,10 +17,10 @@ Los componentes deben tener `vscope=global`. El controlador envía estos valores
 | Componente | Contenido |
 | --- | --- |
 | `t_n1.txt`–`t_n4.txt` | Hasta cuatro enlaces activos: IAX muestra el número; IAXRpt, el indicativo; EchoLink, el indicativo disponible o el número. Estos tres no llevan prefijos. SIP conserva `SIP` seguido del caller ID o endpoint. Una fila vacía muestra `--`. |
-| `t0.txt` | Solo el indicativo o número del origen del audio, sin prefijos ni textos como «Transmitiendo» o «Recibiendo». Para SIP también se omite `SIP`. Si hay varias fuentes activas, se separan por comas. |
+| `t0.txt` | Indicativo o número del origen del audio junto a su descripción disponible en AstDB o el catálogo privado, por ejemplo `700001 - Remote station`. Sin descripción muestra solo el identificador. No añade ubicación ni textos como «Transmitiendo» o «Recibiendo». SIP conserva solo el caller ID o endpoint, sin `SIP`. Varias fuentes activas se separan por comas; las filas de enlaces no cambian. |
 | `b_estado.bco`, `t0.bco` | Verde `1024`: recepción; rojo `63488`: transmisión sin recepción; gris `33840`: sin actividad. |
 
-La recepción se detecta por COS local (`SignalOnInput`), RX activo de enlaces IAX/IAXRpt/EchoLink (`SawStat`) y eventos de voz SIP del canal conectado. Un canal SIP conectado o su PTT activo, sin voz detectada, no basta para indicar recepción. La recepción tiene prioridad sobre TX: si Asterisk activa el transmisor para retransmitir audio recibido, la pantalla permanece verde y muestra quien origina ese audio. Para COS local o TX sin recepción, se muestra el número del nodo local, no un indicativo de persona que Asterisk no ha identificado.
+La recepción se detecta por COS local (`SignalOnInput`), RX activo de enlaces IAX/IAXRpt/EchoLink (`SawStat`) y eventos de voz SIP del canal conectado. Un canal SIP conectado o su PTT activo, sin voz detectada, no basta para indicar recepción. La recepción tiene prioridad sobre TX: si Asterisk activa el transmisor para retransmitir audio recibido, la pantalla permanece verde y muestra quien origina ese audio. Para COS local o TX sin recepción, se muestra el número y la descripción disponible del nodo local, no un indicativo de persona que Asterisk no ha identificado.
 
 Al terminar la actividad, `t0.txt` queda vacío y el color pasa a gris, salvo que continúe TX u otra fuente activa. Los mensajes temporales de operaciones del sistema y los avisos de desconexión del controlador mantienen su prioridad sobre el texto de audio.
 

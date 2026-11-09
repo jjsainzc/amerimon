@@ -15,7 +15,7 @@ Asegúrate de que la propiedad 'vscope' de cada componente esté configurada en 
   - t_date   : Fecha del servidor en formato YYYY-MM-DD.
   - t_time   : Hora del servidor en formato HH:mm:ss (24 horas).
   - t_temp   : Temperatura actual del procesador. (Ej: "CPU: 45.2 °C")
-  - t0       : Indicativo o número del origen del audio; vacío sin actividad.
+  - t0       : Indicativo o número y descripción del origen del audio; vacío sin actividad.
   - t_n1     : Indicativo o caller ID de la primera conexión activa.
   - t_n2     : Indicativo o caller ID de la segunda conexión activa.
   - t_n3     : Indicativo o caller ID de la tercera conexión activa.
@@ -156,10 +156,11 @@ func parseNextionSIPChannels(raw string, callerIDs map[string]string) []nextionS
 	return channels
 }
 
-func (a *ami) nodeLabels(nodes []string) map[string]string {
+func (a *ami) nodeLabels(nodes []string) (map[string]string, map[string]string) {
 	labels := make(map[string]string, len(nodes))
+	activityLabels := make(map[string]string, len(nodes))
 	if len(nodes) == 0 {
-		return labels
+		return labels, activityLabels
 	}
 	astdb := map[string]AstDBEntry{}
 	astdbPath := strings.TrimSpace(config.App.Sources.AstDBPath)
@@ -183,8 +184,17 @@ func (a *ami) nodeLabels(nodes []string) map[string]string {
 			echoCallsign = a.echoLinkCallsign(node, echoNumber)
 		}
 		labels[node] = nextionNodeLabel(node, info, echoCallsign)
+		activityLabels[node] = nextionActivityLabel(labels[node], info)
 	}
-	return labels
+	return labels, activityLabels
+}
+
+func nextionActivityLabel(label string, info AstDBEntry) string {
+	description := nextionDisplayText(info.Descripcion)
+	if description == "" {
+		return label
+	}
+	return nextionDisplayText(label + " - " + description)
 }
 
 func nextionNodeLabel(node string, info AstDBEntry, echoCallsign string) string {
@@ -336,13 +346,18 @@ func (a *ami) status() (radioStatus, error) {
 		}
 		return len(a) < len(b)
 	})
-	result.labels = a.nodeLabels(result.nodes)
+	labelNodes := append([]string(nil), result.nodes...)
+	if (rx == "YES" || tx == "YES") && a.node != "" && !hasNode(labelNodes, a.node) {
+		labelNodes = append(labelNodes, a.node)
+	}
+	var activityLabels map[string]string
+	result.labels, activityLabels = a.nodeLabels(labelNodes)
 	sources := make([]string, 0)
 	if rx == "YES" && a.node != "" {
-		sources = append(sources, nextionDisplayText(a.node))
+		sources = append(sources, activityLabels[a.node])
 	}
 	for _, link := range receivingLinks {
-		source := result.labels[link.RemoteNode]
+		source := activityLabels[link.RemoteNode]
 		if source != "" && !hasNode(sources, source) {
 			sources = append(sources, source)
 		}
@@ -383,7 +398,7 @@ func (a *ami) status() (radioStatus, error) {
 		sort.Strings(sources)
 		result.label, result.color = nextionDisplayText(strings.Join(sources, ", ")), rxColor
 	case tx == "YES":
-		result.label, result.color = nextionDisplayText(a.node), txColor
+		result.label, result.color = activityLabels[a.node], txColor
 	}
 	return result, nil
 }

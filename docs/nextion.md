@@ -36,7 +36,7 @@ es el color de fondo. Todos los componentes referenciados por código deben tene
 | `t_time.txt` | Hora local del servidor en formato `HH:mm:ss` de 24 horas. |
 | `t_temp.txt` | Temperatura de CPU en °C; `--` cuando no se puede leer. |
 | `t_links.txt` | Título `ENLACES ACTIVOS` y cantidad adicional cuando hay más de cuatro enlaces. |
-| `t0.txt` | Solo el indicativo o número del origen del audio, sin texto de evento: `HC1`, `1005` o `616265`. Vacío sin actividad; los mensajes temporales del sistema conservan su prioridad. |
+| `t0.txt` | Indicativo o número del origen del audio y su descripción disponible, por ejemplo `700001 - Remote station` o `HC1 - Club radio`, sin texto de evento. Sin descripción muestra solo el identificador; SIP conserva solo el caller ID o endpoint, sin `SIP`. Vacío sin actividad; los mensajes temporales del sistema conservan su prioridad. |
 | `b_estado.bco`, `t0.bco` | Color del estado: gris `33840` (espera), rojo `63488` (TX), verde `1024` (RX). |
 | `t_n1.txt`–`t_n4.txt` | Los primeros cuatro enlaces activos: SIP conserva el prefijo `SIP` y su caller ID (o endpoint); IAX muestra el número e IAXRpt el indicativo, sin prefijos; EchoLink muestra el indicativo disponible o el número, sin prefijo; `--` si la posición está vacía. |
 | `b_d1`–`b_d4` | Botones transparentes sobre sus respectivos nodos; solo son visibles cuando hay un enlace. |
@@ -49,8 +49,11 @@ retransmitir ese audio. Solo TX sin recepción produce color rojo; sin ambos,
 el estado es gris y el texto queda vacío.
 
 En recepción, el texto usa el mismo indicativo o número que la fila del enlace,
-pero sin el prefijo `SIP`;
-para COS local y transmisión sin recepción usa el número del nodo local. Si hay
+añadiendo ` - ` y la descripción disponible en AstDB o el catálogo de nodos
+privados. No añade ubicación ni modifica las filas de enlaces. SIP muestra el
+caller ID o endpoint sin prefijo y sin descripción de nodo.
+Para COS local y transmisión sin recepción usa el número del nodo local y su
+descripción disponible. Si hay
 varias fuentes de audio activas, se muestran separadas por comas. Al terminar el
 audio se retiran del texto. Un canal SIP conectado o su PTT activo sin voz
 detectada no se considera recepción. Los mensajes temporales del sistema y los

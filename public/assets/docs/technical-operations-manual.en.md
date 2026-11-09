@@ -17,10 +17,10 @@ Components must have `vscope=global`. The controller sends these values:
 | Component | Content |
 | --- | --- |
 | `t_n1.txt`–`t_n4.txt` | Up to four active links: IAX shows the number; IAXRpt, the callsign; EchoLink, the available callsign or number. These three have no prefixes. SIP retains `SIP` followed by the caller ID or endpoint. Empty rows show `--`. |
-| `t0.txt` | Only the audio source's callsign or number, without prefixes or event text such as “Transmitting” or “Receiving”. SIP also omits `SIP`. Multiple active sources are separated by commas. |
+| `t0.txt` | The audio source's callsign or number followed by its available AstDB or private-directory description, for example `700001 - Remote station`. Without a description, only the identifier is shown. Location and event text such as “Transmitting” or “Receiving” are not added. SIP retains only the caller ID or endpoint, without `SIP`. Multiple active sources are separated by commas; link rows remain unchanged. |
 | `b_estado.bco`, `t0.bco` | Green `1024`: reception; red `63488`: transmission without reception; gray `33840`: no activity. |
 
-Reception is detected through local COS (`SignalOnInput`), active IAX/IAXRpt/EchoLink RX (`SawStat`) and SIP voice events for a connected channel. A connected SIP channel or active SIP PTT without detected voice is not enough to indicate reception. Reception takes priority over TX: when Asterisk keys the transmitter to relay received audio, the display stays green and shows that audio's source. Local COS or TX without reception shows the local node number, not a person's callsign that Asterisk has not identified.
+Reception is detected through local COS (`SignalOnInput`), active IAX/IAXRpt/EchoLink RX (`SawStat`) and SIP voice events for a connected channel. A connected SIP channel or active SIP PTT without detected voice is not enough to indicate reception. Reception takes priority over TX: when Asterisk keys the transmitter to relay received audio, the display stays green and shows that audio's source. Local COS or TX without reception shows the local node number and its available description, not a person's callsign that Asterisk has not identified.
 
 When activity ends, `t0.txt` becomes empty and the color turns gray, unless TX or another source remains active. Temporary system-operation messages and controller disconnection warnings retain priority over audio-source text.
 
