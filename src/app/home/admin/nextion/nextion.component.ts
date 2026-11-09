@@ -45,6 +45,7 @@ export class NextionComponent implements OnInit {
   protected velocidad = 9600;
   protected interfaz = '';
   protected nodoFavorito = '';
+  protected enviarEtiquetas = true;
 
   protected velocidades = [9600, 19200, 38400, 57600, 115200];
 
@@ -59,6 +60,7 @@ export class NextionComponent implements OnInit {
       baud_rate: Number(this.velocidad),
       interface: this.interfaz.trim(),
       favorite_node: this.nodoFavorito.trim(),
+      send_labels: this.enviarEtiquetas,
     };
   }
 
@@ -172,6 +174,7 @@ export class NextionComponent implements OnInit {
     this.velocidad = status.settings.baud_rate;
     this.interfaz = status.settings.interface;
     this.nodoFavorito = status.settings.favorite_node;
+    this.enviarEtiquetas = status.settings.send_labels;
     this.puertos.set(status.ports);
     this.interfaces.set(status.interfaces);
     this.modelos.set(status.models);

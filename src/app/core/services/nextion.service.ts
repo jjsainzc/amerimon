@@ -9,6 +9,7 @@ export interface NextionSettings {
   baud_rate: number;
   interface: string;
   favorite_node: string;
+  send_labels: boolean;
 }
 
 export interface NextionNetworkInterface {
@@ -30,7 +31,6 @@ export interface NextionPort {
 export interface NextionModel {
   name: string;
   model: string;
-  language: string;
   preview_url: string;
   source_available: boolean;
 }

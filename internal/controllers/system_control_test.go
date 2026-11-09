@@ -165,9 +165,9 @@ func TestLinuxActionsAreScheduledAndFailuresReported(t *testing.T) {
 	for _, action := range []string{"linux_reboot", "linux_poweroff"} {
 		for _, fail := range []bool{false, true} {
 			t.Run(action+map[bool]string{false: "-ok", true: "-error"}[fail], func(t *testing.T) {
-				confirmation, flag := "REINICIAR LINUX", "-r"
+				confirmation, flag := "REBOOT LINUX", "-r"
 				if action == "linux_poweroff" {
-					confirmation, flag = "APAGAR LINUX", "-P"
+					confirmation, flag = "POWER OFF LINUX", "-P"
 				}
 				control := systemControl{
 					run: func(_ context.Context, _ time.Duration, name string, args ...string) (string, error) {
@@ -213,7 +213,7 @@ func TestSystemControlReportsJournalWarnings(t *testing.T) {
 			return "", nil
 		},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"action":"asterisk_restart","confirmation":"REINICIAR ASTERISK"}`))
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"action":"asterisk_restart","confirmation":"RESTART ASTERISK"}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	rec := httptest.NewRecorder()
 	c := echo.New().NewContext(req, rec)

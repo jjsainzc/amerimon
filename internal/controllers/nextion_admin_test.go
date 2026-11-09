@@ -43,7 +43,7 @@ func TestSaveNextionSettingsAllowsIncompleteDisabledConfiguration(t *testing.T) 
 	}
 	for key, want := range map[string]string{
 		"nextion_enabled": "0", "nextion_port": "/dev/ttyUSB", "nextion_baud_rate": "230400",
-		"nextion_interface": "", "nextion_favorite_node": "",
+		"nextion_interface": "", "nextion_favorite_node": "", "nextion_send_labels": "1",
 	} {
 		var got string
 		if err := config.App.DB.QueryRow(`SELECT value FROM app_settings WHERE key = ?`, key).Scan(&got); err != nil {
@@ -69,7 +69,7 @@ func TestSaveNextionSettingsRejectsIncompleteEnabledConfiguration(t *testing.T) 
 	if err := config.App.DB.QueryRow(`SELECT COUNT(*) FROM app_settings WHERE key LIKE 'nextion_%'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 5 {
+	if count != 6 {
 		t.Fatalf("invalid configuration changed the existing settings: %d settings", count)
 	}
 }
@@ -107,27 +107,30 @@ func TestNextionInterfaceIPv4ListsOnlyUniqueUsableIPv4Addresses(t *testing.T) {
 	}
 }
 
-func TestNextionCatalogGroupsLanguageSpecificSourceFirmwareAndPreview(t *testing.T) {
+func TestNextionCatalogGroupsSourceFirmwareAndPreviewIgnoringLegacyLanguageNames(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AMERIMON_NEXTION_DIR", dir)
-	name := "AMERINET_Nextion_TestBoard-es"
-	for _, extension := range []string{".HMI", ".tft"} {
-		if err := os.WriteFile(filepath.Join(dir, name+extension), []byte("test"), 0o600); err != nil {
+	name := "AMERINET_Nextion_TestBoard"
+	for _, filename := range []string{name + ".HMI", name + ".tft",
+		"AMERINET_Nextion_Legacy-es.tft", "AMERINET_Nextion_Legacy-en.tft"} {
+		if err := os.WriteFile(filepath.Join(dir, filename), []byte("test"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	models := listNextionModels()
 	var found *nextionModel
 	for i := range models {
+		if strings.HasPrefix(models[i].Name, "AMERINET_Nextion_Legacy") {
+			t.Fatalf("legacy language-specific firmware %q was listed", models[i].Name)
+		}
 		if models[i].Name == name {
 			found = &models[i]
-			break
 		}
 	}
 	if found == nil {
-		t.Fatalf("language-specific Nextion model %q was not discovered", name)
+		t.Fatalf("Nextion model %q was not discovered", name)
 	}
-	if found.Model != "TestBoard" || found.Language != "es" || !found.SourceAvailable ||
+	if found.Model != "TestBoard" || !found.SourceAvailable ||
 		found.PreviewURL != "assets/images/"+name+".png" {
 		t.Fatalf("unexpected model metadata: %+v", *found)
 	}
@@ -136,7 +139,7 @@ func TestNextionCatalogGroupsLanguageSpecificSourceFirmwareAndPreview(t *testing
 func TestDownloadNextionFileServesAdminRequestedHMIAndTFT(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AMERIMON_NEXTION_DIR", dir)
-	name := "AMERINET_Nextion_TestBoard-es"
+	name := "AMERINET_Nextion_TestBoard"
 	for _, test := range []struct {
 		extension string
 		filename  string

@@ -107,6 +107,9 @@ export class App implements OnInit {
 
     // 2. Llamamos al servicio para cargar el idioma
     this.translationService.loadLanguage(lang);
+
+    // 3. Sincronizamos el idioma con el servidor para la pantalla Nextion
+    this.translationService.syncServerLanguage(lang);
   }
 
   /** Abrir acerca de */

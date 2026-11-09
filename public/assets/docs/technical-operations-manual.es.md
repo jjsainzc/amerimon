@@ -465,24 +465,30 @@ En el primer acceso, pulsa **Admin** y define el usuario y contraseña. El nombr
 
 ### Pantalla Nextion
 
-En **Administración → Pantalla Nextion**, configura el dispositivo serie USB, la velocidad, la interfaz de red y el nodo favorito. El estado de activación, el dispositivo, la velocidad y el favorito se guardan en SQLite; el nodo local y las credenciales AMI se reutilizan desde la configuración de Amerimon. Se muestran las interfaces activas distintas de loopback, con IPv4 y MAC; en modo automático Amerimon elige una IPv4 disponible. El favorito se selecciona entre los nodos de Favoritos. Se pueden guardar valores incompletos mientras el controlador esté desactivado; al activarlo se validan todos los campos necesarios. El botón de prueba abre el dispositivo serie USB seleccionado con la velocidad elegida y lo cierra inmediatamente; no envía comandos a la pantalla ni la ocupa de manera permanente. GPIO/UART solo corresponde a instalaciones con hardware compatible.
+En **Administración → Pantalla Nextion**, configura el dispositivo serie USB, la velocidad, la interfaz de red y el nodo favorito. El estado de activación, el dispositivo, la velocidad, el favorito y el envío de etiquetas internacionalizadas se guardan en SQLite; el nodo local y las credenciales AMI se reutilizan desde la configuración de Amerimon. Se muestran las interfaces activas distintas de loopback, con IPv4 y MAC; en modo automático Amerimon elige una IPv4 disponible. El favorito se selecciona entre los nodos de Favoritos. Se pueden guardar valores incompletos mientras el controlador esté desactivado; al activarlo se validan todos los campos necesarios. El botón de prueba abre el dispositivo serie USB seleccionado con la velocidad elegida y lo cierra inmediatamente; no envía comandos a la pantalla ni la ocupa de manera permanente. GPIO/UART solo corresponde a instalaciones con hardware compatible.
 
 Los dispositivos serie USB se enumeran como `/dev/ttyUSB*` o `/dev/ttyACM*`. El identificador USB `10c4:ea60` corresponde a un adaptador Silicon Labs CP210x. El nodo local se detecta desde la configuración RPT de Asterisk; la IPv4 actual también se muestra debajo del selector de interfaz.
+
+El firmware es único para todos los idiomas: Amerimon envía los textos de botones y títulos (`b_fav.txt`, `b_disc_all.txt`, `t_hint.txt`, `b_restart.txt`, `b_reboot.txt`, `b_poweroff.txt`, `t_actions.txt`, `t_links.txt`, `b_admin_no.txt`, `b_admin_ok.txt`) y la variable `va_lang.val` (`0` español, `1` inglés) según el idioma elegido con el botón de idioma de la cabecera de la web; la pantalla usa `va_lang` solo para sus textos internos de respaldo cuando pierde la conexión. Los mensajes dinámicos también se envían en ese idioma. La opción **Enviar etiquetas internacionalizadas a la pantalla** está activada de forma predeterminada; desactívala si usas un diseño HMI propio y quieres conservar tus etiquetas: solo se enviarán los valores.
 
 Todos los componentes referenciados por código deben tener `vscope=global`. En Nextion, `txt` significa texto y `bco`, color de fondo. El controlador envía estos valores:
 
 | Componente | Contenido |
 | --- | --- |
-| `t_nodo.txt` | Número del nodo local con el prefijo `Nodo Local:`. |
+| `t_nodo.txt` | Número del nodo local con el prefijo `Nodo:` o `Node:` según el idioma. |
 | `t_ip.txt` | Dirección IPv4 seleccionada para la interfaz. |
 | `t_date.txt`, `t_time.txt` | Fecha local `YYYY-MM-DD` y hora local de 24 horas `HH:mm:ss`. |
 | `t_temp.txt` | Temperatura de CPU en °C; `--` si no se puede leer. |
-| `t_links.txt` | Título `ENLACES ACTIVOS`; añade la cantidad cuando hay más de cuatro enlaces. |
-| `t_n1.txt`–`t_n4.txt` | Hasta cuatro enlaces activos: IAX muestra el número; IAXRpt, el indicativo; EchoLink, el indicativo disponible o el número. Estos tres no llevan prefijos. SIP conserva `SIP` seguido del caller ID o endpoint. Una fila vacía muestra `--`. |
+| `t_volt.txt`, `t_cpu.txt`, `t_mem.txt`, `t_dsk.txt` | Voltaje del sistema y porcentajes de CPU, memoria y disco; `--` si no se pueden leer. |
+| `t_links.txt` | Título `Enlaces activos` o `Active links` según el idioma; añade la cantidad cuando hay más de ocho enlaces. |
+| `t_actions.txt`, `t_hint.txt` | Título de acciones y ayuda táctil, enviados según el idioma. |
+| `b_fav.txt`, `b_disc_all.txt`, `b_restart.txt`, `b_reboot.txt`, `b_poweroff.txt`, `b_admin_no.txt`, `b_admin_ok.txt` | Textos de los botones, enviados según el idioma. |
+| `t_n1.txt`–`t_n8.txt` | Hasta ocho enlaces activos: IAX muestra el número; IAXRpt, el indicativo; EchoLink, el indicativo disponible o el número. Estos tres no llevan prefijos. SIP conserva `SIP` seguido del caller ID o endpoint. Una fila vacía muestra `--`. |
 | `t0.txt` | Indicativo o número del origen del audio junto a su descripción disponible en AstDB o el catálogo privado, por ejemplo `700001 - Remote station`. Sin descripción muestra solo el identificador. No añade ubicación ni textos como «Transmitiendo» o «Recibiendo». SIP conserva solo el caller ID o endpoint, sin `SIP`. Varias fuentes activas se separan por comas; las filas de enlaces no cambian. |
 | `b_estado.bco`, `t0.bco` | Verde `1024`: recepción; rojo `63488`: transmisión sin recepción; gris `33840`: sin actividad. |
-| `b_d1`–`b_d4` | Botones transparentes sobre cada fila; solo son visibles cuando hay un enlace. |
+| `b_d1`–`b_d8` | Botones transparentes sobre cada fila; solo son visibles cuando hay un enlace. |
 | `va_alive.val` | Latido que Amerimon actualiza a `4` una vez por segundo. |
+| `va_lang.val` | Idioma activo: `0` español, `1` inglés. |
 
 La recepción se detecta por COS local (`SignalOnInput`), RX activo de enlaces IAX/IAXRpt/EchoLink (`SawStat`) y eventos de voz SIP del canal conectado. Un canal SIP conectado o su PTT activo, sin voz detectada, no basta para indicar recepción. La recepción tiene prioridad sobre TX: si Asterisk activa el transmisor para retransmitir audio recibido, la pantalla permanece verde y muestra quien origina ese audio. Para COS local o TX sin recepción, se muestra el número y la descripción disponible del nodo local, no un indicativo de persona que Asterisk no ha identificado.
 
@@ -499,15 +505,15 @@ Configura cada acción en **Touch Release Event** con la cadena indicada, sin co
 | Preparar reinicio de Asterisk / Linux o apagado de Linux | `SYS_ARM_RESTART`, `SYS_ARM_REBOOT` o `SYS_ARM_OFF` | Arma la acción correspondiente durante 10 segundos; requiere confirmación. |
 | Confirmar o cancelar acción del sistema | `SYS_CONFIRM` / `SYS_CANCEL` | Ejecuta la acción armada vigente o la cancela. |
 
-`DISC_N1`–`DISC_N4` por sí solas no bastan para desconectar: primero debe recibirse el evento de pulsación larga de la fila. El controlador conserva el identificador real de la conexión y no usa el indicativo mostrado como sustituto del número EchoLink o del canal SIP. SIP se desconecta por su canal PJSIP; IAX, IAXRpt y EchoLink mediante el enlace RPT. La respuesta estándar `sendme` de Nextion reinicia el estado de interfaz al reconectarse la pantalla.
+`DISC_N1`–`DISC_N8` por sí solas no bastan para desconectar: primero debe recibirse el evento de pulsación larga de la fila. El controlador conserva el identificador real de la conexión y no usa el indicativo mostrado como sustituto del número EchoLink o del canal SIP. SIP se desconecta por su canal PJSIP; IAX, IAXRpt y EchoLink mediante el enlace RPT. La respuesta estándar `sendme` de Nextion reinicia el estado de interfaz al reconectarse la pantalla.
 
-Los archivos de cada modelo e idioma comparten este nombre base:
+Los archivos de cada modelo son únicos para todos los idiomas y comparten este nombre base:
 
-- `public/assets/firmware/AMERINET_Nextion_<modelo>-<idioma>.HMI`: fuente editable.
-- `public/assets/firmware/AMERINET_Nextion_<modelo>-<idioma>.tft`: firmware para instalar desde tarjeta SD.
-- `public/assets/images/AMERINET_Nextion_<modelo>-<idioma>.png`: vista previa.
+- `public/assets/firmware/AMERINET_Nextion_<modelo>.HMI`: fuente editable.
+- `public/assets/firmware/AMERINET_Nextion_<modelo>.tft`: firmware para instalar desde tarjeta SD.
+- `public/assets/images/AMERINET_Nextion_<modelo>.png`: vista previa.
 
-Por ejemplo, `AMERINET_Nextion_NX4832K035-es` identifica los archivos del modelo NX4832K035 en español. El catálogo administrativo agrupa los archivos, muestra la vista previa y ofrece descargas independientes de TFT y, si existe, HMI. Copia el TFT a una tarjeta SD para actualizar la pantalla; otros modelos e idiomas siguen el mismo formato de nombre. Los archivos se instalan en `/usr/share/amerimon/nextion/`; el directorio se sirve mediante la ruta administrativa autenticada y no se incluye en los assets públicos de Angular.
+Por ejemplo, `AMERINET_Nextion_NX4832K035` identifica los archivos del modelo NX4832K035. Los nombres antiguos con sufijo de idioma (`-es`, `-en`) ya no se reconocen. El catálogo administrativo agrupa los archivos, muestra la vista previa y ofrece descargas independientes de TFT y, si existe, HMI. Copia el TFT a una tarjeta SD para actualizar la pantalla; otros modelos siguen el mismo formato de nombre. Los archivos se instalan en `/usr/share/amerimon/nextion/`; el directorio se sirve mediante la ruta administrativa autenticada y no se incluye en los assets públicos de Angular.
 
 ### Configuración de EchoLink
 

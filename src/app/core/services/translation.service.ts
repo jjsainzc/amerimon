@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '../environment';
 
 type Translations = Record<string, string>;
 
@@ -56,6 +57,13 @@ export class TranslationService {
     return translation.replace(/\$\{\s*(\w+)\s*\}|\{\{\s*(\w+)\s*\}\}/g, (placeholder, dollarName, braceName) => {
       const name = dollarName ?? braceName;
       return name !== undefined && Object.hasOwn(params, name) ? String(params[name]) : placeholder;
+    });
+  }
+
+  /** Persiste el idioma elegido en el servidor para que la pantalla Nextion reciba sus textos. */
+  syncServerLanguage(lang: string): void {
+    this.http.put(`${environment.apiUrl}/language`, { language: lang }).subscribe({
+      error: error => console.warn('No se pudo sincronizar el idioma con el servidor', error),
     });
   }
 }

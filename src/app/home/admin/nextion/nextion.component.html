@@ -37,6 +37,12 @@
         </label>
         <p class="note">{{ 'NEXTION_INCOMPLETE_NOTE' | translate }}</p>
 
+        <label class="switch-row">
+          <input type="checkbox" name="sendLabels" [(ngModel)]="enviarEtiquetas">
+          <span>{{ 'NEXTION_SEND_LABELS' | translate }}</span>
+        </label>
+        <p class="note">{{ 'NEXTION_SEND_LABELS_HELP' | translate }}</p>
+
         <div class="fields">
           <label>{{ 'NEXTION_SERIAL_PORT' | translate }}
             <span class="input-action">
@@ -113,7 +119,7 @@
               <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
             </button>
             <div class="model-info">
-              <h3>{{ 'NEXTION_MODEL' | translate:{model: model.model, language: model.language} }}</h3>
+              <h3>{{ 'NEXTION_MODEL' | translate:{model: model.model} }}</h3>
               <p>{{ 'NEXTION_SD_INSTRUCTIONS' | translate }}</p>
             </div>
             <div class="downloads">

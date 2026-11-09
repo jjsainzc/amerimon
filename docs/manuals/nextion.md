@@ -1,10 +1,11 @@
 # Controlador Nextion
 
 La pantalla se configura en **Administración → Pantalla Nextion**. Amerimon guarda
-el estado de activación, el dispositivo serie, la velocidad y el nodo favorito en
-SQLite. El nodo local y las credenciales AMI se reutilizan desde la configuración
-existente de Asterisk/Amerimon. Es posible guardar valores incompletos mientras el
-controlador esté desactivado; al activarlo se validan todos los campos necesarios.
+el estado de activación, el dispositivo serie, la velocidad, el nodo favorito y el
+envío de etiquetas internacionalizadas en SQLite. El nodo local y las credenciales
+AMI se reutilizan desde la configuración existente de Asterisk/Amerimon. Es posible
+guardar valores incompletos mientras el controlador esté desactivado; al activarlo
+se validan todos los campos necesarios.
 
 El servidor Amerimon de este montaje es una laptop y la pantalla se conecta por
 USB, mediante los dispositivos serie `/dev/ttyUSB*` y `/dev/ttyACM*`. Cuando el
@@ -22,6 +23,27 @@ actual también aparece debajo del selector. Si se deja en automática, Amerimon
 elige una dirección IPv4 disponible. El nodo local se detecta desde la
 configuración RPT de Asterisk y el nodo favorito se elige de la lista de Favoritos.
 
+## Idioma y etiquetas internacionalizadas
+
+El firmware es único para todos los idiomas: los textos de botones y títulos no
+van grabados por idioma en el TFT, sino que Amerimon los envía por serie según el
+idioma elegido con el botón de idioma de la cabecera de la web (español o inglés).
+Al cambiar el idioma en la web, la pantalla se actualiza automáticamente.
+
+Amerimon envía estas etiquetas: `b_fav.txt`, `b_disc_all.txt`, `t_hint.txt`,
+`b_restart.txt`, `b_reboot.txt`, `b_poweroff.txt`, `t_actions.txt`, `t_links.txt`,
+`b_admin_no.txt` y `b_admin_ok.txt`, además de `va_lang.val` (`0` español,
+`1` inglés), que la pantalla usa solo para sus textos internos de respaldo cuando
+pierde la conexión con el servidor. Los mensajes dinámicos (origen del audio sin
+conexión, confirmaciones y resultados de las acciones de sistema) también se
+envían en el idioma elegido.
+
+La opción **Enviar etiquetas internacionalizadas a la pantalla** está activada de
+forma predeterminada. Si diseñas tu propio HMI y quieres conservar tus etiquetas,
+desactívala: Amerimon dejará de enviar las etiquetas y `va_lang`, y solo enviará
+los valores (nodo, IP, fecha y hora, métricas, enlaces, colores y origen del
+audio).
+
 ## Variables de pantalla
 
 Los nombres son componentes/properties de Nextion; `txt` significa texto y `bco`
@@ -30,17 +52,21 @@ es el color de fondo. Todos los componentes referenciados por código deben tene
 
 | Variable | Contenido |
 | --- | --- |
-| `t_nodo.txt` | Número del nodo local, con el prefijo `Nodo Local:`. |
+| `t_nodo.txt` | Número del nodo local, con el prefijo `Nodo:` o `Node:` según el idioma. |
 | `t_ip.txt` | Dirección IPv4 seleccionada automáticamente. |
 | `t_date.txt` | Fecha local del servidor en formato `YYYY-MM-DD`. |
 | `t_time.txt` | Hora local del servidor en formato `HH:mm:ss` de 24 horas. |
 | `t_temp.txt` | Temperatura de CPU en °C; `--` cuando no se puede leer. |
-| `t_links.txt` | Título `ENLACES ACTIVOS` y cantidad adicional cuando hay más de cuatro enlaces. |
+| `t_volt.txt`, `t_cpu.txt`, `t_mem.txt`, `t_dsk.txt` | Voltaje del sistema y porcentajes de CPU, memoria y disco; `--` cuando no se pueden leer. |
+| `t_links.txt` | Título `Enlaces activos` o `Active links` según el idioma y cantidad adicional cuando hay más de ocho enlaces. |
+| `t_actions.txt`, `t_hint.txt` | Título de acciones y ayuda táctil, enviados según el idioma. |
+| `b_fav.txt`, `b_disc_all.txt`, `b_restart.txt`, `b_reboot.txt`, `b_poweroff.txt`, `b_admin_no.txt`, `b_admin_ok.txt` | Textos de los botones, enviados según el idioma. |
 | `t0.txt` | Indicativo o número del origen del audio y su descripción disponible, por ejemplo `700001 - Remote station` o `HC1 - Club radio`, sin texto de evento. Sin descripción muestra solo el identificador; SIP conserva solo el caller ID o endpoint, sin `SIP`. Vacío sin actividad; los mensajes temporales del sistema conservan su prioridad. |
 | `b_estado.bco`, `t0.bco` | Color del estado: gris `33840` (espera), rojo `63488` (TX), verde `1024` (RX). |
-| `t_n1.txt`–`t_n4.txt` | Los primeros cuatro enlaces activos: SIP conserva el prefijo `SIP` y su caller ID (o endpoint); IAX muestra el número e IAXRpt el indicativo, sin prefijos; EchoLink muestra el indicativo disponible o el número, sin prefijo; `--` si la posición está vacía. |
-| `b_d1`–`b_d4` | Botones transparentes sobre sus respectivos nodos; solo son visibles cuando hay un enlace. |
+| `t_n1.txt`–`t_n8.txt` | Los primeros ocho enlaces activos: SIP conserva el prefijo `SIP` y su caller ID (o endpoint); IAX muestra el número e IAXRpt el indicativo, sin prefijos; EchoLink muestra el indicativo disponible o el número, sin prefijo; `--` si la posición está vacía. |
+| `b_d1`–`b_d8` | Botones transparentes sobre sus respectivos nodos; solo son visibles cuando hay un enlace. |
 | `va_alive.val` | Latido que Amerimon actualiza a `4` cada segundo. |
+| `va_lang.val` | Idioma activo: `0` español, `1` inglés; la pantalla lo usa para sus textos internos de respaldo. |
 
 La recepción tiene prioridad sobre TX: COS local (`SignalOnInput`), RX activo de
 enlaces IAX/IAXRpt/EchoLink (`SawStat`) o voz SIP detectada por los eventos AMI
@@ -70,35 +96,36 @@ la pantalla pueden usar iconos; el controlador procesa los nombres de evento.
 | --- | --- | --- |
 | Conectar favorito | `CONN_FAV` | Conecta el nodo favorito configurado, si no está conectado. |
 | Desconectar todos | `DISC_ALL` | Ejecuta el equivalente a `*70` (`ilink 6`) en el nodo local. |
-| Mantener pulsada la fila 1–4 | `HOLD_N<número>` + espacio + texto de la fila + LF | Registra la conexión activa asociada a esa fila para permitir su desconexión; el texto puede ser un indicativo y no el identificador interno. |
-| Soltar la fila 1–4 | `DISC_N<número>` | Desconecta ese nodo si la fila se había mantenido pulsada y el enlace sigue activo. |
+| Mantener pulsada la fila 1–8 | `HOLD_N<número>` + espacio + texto de la fila + LF | Registra la conexión activa asociada a esa fila para permitir su desconexión; el texto puede ser un indicativo y no el identificador interno. |
+| Soltar la fila 1–8 | `DISC_N<número>` | Desconecta ese nodo si la fila se había mantenido pulsada y el enlace sigue activo. |
 | Preparar reinicio de Asterisk | `SYS_ARM_RESTART` | Arma la acción durante 10 segundos; requiere `SYS_CONFIRM` para ejecutarla. |
 | Preparar reinicio de Linux | `SYS_ARM_REBOOT` | Arma el reinicio durante 10 segundos; requiere `SYS_CONFIRM`. |
 | Preparar apagado de Linux | `SYS_ARM_OFF` | Arma el apagado durante 10 segundos; requiere `SYS_CONFIRM`. |
 | Confirmar acción de sistema | `SYS_CONFIRM` | Ejecuta una acción armada que no haya expirado. |
 | Cancelar acción de sistema | `SYS_CANCEL` | Cancela la acción armada. |
 
-Las cadenas `DISC_N1`–`DISC_N4` por sí solas no bastan para desconectar: el
+Las cadenas `DISC_N1`–`DISC_N8` por sí solas no bastan para desconectar: el
 controlador exige primero el evento de pulsación larga de la fila. Las conexiones
 SIP se cuelgan por su canal PJSIP; IAX, IAXRpt y EchoLink usan la acción de desconexión
 del nodo RPT.
 La respuesta estándar `sendme` de Nextion reinicia el estado de interfaz al
 reconectarse la pantalla.
 
-## Archivos por modelo e idioma
+## Archivos por modelo
 
-Cada pantalla e idioma se distribuye con el mismo nombre base, que incluye el
-código de idioma antes de la extensión:
+Cada pantalla se distribuye con un único juego de archivos por modelo, válido
+para todos los idiomas, con el mismo nombre base:
 
-- `public/assets/firmware/AMERINET_Nextion_<modelo>-<idioma>.HMI` (fuente editable)
-- `public/assets/firmware/AMERINET_Nextion_<modelo>-<idioma>.tft` (firmware para SD)
-- `public/assets/images/AMERINET_Nextion_<modelo>-<idioma>.png` (vista previa)
+- `public/assets/firmware/AMERINET_Nextion_<modelo>.HMI` (fuente editable)
+- `public/assets/firmware/AMERINET_Nextion_<modelo>.tft` (firmware para SD)
+- `public/assets/images/AMERINET_Nextion_<modelo>.png` (vista previa)
 
-Por ejemplo, `AMERINET_Nextion_NX4832K035-es.HMI`,
-`AMERINET_Nextion_NX4832K035-es.tft` y
-`AMERINET_Nextion_NX4832K035-es.png` son el fuente, firmware y vista previa del
-NX4832K035 en español. Se pueden agregar otros modelos e idiomas siguiendo este
-formato. El catálogo administrativo agrupa archivos por nombre base, muestra la
+Por ejemplo, `AMERINET_Nextion_NX4832K035.HMI`,
+`AMERINET_Nextion_NX4832K035.tft` y
+`AMERINET_Nextion_NX4832K035.png` son el fuente, firmware y vista previa del
+NX4832K035. Se pueden agregar otros modelos siguiendo este formato; los nombres
+antiguos con sufijo de idioma (`-es`, `-en`) ya no se reconocen. El catálogo
+administrativo agrupa archivos por nombre base, muestra la
 vista previa y ofrece botones de icono independientes para descargar el TFT y,
 cuando exista, el fuente HMI. El TFT se copia a una tarjeta SD para actualizar la
 pantalla. Los archivos se instalan en `/usr/share/amerimon/nextion/`; el directorio

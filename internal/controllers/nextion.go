@@ -9,19 +9,26 @@
 Para tu pantalla de 3.5" (NX4832K035) con resolución 480x320 en Modo Oscuro.
 Asegúrate de que la propiedad 'vscope' de cada componente esté configurada en 'global'.
 
+El firmware es único para todos los idiomas: Amerimon envía los textos de los
+botones y títulos por serie según el idioma elegido en la cabecera de la web
+(va_lang.val=0 para español y 1 para inglés; la pantalla usa va_lang solo para
+sus textos internos de respaldo cuando pierde la conexión con el servidor).
+
 ---------------------------------------------------------------------------------
 1. COMPONENTES DE TEXTO (SALIDAS DE INFORMACIÓN)
 ---------------------------------------------------------------------------------
-  - t_nodo   : Muestra el número de tu nodo local. (Ej: "Nodo Local: 616262")
+  - t_nodo   : Muestra el número de tu nodo local. (Ej: "Nodo: 616262")
   - t_ip     : Dirección IP de la laptop/servidor Amerimon. (Ej: "IP: 192.168.0.177")
   - t_date   : Fecha del servidor en formato YYYY-MM-DD.
   - t_time   : Hora del servidor en formato HH:mm:ss (24 horas).
   - t_temp   : Temperatura actual del procesador. (Ej: "CPU: 45.2 °C")
+  - t_volt   : Voltaje del sistema.
+  - t_cpu    : Porcentaje de uso del procesador.
+  - t_mem    : Porcentaje de memoria ocupada.
+  - t_dsk    : Porcentaje de disco ocupado en la partición raíz.
   - t0       : Indicativo o número y descripción del origen del audio; vacío sin actividad.
-  - t_n1     : Indicativo o caller ID de la primera conexión activa.
-  - t_n2     : Indicativo o caller ID de la segunda conexión activa.
-  - t_n3     : Indicativo o caller ID de la tercera conexión activa.
-  - t_n4     : Indicativo o caller ID de la cuarta conexión activa.
+  - t_n1 a t_n8 : Indicativo o caller ID de las primeras ocho conexiones activas.
+  - t_actions, t_links, t_hint : Títulos y ayuda táctil; sus textos llegan por serie.
 
 ---------------------------------------------------------------------------------
 2. COMPONENTES DE BOTÓN / INTERFACES TÁCTILES (ENTRADAS DESDE PANTALLA)
@@ -31,17 +38,20 @@ dentro de Nextion Editor usando el comando: print "COMANDO"
 
   - b_fav       : Botón para conectar al Nodo Favorito fijo.
     -> Enviar por evento: print "CONN_FAV"
+    -> Su texto (.txt) lo envía Amerimon según el idioma elegido en la web,
+       igual que b_disc_all, b_restart, b_reboot, b_poweroff, b_admin_no y b_admin_ok.
 
   - b_disc_all  : Botón global rojo para colgar todos los enlaces (*70).
     -> Enviar por evento: print "DISC_ALL"
 
-  - b_d1 a b_d4 : Botones transparentes/invisibles encimados exactamente sobre sus
-    respectivas cajas de texto (t_n1 a t_n4). El script en Go maneja
+  - b_d1 a b_d8 : Botones transparentes/invisibles encimados exactamente sobre sus
+    respectivas cajas de texto (t_n1 a t_n8). El script en Go maneja
     su visibilidad de manera automática mediante comandos 'vis'.
     -> Botón b_d1 encima de t_n1: print "DISC_N1"
     -> Botón b_d2 encima de t_n2: print "DISC_N2"
     -> Botón b_d3 encima de t_n3: print "DISC_N3"
     -> Botón b_d4 encima de t_n4: print "DISC_N4"
+    -> Botones b_d5 a b_d8: print "DISC_N5" a "DISC_N8"
 
 ---------------------------------------------------------------------------------
 3. INDICADORES DINÁMICOS Y LUCES PILOTO (PROPIEDADES DE COLOR RGB565)
@@ -76,6 +86,10 @@ import (
 	"unsafe"
 
 	"amerimon/internal/config"
+
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 const (
@@ -88,20 +102,92 @@ var (
 	nodeNumber = regexp.MustCompile("^[1-9][0-9]{0,9}$")
 	releases   = []string{
 		"CONN_FAV", "DISC_ALL", "DISC_N1", "DISC_N2", "DISC_N3", "DISC_N4",
+		"DISC_N5", "DISC_N6", "DISC_N7", "DISC_N8",
 		"SYS_ARM_RESTART", "SYS_ARM_REBOOT", "SYS_ARM_OFF", "SYS_CONFIRM", "SYS_CANCEL",
 	}
 	systemActions = map[string]systemAction{
-		"SYS_ARM_RESTART": {[]string{"restart", "asterisk.service"}, "Reiniciar Asterisk", "Reiniciando Asterisk"},
-		"SYS_ARM_REBOOT":  {[]string{"reboot"}, "Reiniciar Linux", "Reiniciando Linux"},
-		"SYS_ARM_OFF":     {[]string{"poweroff"}, "Apagar Linux", "Apagando Linux"},
+		"SYS_ARM_RESTART": {args: []string{"restart", "asterisk.service"}},
+		"SYS_ARM_REBOOT":  {args: []string{"reboot"}},
+		"SYS_ARM_OFF":     {args: []string{"poweroff"}},
 	}
 	nextionSIPChannelName = regexp.MustCompile(`^PJSIP/[A-Za-z0-9_.-]{1,64}-[A-Za-z0-9_.-]{1,64}$`)
 )
 
 type systemAction struct {
-	args    []string
-	label   string
-	message string
+	args []string
+}
+
+// nextionTexts agrupa los textos que Amerimon envía a la pantalla según el idioma
+// elegido en la web. langValue alimenta va_lang.val (0 español, 1 inglés), que la
+// pantalla usa solo para sus textos internos de respaldo.
+type nextionTexts struct {
+	langValue       string
+	favorite        string
+	disconnectAll   string
+	hint            string
+	restartAsterisk string
+	rebootLinux     string
+	poweroffLinux   string
+	actions         string
+	links           string
+	cancel          string
+	confirm         string
+	nodePrefix      string
+	offline         string
+	actionFailed    string
+	restarting      string
+	rebooting       string
+	poweringOff     string
+}
+
+var nextionLanguages = map[string]nextionTexts{
+	"es": {
+		langValue: "0", favorite: "Conectar el favorito", disconnectAll: "Desconectar todos",
+		hint: "Toca para desconectar", restartAsterisk: "Reiniciar Asterisk",
+		rebootLinux: "Reiniciar Linux", poweroffLinux: "Apagar Linux",
+		actions: "Acciones", links: "Enlaces activos", cancel: "Cancelar", confirm: "Confirmar",
+		nodePrefix: "Nodo: ", offline: "ASL3 sin conexión", actionFailed: "Acción del sistema fallida",
+		restarting: "Reiniciando Asterisk", rebooting: "Reiniciando Linux", poweringOff: "Apagando Linux",
+	},
+	"en": {
+		langValue: "1", favorite: "Connect the favorite", disconnectAll: "Disconnect all",
+		hint: "Tap to disconnect", restartAsterisk: "Restart Asterisk",
+		rebootLinux: "Reboot Linux", poweroffLinux: "Power off Linux",
+		actions: "Actions", links: "Active links", cancel: "Cancel", confirm: "Confirm",
+		nodePrefix: "Node: ", offline: "ASL3 offline", actionFailed: "System action failed",
+		restarting: "Restarting Asterisk", rebooting: "Rebooting Linux", poweringOff: "Powering off Linux",
+	},
+}
+
+func nextionLanguageTexts(language string) nextionTexts {
+	if texts, ok := nextionLanguages[language]; ok {
+		return texts
+	}
+	return nextionLanguages["es"]
+}
+
+func (t nextionTexts) systemLabel(command string) string {
+	switch command {
+	case "SYS_ARM_RESTART":
+		return t.restartAsterisk
+	case "SYS_ARM_REBOOT":
+		return t.rebootLinux
+	case "SYS_ARM_OFF":
+		return t.poweroffLinux
+	}
+	return command
+}
+
+func (t nextionTexts) systemMessage(command string) string {
+	switch command {
+	case "SYS_ARM_RESTART":
+		return t.restarting
+	case "SYS_ARM_REBOOT":
+		return t.rebooting
+	case "SYS_ARM_OFF":
+		return t.poweringOff
+	}
+	return command
 }
 
 func executeSystem(action systemAction) error {
@@ -480,13 +566,16 @@ type press struct {
 type panel struct {
 	radio                    radio
 	local, favorite, network string
+	language                 string
+	sendLabels               bool
 	ip, temp                 string
+	volt, cpu, memory, disk  string
 	status                   radioStatus
 	online                   bool
 	lastError                string
-	slots                    [4]string
-	slotLabels               [4]string
-	held                     [4]press
+	slots                    [8]string
+	slotLabels               [8]string
+	held                     [8]press
 	sent                     map[string]string
 	incoming                 []byte
 	executeSystem            func(systemAction) error
@@ -504,7 +593,7 @@ func (p *panel) refresh() {
 			log.Printf("ASL3: %v", err)
 		}
 		p.lastError = err.Error()
-		current = radioStatus{label: "ASL3 sin conexión", color: idleColor}
+		current = radioStatus{label: nextionLanguageTexts(p.language).offline, color: idleColor}
 	} else {
 		p.lastError = ""
 	}
@@ -542,7 +631,7 @@ func (p *panel) handle(command, node string) {
 	switch command {
 	case "PANEL_READY":
 		clear(p.sent)
-		p.held = [4]press{}
+		p.held = [8]press{}
 		p.pendingSystem = ""
 		return
 	case "SYS_CANCEL":
@@ -591,18 +680,19 @@ func (p *panel) confirmSystem() {
 	if !ok || time.Now().After(p.pendingUntil) {
 		return
 	}
+	texts := nextionLanguageTexts(p.language)
 	if p.executeSystem == nil {
-		p.systemMessage = "Demo: " + action.label
+		p.systemMessage = "Demo: " + texts.systemLabel(command)
 		log.Print(p.systemMessage)
 	} else if err := p.executeSystem(action); err != nil {
-		p.systemMessage = "Acción del sistema fallida"
-		log.Printf("%s: %v", action.label, err)
+		p.systemMessage = texts.actionFailed
+		log.Printf("%s: %v", texts.systemLabel(command), err)
 	} else {
-		p.systemMessage = action.message
+		p.systemMessage = texts.systemMessage(command)
 		if command == "SYS_ARM_RESTART" {
 			p.radio.close()
 		}
-		log.Print(action.message)
+		log.Print(p.systemMessage)
 	}
 	p.messageUntil = time.Now().Add(4 * time.Second)
 }
@@ -628,7 +718,7 @@ stream:
 			if end := bytes.IndexByte(head, '\n'); end >= 0 && end <= 128 {
 				fields := strings.Fields(string(head[:end]))
 				p.incoming = head[end+1:]
-				if len(fields) >= 1 && len(fields[0]) == 7 && fields[0][6] >= '1' && fields[0][6] <= '4' {
+				if len(fields) >= 1 && len(fields[0]) == 7 && fields[0][6] >= '1' && fields[0][6] <= '8' {
 					p.handle(fields[0], strings.Join(fields[1:], " "))
 				}
 				continue
@@ -669,7 +759,8 @@ func nextion(w io.Writer, instruction string) error {
 
 func (p *panel) render(w io.Writer) error {
 	now := time.Now()
-	heading := "ENLACES ACTIVOS"
+	texts := nextionLanguageTexts(p.language)
+	heading := texts.links
 	if extra := len(p.status.nodes) - len(p.slots); extra > 0 {
 		heading += fmt.Sprintf("  +%d", extra)
 	}
@@ -678,16 +769,37 @@ func (p *panel) render(w io.Writer) error {
 	if time.Now().Before(p.messageUntil) {
 		label = p.systemMessage
 	}
-	values := [][2]string{
-		{"t_nodo.txt", "=\"Nodo Local: " + p.local + "\""},
+	// Con las etiquetas desactivadas solo se envían los valores, para respetar
+	// los textos de un diseño HMI propio.
+	var values [][2]string
+	if p.sendLabels {
+		values = append(values, [][2]string{
+			{"va_lang.val", "=" + texts.langValue},
+			{"t_actions.txt", "=\"" + texts.actions + "\""},
+			{"b_fav.txt", "=\"" + texts.favorite + "\""},
+			{"b_disc_all.txt", "=\"" + texts.disconnectAll + "\""},
+			{"t_hint.txt", "=\"" + texts.hint + "\""},
+			{"b_restart.txt", "=\"" + texts.restartAsterisk + "\""},
+			{"b_reboot.txt", "=\"" + texts.rebootLinux + "\""},
+			{"b_poweroff.txt", "=\"" + texts.poweroffLinux + "\""},
+			{"b_admin_no.txt", "=\"" + texts.cancel + "\""},
+			{"b_admin_ok.txt", "=\"" + texts.confirm + "\""},
+			{"t_links.txt", "=\"" + heading + "\""},
+		}...)
+	}
+	values = append(values, [][2]string{
+		{"t_nodo.txt", "=\"" + texts.nodePrefix + p.local + "\""},
 		{"t_ip.txt", "=\"IP: " + p.ip + "\""},
 		{"t_date.txt", "=\"" + now.Format("2006-01-02") + "\""},
 		{"t_time.txt", "=\"" + now.Format("15:04:05") + "\""},
-		{"t_temp.txt", "=\"CPU: " + p.temp + "\""},
-		{"t_links.txt", "=\"" + heading + "\""},
+		{"t_temp.txt", "=\"Temp: " + p.temp + "\""},
+		{"t_volt.txt", "=\"Volt: " + displayMetric(p.volt) + "\""},
+		{"t_cpu.txt", "=\"CPU: " + displayMetric(p.cpu) + "\""},
+		{"t_mem.txt", "=\"Mem: " + displayMetric(p.memory) + "\""},
+		{"t_dsk.txt", "=\"Disk: " + displayMetric(p.disk) + "\""},
 		{"b_estado.bco", "=" + color}, {"t0.bco", "=" + color},
 		{"t0.txt", "=\"" + label + "\""},
-	}
+	}...)
 	for i, node := range p.slots {
 		visible := "1"
 		if node == "" {
@@ -720,6 +832,28 @@ func cpuTemp() string {
 		}
 	}
 	return "--"
+}
+
+func displayMetric(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "--"
+	}
+	return value
+}
+
+func nextionSystemMetrics() (volt, cpuUsage, memoryUsage, diskUsage string) {
+	volt = displayMetric(readSystemVoltage())
+	cpuUsage, memoryUsage, diskUsage = "--", "--", "--"
+	if usage, err := cpu.Percent(200*time.Millisecond, false); err == nil && len(usage) > 0 {
+		cpuUsage = fmt.Sprintf("%.1f%%", usage[0])
+	}
+	if usage, err := mem.VirtualMemory(); err == nil {
+		memoryUsage = fmt.Sprintf("%.1f%%", usage.UsedPercent)
+	}
+	if usage, err := disk.Usage("/"); err == nil {
+		diskUsage = fmt.Sprintf("%.1f%%", usage.UsedPercent)
+	}
+	return
 }
 
 func ipAddress(name string) string {
@@ -788,7 +922,7 @@ func openSerial(path string, baudRate int) (*os.File, error) {
 }
 
 func (p *panel) run(port *os.File) error {
-	p.sent, p.incoming, p.held = make(map[string]string), nil, [4]press{}
+	p.sent, p.incoming, p.held = make(map[string]string), nil, [8]press{}
 	p.pendingSystem = ""
 	var nextRadio, nextSystem, nextBeat time.Time
 	buffer := make([]byte, 256)
@@ -804,6 +938,7 @@ func (p *panel) run(port *os.File) error {
 		}
 		if !now.Before(nextSystem) {
 			p.ip, p.temp = ipAddress(p.network), cpuTemp()
+			p.volt, p.cpu, p.memory, p.disk = nextionSystemMetrics()
 			nextSystem = now.Add(5 * time.Second)
 		}
 		if !now.Before(nextBeat) {

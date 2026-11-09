@@ -44,6 +44,27 @@ func TestNextionRenderSendsDateAnd24HourTime(t *testing.T) {
 	}
 }
 
+func TestNextionRenderIncludesSystemMetrics(t *testing.T) {
+	p := &panel{
+		volt: "1.200V", cpu: "23.4%", memory: "56.7%", disk: "89.0%",
+		sent: make(map[string]string),
+	}
+	var output bytes.Buffer
+	if err := p.render(&output); err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{
+		`t_volt.txt="Volt: 1.200V"`,
+		`t_cpu.txt="CPU: 23.4%"`,
+		`t_mem.txt="Mem: 56.7%"`,
+		`t_dsk.txt="Disk: 89.0%"`,
+	} {
+		if !bytes.Contains(output.Bytes(), append([]byte(command), 0xff, 0xff, 0xff)) {
+			t.Errorf("missing Nextion frame %q", command)
+		}
+	}
+}
+
 func TestParseNextionSIPChannelsUsesCallerIDAndKeepsChannelID(t *testing.T) {
 	raw := "Response: Follows\r\n" +
 		"Output: PJSIP/phone-portal-00000001!from-internal!616262!1!Up!AppDial!data!EA4ABC!00:00:10!!!bridge\r\n" +
@@ -288,15 +309,16 @@ func TestNextionStatusPrioritizesReceptionAndRendersMatchingColors(t *testing.T)
 func TestNextionPanelDisplaysLabelsAndDisconnectsPressedSlotTarget(t *testing.T) {
 	const sipChannel = "SIP:PJSIP/phone-portal-00000001"
 	radio := &nextionTestRadio{current: radioStatus{
-		nodes: []string{sipChannel, "3001234", "700001", "HC1"},
+		nodes: []string{sipChannel, "3001234", "700001", "HC1", "HC2", "HC3", "HC4", "HC5"},
 		labels: map[string]string{
-			sipChannel: "SIP EA4ABC", "3001234": "K1ABC", "700001": "700001", "HC1": "HC1",
+			sipChannel: "SIP EA4ABC", "3001234": "K1ABC", "700001": "700001",
+			"HC1": "HC1", "HC2": "HC2", "HC3": "HC3", "HC4": "HC4", "HC5": "HC5",
 		},
 	}}
 	p := &panel{radio: radio, sent: make(map[string]string)}
 	p.refresh()
-	if p.slots != [4]string{sipChannel, "3001234", "700001", "HC1"} ||
-		p.slotLabels != [4]string{"SIP EA4ABC", "K1ABC", "700001", "HC1"} {
+	if p.slots != [8]string{sipChannel, "3001234", "700001", "HC1", "HC2", "HC3", "HC4", "HC5"} ||
+		p.slotLabels != [8]string{"SIP EA4ABC", "K1ABC", "700001", "HC1", "HC2", "HC3", "HC4", "HC5"} {
 		t.Fatalf("unexpected panel slots: ids=%q labels=%q", p.slots, p.slotLabels)
 	}
 
@@ -325,6 +347,10 @@ func TestNextionPanelDisplaysLabelsAndDisconnectsPressedSlotTarget(t *testing.T)
 	p.read([]byte("HOLD_N4 HC1\nDISC_N4"))
 	if radio.target != "HC1" {
 		t.Fatalf("disconnect target = %q; want IAXRpt callsign", radio.target)
+	}
+	p.read([]byte("HOLD_N8 HC5\nDISC_N8"))
+	if radio.target != "HC5" {
+		t.Fatalf("disconnect target = %q; want eighth IAXRpt callsign", radio.target)
 	}
 }
 
@@ -393,3 +419,58 @@ func (r *nextionTestRadio) link(_, node string) error {
 }
 
 func (*nextionTestRadio) close() {}
+
+func TestNextionRenderSendsInternationalizedLabels(t *testing.T) {
+	for _, test := range []struct {
+		language string
+		want     []string
+	}{
+		{language: "es", want: []string{
+			`va_lang.val=0`, `b_fav.txt="Conectar el favorito"`, `b_disc_all.txt="Desconectar todos"`,
+			`t_hint.txt="Toca para desconectar"`, `b_restart.txt="Reiniciar Asterisk"`,
+			`b_reboot.txt="Reiniciar Linux"`, `b_poweroff.txt="Apagar Linux"`,
+			`t_actions.txt="Acciones"`, `t_links.txt="Enlaces activos"`,
+			`b_admin_no.txt="Cancelar"`, `b_admin_ok.txt="Confirmar"`, `t_nodo.txt="Nodo: 616262"`,
+		}},
+		{language: "en", want: []string{
+			`va_lang.val=1`, `b_fav.txt="Connect the favorite"`, `b_disc_all.txt="Disconnect all"`,
+			`t_hint.txt="Tap to disconnect"`, `b_restart.txt="Restart Asterisk"`,
+			`b_reboot.txt="Reboot Linux"`, `b_poweroff.txt="Power off Linux"`,
+			`t_actions.txt="Actions"`, `t_links.txt="Active links"`,
+			`b_admin_no.txt="Cancel"`, `b_admin_ok.txt="Confirm"`, `t_nodo.txt="Node: 616262"`,
+		}},
+	} {
+		t.Run(test.language, func(t *testing.T) {
+			p := &panel{local: "616262", language: test.language, sendLabels: true, sent: make(map[string]string)}
+			var output bytes.Buffer
+			if err := p.render(&output); err != nil {
+				t.Fatal(err)
+			}
+			for _, command := range test.want {
+				if !bytes.Contains(output.Bytes(), append([]byte(command), 0xff, 0xff, 0xff)) {
+					t.Errorf("missing Nextion frame %q", command)
+				}
+			}
+		})
+	}
+}
+
+func TestNextionRenderOnlySendsValuesWhenLabelsDisabled(t *testing.T) {
+	p := &panel{local: "616262", language: "en", sent: make(map[string]string)}
+	var output bytes.Buffer
+	if err := p.render(&output); err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		"va_lang", "b_fav.txt", "b_disc_all.txt", "t_hint.txt", "b_restart.txt",
+		"b_reboot.txt", "b_poweroff.txt", "t_actions.txt", "t_links.txt",
+		"b_admin_no.txt", "b_admin_ok.txt",
+	} {
+		if bytes.Contains(output.Bytes(), []byte(fragment)) {
+			t.Errorf("label %q was sent with labels disabled", fragment)
+		}
+	}
+	if !bytes.Contains(output.Bytes(), []byte(`t_nodo.txt="Node: 616262"`)) {
+		t.Errorf("node value was not sent: %q", output.String())
+	}
+}

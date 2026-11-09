@@ -114,4 +114,24 @@ describe('TranslationService', () => {
       log.mockRestore();
     }
   });
+
+  it('persists the selected language on the server and tolerates failures', async () => {
+    await loadSpanish();
+    service.syncServerLanguage('en');
+    const request = http.expectOne(request => request.url.endsWith('/language'));
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ language: 'en' });
+    request.flush({ language: 'en' });
+
+    const log = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      service.syncServerLanguage('es');
+      http.expectOne(request => request.url.endsWith('/language')).flush('Unavailable', {
+        status: 503, statusText: 'Service Unavailable',
+      });
+      expect(log).toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  });
 });

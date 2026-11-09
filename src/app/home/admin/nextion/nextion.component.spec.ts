@@ -10,14 +10,14 @@ import { NextionComponent } from './nextion.component';
 
 describe('Nextion admin', () => {
   const initialSettings: NextionSettings = {
-    enabled: false, port: '/dev/ttyUSB0', baud_rate: 9600, interface: '', favorite_node: '',
+    enabled: false, port: '/dev/ttyUSB0', baud_rate: 9600, interface: '', favorite_node: '', send_labels: true,
   };
   const status = (settings = initialSettings): NextionStatus => ({
     settings,
     ports: [{ path: '/dev/ttyUSB0', label: '/dev/ttyUSB0 — Silicon Labs CP210x (10c4:ea60)', vendor_id: '10c4', product_id: 'ea60' }],
     models: [{
-      name: 'AMERINET_Nextion_NX4832K035-es', model: 'NX4832K035', language: 'es',
-      preview_url: 'assets/images/AMERINET_Nextion_NX4832K035-es.png', source_available: true,
+      name: 'AMERINET_Nextion_NX4832K035', model: 'NX4832K035',
+      preview_url: 'assets/images/AMERINET_Nextion_NX4832K035.png', source_available: true,
     }],
     runtime: { running: false, port: '' },
     interfaces: [],
@@ -54,7 +54,7 @@ describe('Nextion admin', () => {
     const request = http.expectOne(`${environment.apiUrl}/nextion`);
     expect(request.request.method).toBe('PUT');
     expect(request.request.body).toEqual({
-      enabled: false, port: '/dev/ttyUSB', baud_rate: 9600, interface: '', favorite_node: '',
+      enabled: false, port: '/dev/ttyUSB', baud_rate: 9600, interface: '', favorite_node: '', send_labels: true,
     });
     request.flush(status({ ...initialSettings, port: '/dev/ttyUSB' }));
     await fixture.whenStable();
@@ -95,7 +95,7 @@ describe('Nextion admin', () => {
     const overlay: HTMLElement = fixture.nativeElement.querySelector('.lightbox-overlay');
     expect(overlay).not.toBeNull();
     expect(overlay.querySelector('.lightbox-image')?.getAttribute('src'))
-      .toContain('/assets/images/AMERINET_Nextion_NX4832K035-es.png');
+      .toContain('/assets/images/AMERINET_Nextion_NX4832K035.png');
 
     overlay.click();
     fixture.detectChanges();

@@ -35,6 +35,9 @@ fi
 "${SUDO[@]}" chmod 0644 /etc/amerimon/amerimon.yaml
 "${SUDO[@]}" install -d -m 0755 /usr/lib/amerimon /usr/share/amerimon/nextion
 if compgen -G "public/assets/firmware/AMERINET_Nextion_*" >/dev/null; then
+	# Elimina firmware obsoleto (por ejemplo, nombres antiguos con sufijo de idioma)
+	# para que el catálogo refleje exactamente los archivos distribuidos.
+	"${SUDO[@]}" find /usr/share/amerimon/nextion -maxdepth 1 -name 'AMERINET_Nextion_*' -delete
 	"${SUDO[@]}" cp -a public/assets/firmware/AMERINET_Nextion_* /usr/share/amerimon/nextion/
 fi
 "${SUDO[@]}" install -m 0644 packaging/listen-live-dialplan.awk /usr/lib/amerimon/listen-live-dialplan.awk

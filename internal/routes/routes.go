@@ -35,6 +35,8 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.GET("/auth/status", controllers.AdminStatus)
 	publica.POST("/auth/setup", controllers.SetupAdminPassword)
 	publica.GET("/site-settings", controllers.GetSiteSettings)
+	publica.GET("/language", controllers.GetAppLanguage)
+	publica.PUT("/language", controllers.SaveAppLanguage)
 	publica.GET("/weather", controllers.GetWeather)
 	privada.POST("/auth/password", controllers.ChangeAdminPassword, jwt, admin)
 	privada.PUT("/site-settings", controllers.SaveSiteSettings, jwt, admin)

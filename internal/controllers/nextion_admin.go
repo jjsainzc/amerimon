@@ -30,8 +30,9 @@ var (
 		9600: syscall.B9600, 19200: syscall.B19200, 38400: syscall.B38400,
 		57600: syscall.B57600, 115200: syscall.B115200,
 	}
-	nextionPortName  = regexp.MustCompile(`^/dev/tty(?:USB|ACM)[0-9]+$`)
-	nextionModelName = regexp.MustCompile(`^AMERINET_Nextion_([A-Za-z0-9._-]+)-([a-z]{2,3})$`)
+	nextionPortName = regexp.MustCompile(`^/dev/tty(?:USB|ACM)[0-9]+$`)
+	// El firmware es único para todos los idiomas; los nombres con sufijo -idioma quedan excluidos.
+	nextionModelName = regexp.MustCompile(`^AMERINET_Nextion_([A-Za-z0-9._]+)$`)
 )
 
 type nextionSettings struct {
@@ -40,6 +41,9 @@ type nextionSettings struct {
 	BaudRate     int    `json:"baud_rate"`
 	Interface    string `json:"interface"`
 	FavoriteNode string `json:"favorite_node"`
+	// SendLabels envía las etiquetas internacionalizadas; desactívalo para
+	// conservar los textos de un diseño HMI propio y recibir solo los valores.
+	SendLabels bool `json:"send_labels"`
 }
 
 type nextionNetworkInterface struct {
@@ -111,7 +115,6 @@ func hasNetworkInterface(name string) bool {
 type nextionModel struct {
 	Name            string `json:"name"`
 	Model           string `json:"model"`
-	Language        string `json:"language"`
 	PreviewURL      string `json:"preview_url"`
 	SourceAvailable bool   `json:"source_available"`
 }
@@ -129,6 +132,7 @@ type nextionSettingsRequest struct {
 	BaudRate     int    `json:"baud_rate"`
 	Interface    string `json:"interface"`
 	FavoriteNode string `json:"favorite_node"`
+	SendLabels   *bool  `json:"send_labels"`
 }
 
 type nextionPortTestRequest struct {
@@ -151,7 +155,7 @@ type nextionService struct {
 var nextionRuntime = &nextionService{notify: make(chan struct{}, 1)}
 
 func readNextionSettings(ctx context.Context) (nextionSettings, error) {
-	settings := nextionSettings{BaudRate: 9600}
+	settings := nextionSettings{BaudRate: 9600, SendLabels: true}
 	if config.App.DB == nil {
 		return settings, errors.New("base de datos no disponible")
 	}
@@ -159,6 +163,7 @@ func readNextionSettings(ctx context.Context) (nextionSettings, error) {
 		"nextion_enabled": nil, "nextion_port": &settings.Port,
 		"nextion_baud_rate": nil, "nextion_interface": &settings.Interface,
 		"nextion_favorite_node": &settings.FavoriteNode,
+		"nextion_send_labels":   nil,
 	}
 	for key, target := range values {
 		var value string
@@ -176,6 +181,8 @@ func readNextionSettings(ctx context.Context) (nextionSettings, error) {
 		switch key {
 		case "nextion_enabled":
 			settings.Enabled = value == "1"
+		case "nextion_send_labels":
+			settings.SendLabels = value != "0"
 		case "nextion_baud_rate":
 			rate, err := strconv.Atoi(value)
 			if err != nil {
@@ -252,7 +259,10 @@ func SaveNextionSettings(c echo.Context) error {
 	settings := nextionSettings{
 		Enabled: request.Enabled, Port: strings.TrimSpace(request.Port),
 		BaudRate: request.BaudRate, Interface: strings.TrimSpace(request.Interface),
-		FavoriteNode: strings.TrimSpace(request.FavoriteNode),
+		FavoriteNode: strings.TrimSpace(request.FavoriteNode), SendLabels: true,
+	}
+	if request.SendLabels != nil {
+		settings.SendLabels = *request.SendLabels
 	}
 	if err := validateNextionSettings(settings); err != nil {
 		return apiError(http.StatusBadRequest, err.Error())
@@ -265,9 +275,13 @@ func SaveNextionSettings(c echo.Context) error {
 		"nextion_baud_rate":     strconv.Itoa(settings.BaudRate),
 		"nextion_interface":     settings.Interface,
 		"nextion_favorite_node": settings.FavoriteNode,
+		"nextion_send_labels":   "0",
 	}
 	if settings.Enabled {
 		values["nextion_enabled"] = "1"
+	}
+	if settings.SendLabels {
+		values["nextion_send_labels"] = "1"
 	}
 	tx, err := config.App.DB.BeginTx(c.Request().Context(), nil)
 	if err != nil {
@@ -360,7 +374,8 @@ func (s *nextionService) reconcile(ctx context.Context) {
 		log.Printf("nextion: no se pudo leer la configuración para sincronizar el controlador: %v", err)
 		return
 	}
-	revision := fmt.Sprintf("%t|%s|%d|%s|%s", settings.Enabled, settings.Port, settings.BaudRate, settings.Interface, settings.FavoriteNode)
+	language := readAppLanguage(ctx)
+	revision := fmt.Sprintf("%t|%s|%d|%s|%s|%s|%t", settings.Enabled, settings.Port, settings.BaudRate, settings.Interface, settings.FavoriteNode, language, settings.SendLabels)
 	s.mu.Lock()
 	if revision == s.revision && (!settings.Enabled || s.cancel != nil) {
 		s.mu.Unlock()
@@ -387,7 +402,7 @@ func (s *nextionService) reconcile(ctx context.Context) {
 	amiConfig := config.CurrentAMI()
 	radio := &ami{host: amiConfig.Host, port: amiConfig.Port, username: amiConfig.User, secret: amiConfig.Secret, node: local}
 	p := &panel{local: local, favorite: settings.FavoriteNode, network: settings.Interface, radio: radio,
-		executeSystem: executeSystem}
+		language: language, sendLabels: settings.SendLabels, executeSystem: executeSystem}
 	workerCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	s.mu.Lock()
@@ -542,7 +557,7 @@ func listNextionModels() []nextionModel {
 			}
 			seen[name] = true
 			models = append(models, nextionModel{
-				Name: name, Model: match[1], Language: match[2],
+				Name: name, Model: match[1],
 				PreviewURL: "assets/images/" + name + ".png",
 			})
 		}
