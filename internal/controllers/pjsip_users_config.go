@@ -15,9 +15,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// pjsipIncludePattern define el patrón de expresión regular para las directivas de inclusión en la configuración PJSIP.
 var pjsipIncludePattern = regexp.MustCompile(`^\s*#(tryinclude|include)\s+(?:"([^"]+)"|'([^']+)'|([^;\s"']+))\s*(?:;.*)?$`)
 
 // Reserve section IDs as well as endpoint IDs: auth/AOR objects may use the same extension number.
+// readPJSIPSectionIDs lee las secciones de configuración PJSIP desde un archivo dado, resolviendo inclusiones y evitando ciclos, devolviendo un mapa de IDs de secciones y cualquier error encontrado.
 func readPJSIPSectionIDs(path string) (map[string]bool, error) {
 	ids := make(map[string]bool)
 	active := make(map[string]bool)
@@ -81,6 +83,7 @@ func readPJSIPSectionIDs(path string) (map[string]bool, error) {
 	return ids, nil
 }
 
+// PJSIPExtension representa una extensión PJSIP, incluyendo su ID, contexto, restricciones de códec, información de autenticación y configuración de medios.
 type PJSIPExtension struct {
 	ID              string   `json:"id"`
 	Context         string   `json:"context"`
@@ -93,14 +96,20 @@ type PJSIPExtension struct {
 	MediaEncryption string   `json:"media_encryption"`
 }
 
-func GetPJSIPExtensions(c echo.Context) error         { return newSIPUsersControl().getPJSIP(c) }
+// GetPJSIPExtensions maneja la solicitud para obtener todas las extensiones PJSIP.
+func GetPJSIPExtensions(c echo.Context) error { return newSIPUsersControl().getPJSIP(c) }
+
+// SaveOrUpdatePJSIPExtension maneja la solicitud para guardar o actualizar una extensión PJSIP.
 func SaveOrUpdatePJSIPExtension(c echo.Context) error { return newSIPUsersControl().savePJSIP(c) }
-func DeletePJSIPExtension(c echo.Context) error       { return newSIPUsersControl().deletePJSIP(c) }
+
+// DeletePJSIPExtension maneja la solicitud para eliminar una extensión PJSIP.
+func DeletePJSIPExtension(c echo.Context) error { return newSIPUsersControl().deletePJSIP(c) }
 
 // GetPJSIPExtensions maneja la solicitud para obtener todas las extensiones PJSIP.
 // SaveOrUpdatePJSIPExtension maneja la solicitud para guardar o actualizar una extensión PJSIP.
 // DeletePJSIPExtension maneja la solicitud para eliminar una extensión PJSIP.
 // pjsipUserSections obtiene las secciones de usuario PJSIP correspondientes a un ID específico, devolviendo un mapa de índices y cualquier error encontrado.
+// getPJSIP maneja la lógica interna para obtener todas las extensiones PJSIP, devolviendo un error si ocurre algún problema.
 func (p sipUsersControl) getPJSIP(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()

@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// enlaceExterno representa una fila de la tabla enlaces_externos.
 type enlaceExterno struct {
 	DashID      int64   `json:"dashid"`
 	Descripcion *string `json:"descripcion"`
@@ -24,6 +25,7 @@ type enlaceExterno struct {
 	IsActive    int     `json:"is_active"`
 }
 
+// enlaceExternoInput representa la estructura de entrada de enlaces externos, utilizada para crear o actualizar registros.
 type enlaceExternoInput struct {
 	Descripcion string `json:"descripcion"`
 	URL         string `json:"url"`

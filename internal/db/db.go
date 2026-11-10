@@ -16,7 +16,7 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// Open opens (creating if needed) the SQLite database at path and applies pending migrations.
+// Open abre (o crea, si es necesario) la base de datos SQLite situada en la ruta indicada y aplica las migraciones pendientes.
 func Open(path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return nil, err
@@ -66,6 +66,9 @@ func migrate(d *sql.DB, path string) error {
 		applied[n] = true
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
 
 	pending := 0
 	for _, name := range names {

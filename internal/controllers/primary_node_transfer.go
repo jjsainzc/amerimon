@@ -13,9 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Este archivo implementa la exportación e importación de permisos del nodo principal, incluyendo la validación y el manejo de errores relacionados con las listas de acceso.
 const maxAccessTransferEntries = 1000
 const maxAccessTransferBytes = 1024 * 1024
 
+// nodeAccessDocument representa un documento de exportación/importación de listas de acceso del nodo principal.
 type nodeAccessDocument struct {
 	Format  string            `json:"format"`
 	Version int               `json:"version"`
@@ -23,14 +25,17 @@ type nodeAccessDocument struct {
 	Entries []nodeAccessEntry `json:"entries"`
 }
 
+// ExportPrimaryNodeAccess maneja la solicitud para exportar las listas de acceso del nodo principal.
 func ExportPrimaryNodeAccess(c echo.Context) error {
 	return newPrimaryNodeControl().exportAccess(c)
 }
 
+// ImportPrimaryNodeAccess maneja la solicitud para importar las listas de acceso del nodo principal.
 func ImportPrimaryNodeAccess(c echo.Context) error {
 	return newPrimaryNodeControl().importAccess(c)
 }
 
+// exportAccess maneja la lógica interna para exportar las listas de acceso del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) exportAccess(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -55,6 +60,7 @@ func (p primaryNodeControl) exportAccess(c echo.Context) error {
 	return c.JSON(http.StatusOK, nodeAccessDocument{"amerimon-node-access", 1, node, entries})
 }
 
+// importAccess maneja la lógica interna para importar las listas de acceso del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) importAccess(c echo.Context) error {
 	var req struct {
 		Primary  string             `json:"primary_node"`

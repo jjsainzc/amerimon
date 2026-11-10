@@ -166,6 +166,7 @@ func (m *AudioStreamManager) AddConsumer(uuid string, consumer io.WriteCloser) {
 	m.consumers[uuid] = consumer
 }
 
+// RemoveConsumer cierra y elimina el consumidor asociado al UUID.
 func (m *AudioStreamManager) RemoveConsumer(uuid string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

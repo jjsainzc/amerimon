@@ -23,6 +23,7 @@ var (
 	reUUID = regexp.MustCompile(`^[0-9a-fA-F-]{36}$`) // HandleEAGIConnection lee exactamente 36 bytes
 )
 
+// listenLiveRequest representa la estructura de entrada para iniciar una sesión de escucha en vivo.
 type listenLiveRequest struct {
 	Ext  string `json:"ext"`  // extensión PJSIP a espiar
 	UUID string `json:"uuid"` // el mismo uuid que luego se usa en /listen-live/ws?uuid=
@@ -142,6 +143,7 @@ func listenLiveOriginateChannel(ext string) (string, error) {
 	return fmt.Sprintf("Local/%s@amerimon-listen-node/n", node), nil
 }
 
+// stopListenLiveRequest representa la estructura de entrada para detener una sesión de escucha en vivo.
 type stopListenLiveRequest struct {
 	UUID         string `json:"uuid"`         // opcional si se envía listenliveid
 	ListenLiveID int64  `json:"listenliveid"` // el uuid se toma de esta sesión
@@ -361,6 +363,7 @@ func listenLiveChannelDiagnostics(output, uuid string) []string {
 	return candidates
 }
 
+// ListenLiveSession representa una sesión de escucha en vivo, incluyendo información del usuario, IP de origen, UUID y marcas de tiempo de inicio y fin.
 type ListenLiveSession struct {
 	ID          uint32     `json:"listenliveid"`
 	UserID      *int       `json:"userid"`
@@ -372,6 +375,7 @@ type ListenLiveSession struct {
 	FechaFin    *time.Time `json:"fecha_fin"`
 }
 
+// updateListenLiveRequest representa la estructura de entrada para actualizar una sesión de escucha en vivo.
 type updateListenLiveRequest struct {
 	FechaFin *time.Time `json:"fecha_fin"`
 }
@@ -624,6 +628,7 @@ func DeleteListenLiveSession(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "message": "Sesión eliminada"})
 }
 
+// listenLiveScanner define la interfaz que debe implementar cualquier objeto que pueda escanear filas SQL para sesiones de escucha en vivo.
 type listenLiveScanner interface {
 	Scan(dest ...any) error
 }

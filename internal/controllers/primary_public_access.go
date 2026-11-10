@@ -15,24 +15,29 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// publicCallsignEntry representa una entrada individual en las listas de acceso público del nodo principal.
 type publicCallsignEntry struct {
 	Type     string `json:"type"`
 	Callsign string `json:"callsign"`
 	Reason   string `json:"reason"`
 }
 
+// GetPrimaryPublicAccess maneja la solicitud para obtener las listas de acceso público del nodo principal.
 func GetPrimaryPublicAccess(c echo.Context) error {
 	return newPrimaryNodeControl().getPublicAccess(c)
 }
 
+// SavePrimaryPublicAccess maneja la solicitud para guardar cambios en las listas de acceso público del nodo principal.
 func SavePrimaryPublicAccess(c echo.Context) error {
 	return newPrimaryNodeControl().changePublicAccess(c, false)
 }
 
+// DeletePrimaryPublicAccess maneja la solicitud para eliminar entradas de las listas de acceso público del nodo principal.
 func DeletePrimaryPublicAccess(c echo.Context) error {
 	return newPrimaryNodeControl().changePublicAccess(c, true)
 }
 
+// publicAccess obtiene las entradas de acceso público (whitelist y blacklist) del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) publicAccess() ([]publicCallsignEntry, error) {
 	result := make([]publicCallsignEntry, 0)
 	for _, family := range []string{"whitelist", "blacklist"} {
@@ -68,6 +73,7 @@ func (p primaryNodeControl) publicAccess() ([]publicCallsignEntry, error) {
 	return result, nil
 }
 
+// validatePublicCallsign valida una entrada de acceso público, asegurando que cumpla con las reglas de formato y restricciones, devolviendo un error si no es válida.
 func validatePublicCallsign(entry publicCallsignEntry) error {
 	if err := validatePublicCallsignKey(entry); err != nil {
 		return err
@@ -83,6 +89,7 @@ func validatePublicCallsign(entry publicCallsignEntry) error {
 	return nil
 }
 
+// validatePublicCallsignKey valida la clave de una entrada de acceso público (tipo y callsign), devolviendo un error si no es válida.
 func validatePublicCallsignKey(entry publicCallsignEntry) error {
 	if entry.Type != "whitelist" && entry.Type != "blacklist" {
 		return errors.New("Lista de indicativos inválida")
@@ -93,6 +100,7 @@ func validatePublicCallsignKey(entry publicCallsignEntry) error {
 	return nil
 }
 
+// getPublicAccess maneja la solicitud HTTP para obtener las listas de acceso público del nodo principal.
 func (p primaryNodeControl) getPublicAccess(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -103,6 +111,7 @@ func (p primaryNodeControl) getPublicAccess(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"entries": entries})
 }
 
+// changePublicAccess maneja la solicitud para agregar, actualizar o eliminar una entrada de acceso público, según el parámetro remove.
 func (p primaryNodeControl) changePublicAccess(c echo.Context, remove bool) error {
 	var req publicCallsignEntry
 	if err := c.Bind(&req); err != nil {

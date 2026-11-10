@@ -11,19 +11,23 @@ import (
 	"time"
 )
 
+// sipActivityServer representa un servidor SIP para la detección de actividad.
 type sipActivityServer struct {
 	host, port, user, secret string
 }
 
+// sipTalkingChannel representa un canal SIP que está actualmente activo en una conversación.
 type sipTalkingChannel struct {
 	id, node, endpoint string
 }
 
+// sipReceiveActivity mantiene el estado de los canales SIP activos por servidor.
 var sipReceiveActivity = struct {
 	sync.RWMutex
 	byServer map[sipActivityServer]map[string]sipTalkingChannel
 }{byServer: make(map[sipActivityServer]map[string]sipTalkingChannel)}
 
+// updateSIPTalkingEvent actualiza el estado de un canal SIP en función de un evento recibido.
 func updateSIPTalkingEvent(server sipActivityServer, event map[string]string) {
 	switch event["Event"] {
 	case "ChannelTalkingStart", "ChannelTalkingStop", "Hangup":
@@ -61,6 +65,7 @@ func updateSIPTalkingEvent(server sipActivityServer, event map[string]string) {
 	}
 }
 
+// currentSIPReceiveActivity devuelve la actividad actual de los canales SIP en función del estado configurado y el tiempo actual.
 func currentSIPReceiveActivity(now time.Time, configured map[string]allStarLinkReceiveState) []AllStarLinkNodeActivity {
 	activities := make([]AllStarLinkNodeActivity, 0)
 	seen := make(map[string]bool)
@@ -91,6 +96,7 @@ func currentSIPReceiveActivity(now time.Time, configured map[string]allStarLinkR
 	return activities
 }
 
+// watchSIPReceiveActivity supervisa los eventos de actividad SIP de un servidor y actualiza el estado correspondiente.
 func watchSIPReceiveActivity(ctx context.Context, server sipActivityServer) {
 	defer func() {
 		sipReceiveActivity.Lock()

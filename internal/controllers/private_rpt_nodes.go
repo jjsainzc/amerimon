@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Expresiones regulares y constantes utilizadas para validar nodos privados definidos en rpt.conf.
 var (
 	privateRPTNodeID     = regexp.MustCompile(`^[0-9]{4}$`)
 	rptNodeSectionID     = regexp.MustCompile(`^[0-9]{4,7}$`)
@@ -27,6 +28,7 @@ var (
 	privateRPTServerFlag = regexp.MustCompile(`^\s*;\s*amerimon_show_as_server\s*=\s*(yes|no)\s*$`)
 )
 
+// privateRPTNode representa un nodo privado definido en rpt.conf, incluyendo su ID, canal de recepción, configuraciones y si se muestra como servidor.
 type privateRPTNode struct {
 	ID           string            `json:"id"`
 	Rxchannel    string            `json:"rxchannel"`
@@ -34,16 +36,19 @@ type privateRPTNode struct {
 	ShowAsServer bool              `json:"show_as_server"`
 }
 
+// privateRPTNodesRequest representa la estructura de la solicitud HTTP para actualizar los nodos privados definidos en rpt.conf.
 type privateRPTNodesRequest struct {
 	Nodes []privateRPTNode `json:"nodes"`
 }
 
+// privateRPTNodeControl maneja las operaciones relacionadas con los nodos privados definidos en rpt.conf.
 type privateRPTNodeControl struct {
 	path      string
 	pjsipPath string
 	ami       func(string) (string, error)
 }
 
+// privateRPTConfigPath devuelve la ruta del archivo rpt.conf utilizado para los nodos privados, utilizando la configuración actual o la ruta predeterminada.
 func privateRPTConfigPath() string {
 	path := strings.TrimSpace(config.CurrentAMI().RPTConfigPath)
 	if path == "" {
@@ -52,15 +57,18 @@ func privateRPTConfigPath() string {
 	return path
 }
 
+// newPrivateRPTNodeControl crea una nueva instancia de privateRPTNodeControl con la configuración actual y las rutas de archivos correspondientes.
 func newPrivateRPTNodeControl() privateRPTNodeControl {
 	primary := newPrimaryNodeControl()
 	return privateRPTNodeControl{path: privateRPTConfigPath(), pjsipPath: newSIPUsersControl().pjsipPath, ami: primary.ami}
 }
 
+// GetPrivateRPTNodes maneja la solicitud HTTP para obtener los nodos privados definidos en rpt.conf.
 func GetPrivateRPTNodes(c echo.Context) error {
 	return newPrivateRPTNodeControl().get(c)
 }
 
+// get maneja la solicitud HTTP interna para obtener los nodos privados definidos en rpt.conf.
 func (p privateRPTNodeControl) get(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -82,6 +90,7 @@ func (p privateRPTNodeControl) get(c echo.Context) error {
 	})
 }
 
+// parsePrivateRPTTemplateSettings analiza el contenido de rpt.conf y devuelve los ajustes y descripciones de las plantillas en la sección "node-main".
 func parsePrivateRPTTemplateSettings(content string) (map[string]string, map[string]string) {
 	settings := make(map[string]string)
 	descriptions := make(map[string]string)
@@ -122,10 +131,12 @@ func parsePrivateRPTTemplateSettings(content string) (map[string]string, map[str
 	return settings, descriptions
 }
 
+// SavePrivateRPTNodes maneja la solicitud HTTP para actualizar los nodos privados definidos en rpt.conf.
 func SavePrivateRPTNodes(c echo.Context) error {
 	return newPrivateRPTNodeControl().save(c)
 }
 
+// save maneja la solicitud HTTP interna para actualizar los nodos privados definidos en rpt.conf.
 func (p privateRPTNodeControl) save(c echo.Context) error {
 	var request privateRPTNodesRequest
 	if err := c.Bind(&request); err != nil || request.Nodes == nil {
@@ -200,6 +211,7 @@ func (p privateRPTNodeControl) save(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok", "path": p.path, "reloaded": true, "module_loaded": true})
 }
 
+// privateRPTModuleLoaded verifica si el módulo app_rpt.so está cargado en Asterisk.
 func privateRPTModuleLoaded(output string) bool {
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Fields(strings.TrimPrefix(strings.TrimSpace(line), "Output: "))
@@ -210,11 +222,13 @@ func privateRPTModuleLoaded(output string) bool {
 	return false
 }
 
+// logPrivateRPTError registra un mensaje de error relacionado con los nodos privados de rpt.conf, sin incluir el contenido del archivo por razones de seguridad.
 func logPrivateRPTError(message string, err error) {
 	// El contenido de rpt.conf puede incluir configuración sensible.
 	log.Printf("private rpt nodes: %s (%T)", message, err)
 }
 
+// parsePrivateRPTNodes analiza el contenido de rpt.conf y devuelve los nodos privados definidos en él.
 func parsePrivateRPTNodes(content string) ([]privateRPTNode, error) {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	sections := make(map[string][]string)
@@ -277,6 +291,7 @@ func parsePrivateRPTNodes(content string) ([]privateRPTNode, error) {
 	return nodes, nil
 }
 
+// rewritePrivateRPTNodes genera el contenido actualizado de rpt.conf con los nodos privados solicitados.
 func rewritePrivateRPTNodes(content string, requested []privateRPTNode) (string, error) {
 	desired := make(map[string]privateRPTNode, len(requested))
 	rxchannels := make(map[string]string, len(requested))
@@ -491,6 +506,7 @@ func rewritePrivateRPTNodes(content string, requested []privateRPTNode) (string,
 	return strings.ReplaceAll(strings.Join(out, "\n"), "\n", eol), nil
 }
 
+// rptNodeRxchannels analiza el contenido de rpt.conf y devuelve un mapa de secciones a los canales de recepción configurados.
 func rptNodeRxchannels(content string) map[string]string {
 	channels := make(map[string]string)
 	section := ""
@@ -510,6 +526,7 @@ func rptNodeRxchannels(content string) map[string]string {
 	return channels
 }
 
+// setNodeAssignmentValue actualiza el valor de una asignación de nodo en una línea de rpt.conf, conservando el formato original.
 func setNodeAssignmentValue(line, value string) string {
 	match := nodeAssignment.FindStringSubmatch(line)
 	if match == nil {
@@ -518,6 +535,7 @@ func setNodeAssignmentValue(line, value string) string {
 	return match[1] + match[2] + match[3] + value + match[5]
 }
 
+// sortedPrivateRPTIDs devuelve una lista ordenada de los IDs de los nodos privados de RPT.
 func sortedPrivateRPTIDs(nodes map[string]privateRPTNode) []string {
 	ids := make([]string, 0, len(nodes))
 	for id := range nodes {
@@ -527,6 +545,7 @@ func sortedPrivateRPTIDs(nodes map[string]privateRPTNode) []string {
 	return ids
 }
 
+// sortedPrivateRPTSettingKeys devuelve una lista ordenada de las claves de configuración de un nodo privado de RPT.
 func sortedPrivateRPTSettingKeys(settings map[string]string) []string {
 	keys := make([]string, 0, len(settings))
 	for key := range settings {
@@ -536,6 +555,7 @@ func sortedPrivateRPTSettingKeys(settings map[string]string) []string {
 	return keys
 }
 
+// appendPrivateRPTSettings agrega las configuraciones de un nodo privado de RPT a las líneas de rpt.conf.
 func appendPrivateRPTSettings(lines []string, node privateRPTNode) []string {
 	for _, key := range sortedPrivateRPTSettingKeys(node.Settings) {
 		lines = append(lines, key+" = "+node.Settings[key])
@@ -547,6 +567,7 @@ func appendPrivateRPTSettings(lines []string, node privateRPTNode) []string {
 	return lines
 }
 
+// readPrivateRPTServerNodes analiza el contenido de rpt.conf y devuelve un mapa de los nodos privados de RPT que se muestran como servidores.
 func readPrivateRPTServerNodes(path string) (map[string]bool, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {

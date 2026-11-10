@@ -56,6 +56,7 @@ func dialAMI(host, port string, timeout time.Duration) (net.Conn, error) {
 	return nil, fmt.Errorf("conectar host AMI %q: %w", host, errors.Join(failures...))
 }
 
+// resolveAMIHost resuelve un hostname a direcciones IP, con soporte para .local.
 func resolveAMIHost(ctx context.Context, host string) ([]net.IPAddr, error) {
 	if !strings.HasSuffix(strings.ToLower(strings.TrimSuffix(host, ".")), ".local") {
 		return net.DefaultResolver.LookupIPAddr(ctx, host)

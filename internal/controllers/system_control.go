@@ -22,6 +22,7 @@ import (
 
 var systemControlLock sync.Mutex
 
+// systemControlResult representa el resultado de una operación de control del sistema, incluyendo acción, estado de recuperación, programación, detalles y advertencias.
 type systemControlResult struct {
 	Action    string   `json:"action"`
 	Recovered bool     `json:"recovered"`
@@ -30,6 +31,7 @@ type systemControlResult struct {
 	Warnings  string   `json:"warnings"`
 }
 
+// systemControl contiene las dependencias necesarias para operar el sistema.
 type systemControl struct {
 	run        func(context.Context, time.Duration, string, ...string) (string, error)
 	ami        func() error

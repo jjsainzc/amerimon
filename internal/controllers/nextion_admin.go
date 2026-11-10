@@ -25,6 +25,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// nextionBaudRates, nextionPortName y nextionModelName son expresiones regulares y mapas utilizados para validar y enumerar los puertos y modelos Nextion disponibles.
 var (
 	nextionBaudRates = map[int]uint32{
 		9600: syscall.B9600, 19200: syscall.B19200, 38400: syscall.B38400,
@@ -35,6 +36,7 @@ var (
 	nextionModelName = regexp.MustCompile(`^AMERINET_Nextion_([A-Za-z0-9._]+)$`)
 )
 
+// nextionSettings representa la configuración de un dispositivo Nextion, incluyendo el puerto, la velocidad de transmisión, la interfaz de red, el nodo favorito y si se deben enviar etiquetas internacionalizadas.
 type nextionSettings struct {
 	Enabled      bool   `json:"enabled"`
 	Port         string `json:"port"`
@@ -46,12 +48,14 @@ type nextionSettings struct {
 	SendLabels bool `json:"send_labels"`
 }
 
+// nextionNetworkInterface representa una interfaz de red disponible para la configuración Nextion, incluyendo su nombre, etiqueta descriptiva y dirección IPv4.
 type nextionNetworkInterface struct {
 	Name  string `json:"name"`
 	Label string `json:"label"`
 	IPv4  string `json:"ipv4,omitempty"`
 }
 
+// nextionPort representa un puerto serie disponible para la configuración Nextion, incluyendo información del fabricante, producto, IDs y número de serie.
 type nextionPort struct {
 	Path         string `json:"path"`
 	Label        string `json:"label"`
@@ -92,7 +96,7 @@ func discoverNextionInterfaces() []nextionNetworkInterface {
 	return result
 }
 
-// nextionInterfaceIPv4 obtiene la primera dirección IPv4 global unicast de la lista de direcciones proporcionada, ignorando las direcciones de bucle invertido y locales.
+// nextionInterfaceIPv4 obtiene la primera dirección IPv4 global unicast de la lista de direcciones proporcionada, ignorando las direcciones de bucle invertido y locales, y evita duplicados.
 func nextionInterfaceIPv4(addresses []net.Addr) string {
 	var values []string
 	seen := make(map[string]bool)
@@ -115,6 +119,7 @@ func hasNetworkInterface(name string) bool {
 	return err == nil && iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0
 }
 
+// nextionModel representa un modelo de pantalla Nextion disponible, incluyendo su nombre, modelo, URL de vista previa y si el código fuente está disponible.
 type nextionModel struct {
 	Name            string `json:"name"`
 	Model           string `json:"model"`
@@ -122,6 +127,7 @@ type nextionModel struct {
 	SourceAvailable bool   `json:"source_available"`
 }
 
+// nextionRuntimeStatus representa el estado de ejecución del servicio Nextion, incluyendo si está en ejecución, el puerto, el nodo local y cualquier error.
 type nextionRuntimeStatus struct {
 	Running   bool   `json:"running"`
 	Port      string `json:"port"`
@@ -129,6 +135,7 @@ type nextionRuntimeStatus struct {
 	Error     string `json:"error,omitempty"`
 }
 
+// nextionSettingsRequest representa la estructura de entrada para actualizar la configuración de un dispositivo Nextion.
 type nextionSettingsRequest struct {
 	Enabled      bool   `json:"enabled"`
 	Port         string `json:"port"`
@@ -138,11 +145,13 @@ type nextionSettingsRequest struct {
 	SendLabels   *bool  `json:"send_labels"`
 }
 
+// nextionPortTestRequest representa la estructura de entrada para probar un puerto serie de un dispositivo Nextion.
 type nextionPortTestRequest struct {
 	Port     string `json:"port"`
 	BaudRate int    `json:"baud_rate"`
 }
 
+// nextionService representa el servicio Nextion en ejecución, incluyendo su estado, puerto, nodo local, último error, revisión, función de cancelación y canales de notificación.
 type nextionService struct {
 	mu       sync.Mutex
 	running  bool
@@ -155,6 +164,7 @@ type nextionService struct {
 	notify   chan struct{}
 }
 
+// nextionRuntime es la instancia global del servicio Nextion, utilizada para rastrear su estado y notificaciones.
 var nextionRuntime = &nextionService{notify: make(chan struct{}, 1)}
 
 // readNextionSettings lee la configuración de Nextion desde la base de datos, proporcionando valores predeterminados y manejando errores de lectura.

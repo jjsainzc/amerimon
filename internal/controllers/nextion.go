@@ -98,6 +98,7 @@ const (
 	rxColor   = 1024
 )
 
+// nodeNumber es una expresión regular que valida los números de nodo permitidos (1 a 10 dígitos).
 var (
 	nodeNumber = regexp.MustCompile("^[1-9][0-9]{0,9}$")
 	releases   = []string{
@@ -113,6 +114,7 @@ var (
 	nextionSIPChannelName = regexp.MustCompile(`^PJSIP/[A-Za-z0-9_.-]{1,64}-[A-Za-z0-9_.-]{1,64}$`)
 )
 
+// systemAction representa una acción del sistema que puede ejecutarse, incluyendo los argumentos necesarios para el comando.
 type systemAction struct {
 	args []string
 }
@@ -140,6 +142,7 @@ type nextionTexts struct {
 	poweringOff     string
 }
 
+// nextionLanguages define los textos de la interfaz Nextion para cada idioma soportado, incluyendo español e inglés.
 var nextionLanguages = map[string]nextionTexts{
 	"es": {
 		langValue: "0", favorite: "Conectar el favorito", disconnectAll: "Desconectar todos",
@@ -159,6 +162,7 @@ var nextionLanguages = map[string]nextionTexts{
 	},
 }
 
+// nextionLanguageTexts devuelve los textos de la interfaz Nextion correspondientes al idioma especificado, usando español como valor predeterminado si el idioma no está disponible.
 func nextionLanguageTexts(language string) nextionTexts {
 	if texts, ok := nextionLanguages[language]; ok {
 		return texts
@@ -204,12 +208,14 @@ func executeSystem(action systemAction) error {
 	return nil
 }
 
+// nextionSIPChannel representa un canal SIP activo junto con su identificador de llamada.
 type nextionSIPChannel struct {
 	ID       string
 	CallerID string
 }
 
 // parseNextionSIPChannels analiza la salida cruda de AMI y devuelve una lista de canales SIP activos junto con sus identificadores de llamada.
+// El parámetro callerIDs es un mapa que asocia los endpoints SIP con sus identificadores de llamada conocidos.
 func parseNextionSIPChannels(raw string, callerIDs map[string]string) []nextionSIPChannel {
 	channels := make([]nextionSIPChannel, 0)
 	seen := make(map[string]struct{})
@@ -291,6 +297,7 @@ func nextionActivityLabel(label string, info AstDBEntry) string {
 	return nextionDisplayText(label + " - " + description)
 }
 
+// nextionNodeLabel genera la etiqueta de un nodo para mostrar en la interfaz Nextion, utilizando el indicativo EchoLink si está disponible, el número de nodo si es numérico, o el indicativo del nodo si está definido.
 func nextionNodeLabel(node string, info AstDBEntry, echoCallsign string) string {
 	if _, isEchoLink := echoLinkLookupNumber(node); isEchoLink {
 		callsign := strings.TrimSpace(info.Callsign)
@@ -376,6 +383,7 @@ func nextionDisplayText(value string) string {
 	return result.String()
 }
 
+// radioStatus representa el estado del radio, incluyendo la etiqueta de estado, color, nodos conectados y etiquetas de actividad de los nodos.
 type radioStatus struct {
 	label  string
 	color  int
@@ -383,12 +391,14 @@ type radioStatus struct {
 	labels map[string]string
 }
 
+// radio define la interfaz que debe implementar cualquier tipo de radio, incluyendo métodos para obtener el estado, enlazar nodos y cerrar la conexión.
 type radio interface {
 	status() (radioStatus, error)
 	link(method, node string) error
 	close()
 }
 
+// ami implementa la interfaz radio para interactuar con Asterisk mediante AMI.
 type ami struct {
 	host, port, username, secret, node string
 	echoLinkMu                         sync.Mutex
@@ -396,6 +406,7 @@ type ami struct {
 	echoLinkLookups                    map[string]time.Time
 }
 
+// close cierra la conexión con el radio, liberando cualquier recurso asociado.
 func (a *ami) close() {}
 
 // status obtiene el estado del radio, incluyendo el estado de transmisión, recepción y enlaces conectados, así como las etiquetas de actividad de los nodos.
@@ -520,6 +531,7 @@ func (a *ami) link(method, node string) error {
 	return err
 }
 
+// demo es una implementación de radio de demostración que simula el estado de transmisión y recepción, así como los enlaces conectados.
 type demo struct {
 	start time.Time
 	nodes []string
@@ -560,6 +572,7 @@ func (d *demo) link(method, node string) error {
 	return nil
 }
 
+// close cierra la radio de demostración, liberando cualquier recurso asociado.
 func (d *demo) close() {}
 
 // hasNode verifica si un nodo específico está presente en la lista de nodos proporcionada.
@@ -572,11 +585,13 @@ func hasNode(nodes []string, node string) bool {
 	return false
 }
 
+// press representa un evento de presión de un botón en el panel Nextion, incluyendo el nodo asociado y el momento en que se presionó.
 type press struct {
 	node string
 	at   time.Time
 }
 
+// panel representa el estado del panel Nextion, incluyendo la radio conectada, nodos locales y favoritos, información del sistema y estado de los slots.
 type panel struct {
 	radio                    radio
 	local, favorite, network string

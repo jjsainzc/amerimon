@@ -19,6 +19,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Este tipo representa un nodo AllStarLink con sus propiedades y estado actual.
 type AllStarLinkNode struct {
 	Protocolo       string              `json:"protocolo"`
 	Categoria       string              `json:"categoria,omitempty"`
@@ -41,6 +42,7 @@ type AllStarLinkNode struct {
 	Audio           *ConnectionAudio    `json:"audio,omitempty"`
 }
 
+// Este tipo representa una acción que se puede realizar sobre un nodo AllStarLink.
 type AllStarLinkAction struct {
 	ID           string                  `json:"id"`
 	Label        string                  `json:"label"`
@@ -51,11 +53,13 @@ type AllStarLinkAction struct {
 	IframeURL    string                  `json:"iframe_url,omitempty"`
 }
 
+// Este tipo representa una opción de nodo local disponible en la tabla de nodos AllStarLink.
 type AllStarLinkNodeOption struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
 }
 
+// Este tipo representa la tabla de nodos locales AllStarLink con sus propiedades y nodos disponibles.
 type AllStarLinkLocalTable struct {
 	NodoLocal         string                  `json:"nodo_local"`
 	Descripcion       string                  `json:"descripcion,omitempty"`
@@ -596,6 +600,7 @@ func readPrivateNodeEntries() (map[string]AstDBEntry, error) {
 	return entries, nil
 }
 
+// Este tipo representa una entrada en la base de datos privada de nodos AllStarLink.
 func isPrivateMonitorNode(node string, entries map[string]AstDBEntry) bool {
 	_, listed := entries[node]
 	return listed || allStarLinkNodeCategory(node) == "nodo_privado"
@@ -655,10 +660,12 @@ func readPrimaryRPTNode(path string) (string, error) {
 	return primary, nil
 }
 
+// Este tipo representa una conexión RPT activa en Asterisk.
 type rptConnection struct {
 	Node, RemoteIP, Direction, Connected, Link, Mode, Received string
 }
 
+// Este tipo representa un contacto SIP registrado en Asterisk.
 type sipContact struct {
 	Endpoint, URI, Status, Latency string
 }

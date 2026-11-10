@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// AsteriskOperationLog representa una fila de la tabla de registros de operaciones de Asterisk.
 type AsteriskOperationLog struct {
 	ID         int64  `json:"id"`
 	CreatedAt  string `json:"created_at"`

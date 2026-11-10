@@ -29,6 +29,7 @@ var (
 	nodeAssignment    = regexp.MustCompile(`^(\s*)([A-Za-z0-9_]+)(\s*=\s*)([^;]*)(.*)$`)
 )
 
+// primaryNodeRequest estructura la solicitud HTTP para cambiar la configuración del nodo principal.
 type primaryNodeRequest struct {
 	CurrentNode string `json:"current_node"`
 	Node        string `json:"node"`
@@ -37,12 +38,14 @@ type primaryNodeRequest struct {
 	Duplex      *int   `json:"duplex"`
 }
 
+// nodeAccessEntry representa una entrada individual en las listas de acceso del nodo principal.
 type nodeAccessEntry struct {
 	Type   string `json:"type"`
 	Node   string `json:"node"`
 	Reason string `json:"reason"`
 }
 
+// primaryNodeControl encapsula la lógica de control y acceso del nodo principal, incluyendo rutas de configuración y funciones AMI.
 type primaryNodeControl struct {
 	rptPath     string
 	allmonPaths []string
@@ -51,6 +54,7 @@ type primaryNodeControl struct {
 	amiLogin    func(host, port, user, secret, command string) (string, error)
 }
 
+// newPrimaryNodeControl crea una nueva instancia de primaryNodeControl con las rutas y funciones AMI configuradas.
 func newPrimaryNodeControl() primaryNodeControl {
 	path := config.CurrentAMI().RPTConfigPath
 	if path == "" {
@@ -70,20 +74,31 @@ func newPrimaryNodeControl() primaryNodeControl {
 	}
 }
 
-func GetPrimaryNodeConfig(c echo.Context) error  { return newPrimaryNodeControl().get(c) }
+// GetPrimaryNodeConfig maneja la solicitud para obtener la configuración del nodo principal.
+func GetPrimaryNodeConfig(c echo.Context) error { return newPrimaryNodeControl().get(c) }
+
+// SavePrimaryNodeConfig maneja la solicitud para guardar la configuración del nodo principal.
 func SavePrimaryNodeConfig(c echo.Context) error { return newPrimaryNodeControl().save(c) }
-func GetPrimaryNodeAccess(c echo.Context) error  { return newPrimaryNodeControl().getAccess(c) }
+
+// GetPrimaryNodeAccess maneja la solicitud para obtener las listas de acceso del nodo principal.
+func GetPrimaryNodeAccess(c echo.Context) error { return newPrimaryNodeControl().getAccess(c) }
+
+// SavePrimaryNodeAccess maneja la solicitud para guardar cambios en las listas de acceso del nodo principal.
 func SavePrimaryNodeAccess(c echo.Context) error {
 	return newPrimaryNodeControl().changeAccess(c, false)
 }
+
+// DeletePrimaryNodeAccess maneja la solicitud para eliminar entradas de las listas de acceso del nodo principal.
 func DeletePrimaryNodeAccess(c echo.Context) error {
 	return newPrimaryNodeControl().changeAccess(c, true)
 }
 
+// ClearPrimaryNodeAccess maneja la solicitud para vaciar completamente una lista de acceso del nodo principal.
 func ClearPrimaryNodeAccess(c echo.Context) error {
 	return newPrimaryNodeControl().clearAccess(c)
 }
 
+// clearAccess maneja la lógica interna para vaciar completamente una lista de acceso del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) clearAccess(c echo.Context) error {
 	var req struct {
 		Primary      string `json:"primary_node"`
@@ -133,6 +148,7 @@ func (p primaryNodeControl) clearAccess(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok"})
 }
 
+// primary obtiene el nodo principal configurado en rpt.conf, devolviendo un error si no se encuentra o no es válido.
 func (p primaryNodeControl) primary() (string, error) {
 	node, err := readPrimaryRPTNode(p.rptPath)
 	if err == nil && node == "" {
@@ -141,6 +157,7 @@ func (p primaryNodeControl) primary() (string, error) {
 	return node, err
 }
 
+// get maneja la lógica interna para obtener la configuración del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) get(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -199,18 +216,21 @@ func (p primaryNodeControl) get(c echo.Context) error {
 	})
 }
 
+// primaryNodeError maneja los errores relacionados con el nodo principal, registrando un mensaje seguro y devolviendo un error HTTP adecuado.
 func primaryNodeError(message string, err error) error {
 	// No registrar contenido ni respuestas AMI: pueden incluir credenciales.
 	log.Printf("primary node: %s (%T)", message, err)
 	return apiError(http.StatusInternalServerError, message+". Revisa los permisos y la configuración del servidor.")
 }
 
+// primaryFileChange representa un cambio en un archivo de configuración del nodo principal, incluyendo la ruta, el contenido original y el contenido actualizado.
 type primaryFileChange struct {
 	path     string
 	original string
 	updated  string
 }
 
+// validatePrimaryNodeRequest valida los campos de la solicitud de configuración del nodo principal, devolviendo un error si algún campo no cumple con los requisitos.
 func validatePrimaryNodeRequest(req primaryNodeRequest) error {
 	if !primaryNodeNumber.MatchString(req.Node) {
 		return errors.New("El nodo principal del monitor debe ser público: 4 a 6 dígitos sin comenzar por 0 o 1")
@@ -227,6 +247,7 @@ func validatePrimaryNodeRequest(req primaryNodeRequest) error {
 	return nil
 }
 
+// save maneja la lógica interna para guardar la configuración del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) save(c echo.Context) error {
 	var req primaryNodeRequest
 	if err := c.Bind(&req); err != nil {
@@ -335,6 +356,7 @@ func (p primaryNodeControl) save(c echo.Context) error {
 	})
 }
 
+// prepare determina los cambios necesarios para aplicar la configuración del nodo principal, incluyendo archivos de configuración y respaldos.
 func (p primaryNodeControl) prepare(old string, req primaryNodeRequest) ([]primaryFileChange, error) {
 	dir := filepath.Dir(p.rptPath)
 	names := []string{"rpt.conf", "rpt_http_registrations.conf", "iax.conf"}
@@ -516,6 +538,7 @@ func rewritePrimaryFile(name, content, old string, req primaryNodeRequest) (stri
 	return strings.ReplaceAll(strings.Join(lines, "\n"), "\n", eol), nil
 }
 
+// writePrimaryBackup escribe una copia de respaldo del archivo de configuración del nodo principal, devolviendo un error si ocurre algún problema.
 func writePrimaryBackup(path, content string) error {
 	f, err := os.OpenFile(path+".amerimon.bak", os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
@@ -531,6 +554,7 @@ func writePrimaryBackup(path, content string) error {
 	return f.Sync()
 }
 
+// writePrimaryFile escribe el contenido en el archivo de configuración del nodo principal, asegurando permisos y propiedad correctos, devolviendo un error si ocurre algún problema.
 func writePrimaryFile(path, content string) error {
 	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
@@ -569,6 +593,7 @@ func writePrimaryFile(path, content string) error {
 	return syncDirectory(filepath.Dir(resolved))
 }
 
+// access obtiene las entradas de acceso (allowlist y denylist) para un nodo específico, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) access(node string) ([]nodeAccessEntry, error) {
 	result := make([]nodeAccessEntry, 0)
 	for _, family := range []string{"allowlist", "denylist"} {
@@ -596,6 +621,7 @@ func (p primaryNodeControl) access(node string) ([]nodeAccessEntry, error) {
 	return result, nil
 }
 
+// validateNodeAccess valida una entrada de acceso para un nodo específico, asegurando que cumpla con las reglas de formato y restricciones, devolviendo un error si no es válida.
 func validateNodeAccess(entry nodeAccessEntry, primary string) error {
 	if entry.Type != "allowlist" && entry.Type != "denylist" {
 		return errors.New("Lista inválida")
@@ -617,6 +643,7 @@ func validateNodeAccess(entry nodeAccessEntry, primary string) error {
 	return nil
 }
 
+// putAccess agrega o actualiza una entrada de acceso para un nodo específico en AstDB, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) putAccess(node string, entry nodeAccessEntry) error {
 	if err := validateNodeAccess(entry, node); err != nil {
 		return err
@@ -631,6 +658,7 @@ func (p primaryNodeControl) putAccess(node string, entry nodeAccessEntry) error 
 	return nil
 }
 
+// removeAccess elimina una entrada de acceso para un nodo específico en AstDB, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) removeAccess(node string, entry nodeAccessEntry) error {
 	if err := validateNodeAccess(entry, node); err != nil {
 		return err
@@ -645,6 +673,7 @@ func (p primaryNodeControl) removeAccess(node string, entry nodeAccessEntry) err
 	return nil
 }
 
+// getAccess maneja la solicitud para obtener las entradas de acceso de un nodo principal, devolviendo un JSON con los resultados o un error HTTP.
 func (p primaryNodeControl) getAccess(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -659,6 +688,7 @@ func (p primaryNodeControl) getAccess(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"node": node, "entries": entries})
 }
 
+// changeAccess maneja la solicitud para agregar, actualizar o eliminar una entrada de acceso para un nodo principal, según el parámetro remove.
 func (p primaryNodeControl) changeAccess(c echo.Context, remove bool) error {
 	var req struct {
 		Primary string `json:"primary_node"`

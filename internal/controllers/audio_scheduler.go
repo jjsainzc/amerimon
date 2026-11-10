@@ -23,6 +23,7 @@ var (
 
 const audioQuietPeriod = 5 * time.Second
 
+// audioNodeState representa el estado de un nodo de audio, incluyendo la instancia monitoreada y si está ocupado.
 type audioNodeState struct {
 	instance allmonInstance
 	busy     bool

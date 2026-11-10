@@ -44,6 +44,7 @@ var audioTrackNamePattern = regexp.MustCompile(`^[\pL\pN _().,'-]{1,100}$`)
 var audioFilenamePattern = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\.wav$`)
 var rptAudioSectionPattern = regexp.MustCompile(`^\[([^\]]+)\]\s*(?:\(([^)]*)\))?`)
 
+// AudioTrack representa la información de una pista de audio, incluyendo metadatos y detalles de reproducción.
 type AudioTrack struct {
 	ID              int64      `json:"id"`
 	Name            string     `json:"name"`
@@ -62,12 +63,13 @@ type AudioTrack struct {
 	CreatedAt       time.Time  `json:"created_at"`
 }
 
+// storedAudioTrack representa la información de una pista de audio almacenada, incluyendo el nombre de archivo en el almacenamiento.
 type storedAudioTrack struct {
 	AudioTrack
 	StoredFilename string
 }
 
-// audioStoragePath devuelve la ruta de almacenamiento de archivos de audio.
+// audioStoragePath devuelve la ruta de almacenamiento de archivos de audio, considerando la configuración actual y la estructura de directorios de Asterisk.
 func audioStoragePath() string {
 	root := strings.TrimSpace(config.App.Audio.StorageDir)
 	dataDir, _ := asteriskDirectories()
@@ -77,13 +79,13 @@ func audioStoragePath() string {
 	return filepath.Join(root, audioSubdirectory)
 }
 
-// legacyAudioStoragePath devuelve la ruta de almacenamiento de archivos de audio en la estructura de directorios heredada.
+// legacyAudioStoragePath devuelve la ruta de almacenamiento de archivos de audio en la estructura de directorios heredada, utilizada para compatibilidad con versiones anteriores.
 func legacyAudioStoragePath() string {
 	_, varLibDir := asteriskDirectories()
 	return filepath.Join(varLibDir, "sounds", audioSubdirectory)
 }
 
-// asteriskDirectories devuelve los directorios de datos y de biblioteca de Asterisk, leyendo la configuración desde asterisk.conf.
+// asteriskDirectories devuelve los directorios de datos y de biblioteca de Asterisk, leyendo la configuración desde asterisk.conf y aplicando valores por defecto si es necesario.
 func asteriskDirectories() (dataDir, varLibDir string) {
 	dataDir, varLibDir = defaultAsteriskDir, defaultAsteriskDir
 	rptConfigPath := strings.TrimSpace(config.App.AMI.RPTConfigPath)

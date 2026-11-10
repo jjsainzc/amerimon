@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// SiteSettings contiene la configuración general del sitio web.
 type SiteSettings struct {
 	Title                        string `json:"title"`
 	Subtitle                     string `json:"subtitle"`
@@ -25,7 +26,7 @@ type SiteSettings struct {
 	AppVersion                   string `json:"app_version"`
 }
 
-// GetSiteSettings devuelve el título, subtítulo y ubicación del clima guardados, junto con las versiones de la aplicación y Asterisk.
+// GetSiteSettings devuelve la configuración general del sitio, incluyendo título, subtítulo, ubicación del clima y versiones de la aplicación y Asterisk.
 func GetSiteSettings(c echo.Context) error {
 	settings := SiteSettings{Title: "Amerimon", AllstarlinkRefreshIntervalMS: 15000, AppVersion: config.App.Version}
 	if config.App.DB != nil {
@@ -41,7 +42,7 @@ func GetSiteSettings(c echo.Context) error {
 	return c.JSON(http.StatusOK, settings)
 }
 
-// SaveSiteSettings valida y persiste el título, subtítulo y ubicación del clima; responde con la configuración actualizada.
+// SaveSiteSettings valida y persiste la configuración general del sitio, incluyendo título, subtítulo, ubicación del clima y el intervalo de actualización de AllStarLink; responde con la configuración actualizada.
 func SaveSiteSettings(c echo.Context) error {
 	var request struct {
 		Title                        string `json:"title"`
@@ -91,6 +92,7 @@ func SaveSiteSettings(c echo.Context) error {
 	return GetSiteSettings(c)
 }
 
+// validAllstarlinkRefreshInterval valida que el intervalo de actualización de AllStarLink sea uno de los permitidos.
 func validAllstarlinkRefreshInterval(interval int) bool {
 	switch interval {
 	case -1, 0, 5000, 10000, 15000, 30000, 60000, 300000:
@@ -100,6 +102,7 @@ func validAllstarlinkRefreshInterval(interval int) bool {
 	}
 }
 
+// allstarlinkRefreshInterval obtiene el intervalo de actualización de AllStarLink desde la base de datos, devolviendo un valor predeterminado si no está configurado o es inválido.
 func allstarlinkRefreshInterval(ctx context.Context) int {
 	const defaultInterval = 15000
 	if config.App.DB == nil {

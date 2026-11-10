@@ -23,6 +23,7 @@ type StatItem struct {
 	Value string `json:"value"`
 }
 
+// LStatRow representa una fila de la tabla de conexiones de nodos AllStarLink, incluyendo dirección, tiempo de conexión y estado.
 type LStatRow struct {
 	Node       string `json:"node"`
 	Peer       string `json:"peer"`
@@ -32,6 +33,7 @@ type LStatRow struct {
 	State      string `json:"connect_state"`
 }
 
+// NodeRow representa una fila de la tabla de nodos AllStarLink, incluyendo información de contacto y ubicación.
 type NodeRow struct {
 	Node     string `json:"node"`
 	Callsign string `json:"callsign"`
@@ -40,6 +42,7 @@ type NodeRow struct {
 	Direct   bool   `json:"direct"`
 }
 
+// RegistryRow representa una fila de la tabla de registros IAX o RPT, incluyendo host, usuario, percepción, refresco y estado.
 type RegistryRow struct {
 	Host      string `json:"host"`
 	Username  string `json:"username"`
@@ -48,6 +51,7 @@ type RegistryRow struct {
 	State     string `json:"state"`
 }
 
+// AllStarNodesResponse organiza la respuesta de estado y conexiones de un nodo AllStarLink, incluyendo información del nodo, estadísticas y registros.
 type AllStarNodesResponse struct {
 	Node           int           `json:"node"`
 	NodeInfo       NodeRow       `json:"node_info"`

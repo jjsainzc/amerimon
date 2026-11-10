@@ -27,6 +27,7 @@ import (
 	"github.com/shirou/gopsutil/v4/process"
 )
 
+// SystemInfo contiene todas las métricas del sistema y Asterisk disponibles.
 type SystemInfo struct {
 	OS              SystemOS            `json:"os"`
 	CPU             SystemCPU           `json:"cpu"`
@@ -40,6 +41,7 @@ type SystemInfo struct {
 	AsteriskVersion string              `json:"asterisk_version"`
 }
 
+// SystemOS contiene información sobre el sistema operativo y el anfitrión.
 type SystemOS struct {
 	Hostname     string `json:"hostname"`
 	Platform     string `json:"platform"`
@@ -50,6 +52,7 @@ type SystemOS struct {
 	Uptime       string `json:"uptime"`
 }
 
+// SystemCPU contiene información sobre la CPU, incluyendo núcleos, modelo, velocidad, uso y carga promedio.
 type SystemCPU struct {
 	Cores    int     `json:"cores"`
 	Logicals int     `json:"logicals"`
@@ -61,6 +64,7 @@ type SystemCPU struct {
 	Load15   float64 `json:"load15"`
 }
 
+// SystemMemory contiene información sobre la memoria del sistema, incluyendo total, disponible, usada y porcentaje usado.
 type SystemMemory struct {
 	Total       string `json:"total"`
 	Available   string `json:"available"`
@@ -68,6 +72,7 @@ type SystemMemory struct {
 	UsedPercent string `json:"used_percent"`
 }
 
+// SystemStorage contiene información sobre el almacenamiento del sistema, incluyendo puntos de montaje, tipo de sistema de archivos, total, libre, porcentaje usado y swap.
 type SystemStorage struct {
 	Mountpoint  string `json:"mountpoint"`
 	FSType      string `json:"fs_type"`
@@ -77,6 +82,7 @@ type SystemStorage struct {
 	Swap        string `json:"swap"`
 }
 
+// SystemNetwork contiene información sobre las interfaces de red, incluyendo dispositivo, dirección MAC, estado y direcciones IP.
 type SystemNetwork struct {
 	Device      string   `json:"device"`
 	MACAddress  string   `json:"mac_address"`
@@ -84,17 +90,20 @@ type SystemNetwork struct {
 	IPAddresses []string `json:"ip_address"`
 }
 
+// SystemTraffic contiene información sobre el tráfico de red, incluyendo bytes recibidos y enviados.
 type SystemTraffic struct {
 	BytesRecv uint64 `json:"bytes_recv"`
 	BytesSent uint64 `json:"bytes_sent"`
 }
 
+// SystemProcess contiene información sobre los procesos del sistema, incluyendo PID, nombre y porcentaje de CPU usado.
 type SystemProcess struct {
 	PID        int32   `json:"PID"`
 	Name       string  `json:"Nombre"`
 	CPUPercent float64 `json:"CPUPercent"`
 }
 
+// SystemTemperature contiene información sobre la temperatura del sistema, incluyendo zona, tipo y grados Celsius.
 type SystemTemperature struct {
 	Zone    string  `json:"zona"`
 	Type    string  `json:"tipo"`

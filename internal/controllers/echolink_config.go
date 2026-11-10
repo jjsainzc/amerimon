@@ -21,6 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// echoLinkSectionPattern, echoLinkCallPattern, echoLinkContextPattern y echoLinkHostPattern son expresiones regulares utilizadas para validar secciones, llamadas, contextos y hosts de EchoLink respectivamente.
 var echoLinkSectionPattern = regexp.MustCompile(`^el[0-9]+$`)
 var echoLinkCallPattern = regexp.MustCompile(`^[A-Z0-9]+(?:-[LR])?$`)
 var echoLinkContextPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,80}$`)
@@ -31,17 +32,20 @@ var echoLinkKeys = []string{
 	"recfile", "context", "server1", "server2", "server3", "server4",
 }
 
+// echoLinkConfigControl representa el control de la configuración de EchoLink, incluyendo la ruta del archivo de configuración, la ruta de los módulos y el control del nodo primario.
 type echoLinkConfigControl struct {
 	path, modulesPath string
 	primary           primaryNodeControl
 }
 
+// echoLinkSection representa una sección de la configuración de EchoLink, incluyendo el nombre de la sección, los valores asociados y si la contraseña está configurada.
 type echoLinkSection struct {
 	Section     string            `json:"section"`
 	Values      map[string]string `json:"values"`
 	PasswordSet bool              `json:"password_set"`
 }
 
+// echoLinkRequest representa una solicitud para modificar la configuración de EchoLink, incluyendo la sección, la revisión, el nodo AST, los valores y la contraseña.
 type echoLinkRequest struct {
 	Section  string            `json:"section"`
 	Revision string            `json:"revision"`

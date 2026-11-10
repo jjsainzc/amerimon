@@ -21,9 +21,13 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// amiSecretPattern define el patrón de expresión regular para validar el secret AMI.
 var amiSecretPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{6,128}$`)
+
+// amiUserPattern define el patrón de expresión regular para validar el usuario AMI.
 var amiUserPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
 
+// primaryAMIConfig representa la configuración AMI del nodo principal, incluyendo usuario, secret, dirección de enlace y listas de control de acceso.
 type primaryAMIConfig struct {
 	User        string   `json:"user"`
 	Secret      string   `json:"secret"`
@@ -33,6 +37,7 @@ type primaryAMIConfig struct {
 	Deny        []string `json:"deny"`
 }
 
+// primaryAMIRequest representa la solicitud de configuración AMI entrante para el nodo principal.
 type primaryAMIRequest struct {
 	Secret      string   `json:"secret"`
 	BindAddress string   `json:"bind_address"`
@@ -40,20 +45,25 @@ type primaryAMIRequest struct {
 	Deny        []string `json:"deny"`
 }
 
+// amiConfigFile representa un archivo de configuración AMI que se ha modificado, incluyendo su ruta, contenido original y actualizado.
 type amiConfigFile struct {
 	path     string
 	original string
 	updated  string
 }
 
+// GetPrimaryNodeAMIConfig maneja la solicitud para obtener la configuración AMI del nodo principal.
 func GetPrimaryNodeAMIConfig(c echo.Context) error {
 	return newPrimaryNodeControl().getAMIConfig(c)
 }
+
+// SavePrimaryNodeAMIConfig maneja la solicitud para guardar la configuración AMI del nodo principal.
 
 func SavePrimaryNodeAMIConfig(c echo.Context) error {
 	return newPrimaryNodeControl().saveAMIConfig(c)
 }
 
+// getAMIConfig maneja la lógica interna para obtener la configuración AMI del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) getAMIConfig(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -97,6 +107,7 @@ func (p primaryNodeControl) getAMIConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// saveAMIConfig maneja la lógica interna para guardar la configuración AMI del nodo principal, devolviendo un error si ocurre algún problema.
 func (p primaryNodeControl) saveAMIConfig(c echo.Context) error {
 	var req primaryAMIRequest
 	if err := c.Bind(&req); err != nil {
@@ -274,6 +285,7 @@ func (p primaryNodeControl) saveAMIConfig(c echo.Context) error {
 	})
 }
 
+// resolveProtectedAMIHost resuelve un host protegido de AMI a sus direcciones IP correspondientes, manejando "localhost" de manera especial.
 func resolveProtectedAMIHost(host string) ([]netip.Addr, error) {
 	if strings.EqualFold(host, "localhost") {
 		return []netip.Addr{netip.MustParseAddr("127.0.0.1"), netip.MustParseAddr("::1")}, nil
@@ -283,6 +295,7 @@ func resolveProtectedAMIHost(host string) ([]netip.Addr, error) {
 	return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 }
 
+// normalizeManagerNetworks normaliza una lista de redes de manager.conf, validando cada una y devolviendo un error si alguna es inválida.
 func normalizeManagerNetworks(values []string) ([]string, error) {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
@@ -299,6 +312,7 @@ func normalizeManagerNetworks(values []string) ([]string, error) {
 	return result, nil
 }
 
+// managerPrefix analiza un valor de red de manager.conf y devuelve un netip.Prefix correspondiente, manejando tanto CIDR como máscaras de subred.
 func managerPrefix(value string) (netip.Prefix, error) {
 	if prefix, err := netip.ParsePrefix(value); err == nil {
 		return prefix, nil
@@ -326,6 +340,7 @@ func managerPrefix(value string) (netip.Prefix, error) {
 	return netip.PrefixFrom(addr, bits), nil
 }
 
+// hasMatchingNetwork verifica si una dirección IP coincide con alguna de las redes proporcionadas.
 func hasMatchingNetwork(networks []string, addr netip.Addr) bool {
 	for _, network := range networks {
 		prefix, err := managerPrefix(network)
@@ -336,6 +351,7 @@ func hasMatchingNetwork(networks []string, addr netip.Addr) bool {
 	return false
 }
 
+// hasEquivalentNetwork verifica si una red candidata es equivalente a alguna de las redes existentes, considerando máscaras de subred.
 func hasEquivalentNetwork(networks []string, candidate string) bool {
 	prefix, err := managerPrefix(candidate)
 	if err != nil {
@@ -351,6 +367,7 @@ func hasEquivalentNetwork(networks []string, candidate string) bool {
 	return false
 }
 
+// managerSection representa una sección en manager.conf, incluyendo su nombre, rango de líneas y contenido.
 type managerSection struct {
 	name  string
 	start int
@@ -358,9 +375,12 @@ type managerSection struct {
 	lines []string
 }
 
+// managerHeaderPattern define el patrón de expresión regular para los encabezados de sección en manager.conf.
+// managerOptionPattern define el patrón de expresión regular para las opciones dentro de una sección en manager.conf.
 var managerHeaderPattern = regexp.MustCompile(`^\s*\[([^\]]+)\]`)
 var managerOptionPattern = regexp.MustCompile(`^\s*([A-Za-z0-9_]+)\s*(?:=>|=)\s*([^;#]*?)\s*(?:[;#].*)?$`)
 
+// parseManagerSections divide el contenido de manager.conf en secciones, facilitando el análisis y modificación de configuraciones.
 func parseManagerSections(content string) []managerSection {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	var sections []managerSection
@@ -377,6 +397,7 @@ func parseManagerSections(content string) []managerSection {
 	return sections
 }
 
+// options obtiene todos los valores de una opción específica dentro de la sección.
 func (s managerSection) options(key string) []string {
 	var values []string
 	for _, line := range s.lines[s.start+1 : s.end] {
@@ -392,8 +413,10 @@ func (s managerSection) options(key string) []string {
 	return values
 }
 
+// values es un alias de options, proporcionando todos los valores de una opción específica.
 func (s managerSection) values(key string) []string { return s.options(key) }
 
+// last obtiene el último valor de una opción específica dentro de la sección, devolviendo un booleano que indica si se encontró algún valor.
 func (s managerSection) last(key string) (string, bool) {
 	values := s.options(key)
 	if len(values) == 0 {
@@ -402,6 +425,7 @@ func (s managerSection) last(key string) (string, bool) {
 	return values[len(values)-1], true
 }
 
+// updateManagerConfig actualiza la configuración de manager.conf para un usuario AMI específico, modificando la dirección de enlace, las reglas de permit/deny y otras opciones proporcionadas.
 func updateManagerConfig(content, user, secret, bindAddress string, permits, denies []string, protected []netip.Addr) (string, error) {
 	eol := "\n"
 	if strings.Contains(content, "\r\n") {
@@ -500,6 +524,7 @@ func updateManagerConfig(content, user, secret, bindAddress string, permits, den
 	return strings.ReplaceAll(strings.Join(lines, "\n"), "\n", eol), nil
 }
 
+// hasEquivalentNetworkOption verifica si una opción de red equivalente ya existe en la lista de opciones proporcionada.
 func hasEquivalentNetworkOption(options []string, key, candidate string) bool {
 	prefix, err := managerPrefix(candidate)
 	if err != nil {
@@ -518,6 +543,7 @@ func hasEquivalentNetworkOption(options []string, key, candidate string) bool {
 	return false
 }
 
+// formatManagerACL formatea una regla de ACL de manager.conf con la clave y el valor proporcionados, aplicando la máscara de red adecuada.
 func formatManagerACL(key, value string) string {
 	prefix, err := managerPrefix(value)
 	if err != nil {
@@ -531,6 +557,7 @@ func formatManagerACL(key, value string) string {
 	return key + "=" + prefix.String()
 }
 
+// replaceManagerOption reemplaza una opción específica en una sección de manager.conf, o la agrega si no existe.
 func replaceManagerOption(lines []string, section managerSection, key, value string) ([]string, *managerSection, error) {
 	found := false
 	pattern := regexp.MustCompile(`(?i)^(\s*)(` + regexp.QuoteMeta(key) + `\s*(?:=|=>)\s*)([^;#]*?)(\s*(?:[;#].*)?)$`)
@@ -557,6 +584,8 @@ func replaceManagerOption(lines []string, section managerSection, key, value str
 	return nil, nil, errors.New("no se pudo actualizar una opción de manager.conf")
 }
 
+// updateAMIYAML actualiza la sección "ami" en un archivo YAML con los valores proporcionados para host, user y secret.
+// Si alguna de las claves no existe, se agrega al final de la sección.
 func updateAMIYAML(content, host, user string) (string, error) {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	sectionStart, sectionEnd := -1, len(lines)
@@ -613,6 +642,7 @@ func updateAMIYAML(content, host, user string) (string, error) {
 	return strings.ReplaceAll(strings.Join(lines, "\n"), "\n", eol), nil
 }
 
+// updateAMIEnvironment actualiza las variables de entorno AMI_USER y AMI_SECRET en el contenido proporcionado.
 func updateAMIEnvironment(content, user, secret string) (string, error) {
 	values := map[string]string{"AMI_USER": user, "AMI_SECRET": secret}
 	found := make(map[string]bool)

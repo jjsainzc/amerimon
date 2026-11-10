@@ -18,8 +18,10 @@ import (
 
 const appLanguageKey = "app_language"
 
+// Este tipo representa los idiomas disponibles en la aplicación.
 var appLanguages = map[string]bool{"es": true, "en": true}
 
+// readAppLanguage lee el idioma actual de la aplicación desde la base de datos. Si no se encuentra o hay un error, devuelve "es".
 func readAppLanguage(ctx context.Context) string {
 	if config.App.DB == nil {
 		return "es"

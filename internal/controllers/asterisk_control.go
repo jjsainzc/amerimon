@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Este tipo representa un comando de Supermon disponible en Asterisk.
 type SupermonCommand struct {
 	ID                       string `json:"id"`
 	Label                    string `json:"label"`
@@ -24,6 +25,7 @@ type SupermonCommand struct {
 	SupportsPermanent        bool   `json:"supports_permanent"`
 }
 
+// Este tipo representa una solicitud de ejecución de un comando de Supermon.
 type SupermonCommandRequest struct {
 	LocalNode               string `json:"local_node"`
 	RemoteNode              string `json:"remote_node"`
@@ -33,12 +35,14 @@ type SupermonCommandRequest struct {
 	DisconnectBeforeConnect bool   `json:"disconnect_before_connect"`
 }
 
+// Este tipo representa una solicitud de conexión de nodo en Asterisk.
 type NodeConnectionRequest struct {
 	LocalNode  string `json:"local_node"`
 	RemoteNode string `json:"remote_node"`
 	Mode       string `json:"mode"`
 }
 
+// Este tipo representa la definición interna de un comando de Supermon, incluyendo su plantilla de comando.
 type supermonCommandDefinition struct {
 	SupermonCommand
 	command string

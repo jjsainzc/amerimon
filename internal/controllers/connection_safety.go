@@ -15,17 +15,21 @@ import (
 	"time"
 )
 
+// pendingRPTLink representa un enlace RPT pendiente de validación, identificando el servidor y los nodos locales y remotos involucrados.
 type pendingRPTLink struct {
 	server, local, remote string
 }
 
+// rptConnectionSafety mantiene un registro de los enlaces RPT pendientes de validación, protegiendo el acceso concurrente mediante un mutex.
 var rptConnectionSafety = struct {
 	sync.Mutex
 	pending map[pendingRPTLink]time.Time
 }{pending: make(map[pendingRPTLink]time.Time)}
 
+// rptLinkGraph representa un grafo de enlaces RPT, donde cada nodo local puede tener múltiples nodos remotos alcanzables.
 type rptLinkGraph map[string]map[string]bool
 
+// add agrega un enlace bidireccional entre los nodos locales y remotos en el grafo.
 func (g rptLinkGraph) add(local, remote string) {
 	if g[local] == nil {
 		g[local] = make(map[string]bool)
@@ -36,6 +40,7 @@ func (g rptLinkGraph) add(local, remote string) {
 	g[local][remote], g[remote][local] = true, true
 }
 
+// path encuentra un camino entre el nodo de origen y el nodo de destino en el grafo, devolviendo la secuencia de nodos si existe.
 func (g rptLinkGraph) path(origin, destination string) []string {
 	queue := []string{origin}
 	parents := map[string]string{origin: ""}
@@ -68,6 +73,7 @@ func (g rptLinkGraph) path(origin, destination string) []string {
 	return nil
 }
 
+// addRPTVisibleLinks analiza la salida de AMI para agregar enlaces RPT visibles al grafo, devolviendo un error si se detecta información inválida.
 func addRPTVisibleLinks(graph rptLinkGraph, local, raw string) error {
 	hasStatus := false
 	for _, line := range config.ParseAMIOutputToLines(raw) {
@@ -221,6 +227,7 @@ func validateRPTConnection(ctx context.Context, selected allmonInstance, remote 
 	return 0, nil
 }
 
+// matchesRecordedRPTConnection verifica si la conexión RPT existente coincide con la solicitud actual, devolviendo si es la misma, si se conoce y cualquier error ocurrido.
 func matchesRecordedRPTConnection(ctx context.Context, local string, existing rptConnection, request SupermonCommandRequest) (same, known bool, err error) {
 	if config.App.DB == nil {
 		return false, false, fmt.Errorf("base de datos no disponible")
@@ -249,14 +256,17 @@ func matchesRecordedRPTConnection(ctx context.Context, local string, existing rp
 	return false, false, nil
 }
 
+// rptServerKey genera una clave única para identificar un servidor RPT basado en su host y puerto.
 func rptServerKey(instance allmonInstance) string {
 	return instance.Host + ":" + instance.Port
 }
 
+// rememberPendingRPTLink registra un enlace RPT pendiente de validación, estableciendo un tiempo de expiración.
 func rememberPendingRPTLink(instance allmonInstance, remote string, timeout time.Duration) {
 	rptConnectionSafety.pending[pendingRPTLink{rptServerKey(instance), instance.Node, remote}] = time.Now().Add(timeout)
 }
 
+// forgetPendingRPTLinks elimina los enlaces RPT pendientes que coinciden con los nodos locales y remotos especificados.
 func forgetPendingRPTLinks(local, remote string) {
 	for link := range rptConnectionSafety.pending {
 		if (link.local == local && (remote == "" || link.remote == remote)) ||

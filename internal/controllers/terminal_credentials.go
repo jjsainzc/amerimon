@@ -24,6 +24,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Las constantes del archivo establecen límites de tamaño para las solicitudes y claves.
 const (
 	terminalCredentialMaxRequest = 96 * 1024
 	terminalCredentialMaxKey     = 48 * 1024
@@ -31,6 +32,7 @@ const (
 
 var terminalCredentialKeyMu sync.Mutex
 
+// terminalCredentialTarget representa un destino SSH único, incluyendo host, puerto, nombre de usuario y método de autenticación.
 type terminalCredentialTarget struct {
 	Host       string `json:"host"`
 	Port       int    `json:"port"`
@@ -38,19 +40,21 @@ type terminalCredentialTarget struct {
 	AuthMethod string `json:"authMethod"`
 }
 
+// terminalCredentialData contiene las credenciales SSH, incluyendo contraseña, clave privada y frase de contraseña de la clave.
 type terminalCredentialData struct {
 	Password      string `json:"password,omitempty"`
 	PrivateKey    string `json:"privateKey,omitempty"`
 	KeyPassphrase string `json:"keyPassphrase,omitempty"`
 }
 
+// terminalCredentialSaveRequest representa la solicitud para guardar credenciales SSH, incluyendo el destino, los datos y si se deben reemplazar las existentes.
 type terminalCredentialSaveRequest struct {
 	terminalCredentialTarget
 	terminalCredentialData
 	ReplaceExisting bool `json:"replaceExisting"`
 }
 
-// SaveTerminalCredentials stores credentials encrypted for one SSH destination.
+// SaveTerminalCredentials almacena credenciales cifradas para un destino SSH.
 func SaveTerminalCredentials(c echo.Context) error {
 	var request terminalCredentialSaveRequest
 	if err := decodeTerminalCredentialRequest(c, &request); err != nil {
@@ -131,11 +135,13 @@ func GetTerminalCredentials(c echo.Context) error {
 	})
 }
 
+// decodeTerminalCredentialRequest decodifica la solicitud de credenciales SSH en el destino proporcionado.
 func decodeTerminalCredentialRequest(c echo.Context, target any) error {
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, terminalCredentialMaxRequest)
 	return json.NewDecoder(c.Request().Body).Decode(target)
 }
 
+// terminalCredentialTargetKey genera una clave única para un destino SSH basado en host, puerto, usuario y método de autenticación.
 func terminalCredentialTargetKey(target terminalCredentialTarget) (string, error) {
 	target.Host = strings.TrimSpace(target.Host)
 	target.Username = strings.TrimSpace(target.Username)
@@ -159,6 +165,7 @@ func terminalCredentialTargetKey(target terminalCredentialTarget) (string, error
 	return fmt.Sprintf("%x", digest[:]), nil
 }
 
+// validateTerminalCredentialData valida los datos de credenciales SSH según el método de autenticación del destino.
 func validateTerminalCredentialData(target terminalCredentialTarget, credentials terminalCredentialData) error {
 	switch target.AuthMethod {
 	case "password":
@@ -176,6 +183,7 @@ func validateTerminalCredentialData(target terminalCredentialTarget, credentials
 	return nil
 }
 
+// terminalCredentialKeyPath devuelve la ruta del archivo de clave de credenciales SSH, ya sea desde la variable de entorno o basada en la ruta de la base de datos.
 func terminalCredentialKeyPath() (string, error) {
 	if path := os.Getenv("AMERIMON_TERMINAL_CREDENTIALS_KEY_FILE"); path != "" {
 		return path, nil
@@ -186,6 +194,7 @@ func terminalCredentialKeyPath() (string, error) {
 	return filepath.Join(filepath.Dir(config.App.DBPath), "terminal-credentials.key"), nil
 }
 
+// loadOrCreateTerminalCredentialKey carga la clave de credenciales SSH desde el archivo o la crea si no existe.
 func loadOrCreateTerminalCredentialKey() ([]byte, error) {
 	terminalCredentialKeyMu.Lock()
 	defer terminalCredentialKeyMu.Unlock()
@@ -219,6 +228,7 @@ func loadOrCreateTerminalCredentialKey() ([]byte, error) {
 	return readTerminalCredentialKey(path)
 }
 
+// loadTerminalCredentialKey carga la clave de credenciales SSH desde el archivo.
 func loadTerminalCredentialKey() ([]byte, error) {
 	terminalCredentialKeyMu.Lock()
 	defer terminalCredentialKeyMu.Unlock()
@@ -230,6 +240,7 @@ func loadTerminalCredentialKey() ([]byte, error) {
 	return readTerminalCredentialKey(path)
 }
 
+// readTerminalCredentialKey lee la clave de credenciales SSH desde la ruta proporcionada y valida su formato.
 func readTerminalCredentialKey(path string) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
@@ -248,6 +259,7 @@ func readTerminalCredentialKey(path string) ([]byte, error) {
 	return key, nil
 }
 
+// encryptTerminalCredentials cifra las credenciales SSH para un destino específico utilizando la clave maestra.
 func encryptTerminalCredentials(targetKey string, credentials terminalCredentialData) ([]byte, error) {
 	key, err := loadOrCreateTerminalCredentialKey()
 	if err != nil {
@@ -272,6 +284,7 @@ func encryptTerminalCredentials(targetKey string, credentials terminalCredential
 	return append(nonce, aead.Seal(nil, nonce, plaintext, []byte(targetKey))...), nil
 }
 
+// decryptTerminalCredentials descifra las credenciales SSH para un destino específico utilizando la clave maestra.
 func decryptTerminalCredentials(targetKey string, encrypted []byte) (terminalCredentialData, error) {
 	var credentials terminalCredentialData
 	key, err := loadTerminalCredentialKey()

@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// defaultPrivateNodesPath define la ruta predeterminada del archivo de nodos privados.
 const defaultPrivateNodesPath = "/var/lib/asterisk/privatenodes.txt"
 
 const (
@@ -26,6 +27,7 @@ const (
 	maxPrivateNodeLine   = 512
 )
 
+// privateNodesRequest representa la estructura de la solicitud HTTP para actualizar el catálogo de nodos privados.
 type privateNodesRequest struct {
 	Lines []string `json:"lines"`
 }

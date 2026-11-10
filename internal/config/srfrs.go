@@ -1,5 +1,7 @@
 package config
 
+// Para futuras implementacion programar los SRFRS (Software Defined Radio Front-End)
+
 import (
 	"bufio"
 	"flag"

@@ -3,13 +3,14 @@ package controllers
 // Este archivo implementa las estructuras y utilidades de comunicación AMI con Asterisk.
 
 import (
-	"net/http"
 	"amerimon/internal/config"
+	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 )
 
+// AMIRequest representa la estructura de solicitud para comandos AMI.
 type AMIRequest struct {
 	Host     string `json:"host"`
 	Port     string `json:"port"`
@@ -18,6 +19,7 @@ type AMIRequest struct {
 	Cmd      string `json:"cmd"`
 }
 
+// AMIResponse representa la estructura de respuesta de un comando AMI.
 type AMIResponse struct {
 	Status  string   `json:"status"`
 	Command string   `json:"command"`

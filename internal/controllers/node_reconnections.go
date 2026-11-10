@@ -20,6 +20,7 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
+// nodeReconnection representa una configuración de reconexión automática para un nodo, incluyendo el nodo fuente, el nodo objetivo, el intervalo de reconexión y el estado de la última verificación.
 type nodeReconnection struct {
 	ID              int64  `json:"id"`
 	SourceNode      string `json:"source_node"`
@@ -34,7 +35,10 @@ type nodeReconnection struct {
 	LastDetails     string `json:"last_details"`
 }
 
+// nodeReconnectionMu protege el acceso concurrente a las configuraciones de reconexión de nodos.
 var nodeReconnectionMu sync.Mutex
+
+// nodeReconnectionCycleMu protege el ciclo de verificación de reconexiones de nodos.
 var nodeReconnectionCycleMu sync.Mutex
 
 // loadNodeReconnections carga las reconexiones de nodos desde la base de datos, devolviendo una lista de entradas y cualquier error encontrado.
@@ -71,6 +75,7 @@ func ListNodeReconnections(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"entries": entries})
 }
 
+// reconnectionDBError maneja los errores de la base de datos relacionados con las reconexiones de nodos, devolviendo un error API adecuado.
 func reconnectionDBError(err error) error {
 	log.Printf("reconnections: base de datos: %v", err)
 	if se, ok := err.(*sqlite.Error); ok && se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {

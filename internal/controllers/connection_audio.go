@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// ConnectionAudio representa el estado de audio de una conexión específica.
 type ConnectionAudio struct {
 	Available    bool   `json:"available"`
 	Muted        *bool  `json:"muted"`
@@ -22,10 +23,12 @@ type ConnectionAudio struct {
 	Reason       string `json:"reason,omitempty"`
 }
 
+// audioChannel representa un canal de audio con su nombre y ID únicos.
 type audioChannel struct {
 	name, id string
 }
 
+// audioState almacena el estado de audio confirmado para cada canal de audio único, protegiendo el acceso concurrente mediante un mutex.
 var audioState = struct {
 	sync.Mutex
 	confirmed map[string]bool

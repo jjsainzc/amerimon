@@ -23,14 +23,20 @@ var audioInputFormats = map[string]string{
 
 var audioConversionSlot = make(chan struct{}, 1)
 
+// audioConversionError representa un error ocurrido durante la conversión de audio, incluyendo un código de error y el error subyacente.
 type audioConversionError struct {
 	code string
 	err  error
 }
 
+// audioDiagnostic captura la salida de diagnóstico de FFmpeg, limitando la cantidad de datos almacenados para evitar un uso excesivo de memoria.
 func (e *audioConversionError) Error() string { return e.err.Error() }
+
+// Error devuelve la descripción del error subyacente.
+// Unwrap devuelve el error subyacente para permitir el encadenamiento de errores.
 func (e *audioConversionError) Unwrap() error { return e.err }
 
+// audioDiagnostic representa un búfer limitado para capturar la salida de diagnóstico de FFmpeg.
 type audioDiagnostic struct{ bytes.Buffer }
 
 // audioDiagnostic captura la salida de diagnóstico de FFmpeg, limitando la cantidad de datos almacenados para evitar un uso excesivo de memoria.

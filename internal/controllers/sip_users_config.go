@@ -16,11 +16,13 @@ import (
 
 var sipUserName = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,80}$`)
 
+// sipUsersControl gestiona la lectura y actualización de usuarios IAX y extensiones PJSIP.
 type sipUsersControl struct {
 	iaxPath, pjsipPath string
 	reload             func(string) (string, error)
 }
 
+// newSIPUsersControl crea una nueva instancia de sipUsersControl con las rutas de configuración y la función de recarga de Asterisk.
 func newSIPUsersControl() sipUsersControl {
 	ami := config.CurrentAMI()
 	rptPath := nz(ami.RPTConfigPath, "/etc/asterisk/rpt.conf")
@@ -33,11 +35,13 @@ func newSIPUsersControl() sipUsersControl {
 	}
 }
 
+// sipUserOption representa una opción de usuario SIP con su clave y valores asociados.
 type sipUserOption struct {
 	key    string
 	values []string
 }
 
+// sipOption obtiene el valor de una opción SIP de una sección, devolviendo un valor por defecto si no existe.
 func sipOption(s managerSection, key, fallback string) string {
 	if value, ok := s.last(key); ok {
 		return value
@@ -45,6 +49,7 @@ func sipOption(s managerSection, key, fallback string) string {
 	return fallback
 }
 
+// plainSIPSection determina si una sección SIP es "plana", es decir, no tiene comentarios en sus líneas.
 func plainSIPSection(s managerSection) bool {
 	for _, line := range s.lines[s.start+1 : s.end] {
 		if strings.HasPrefix(strings.TrimSpace(line), "#") {
@@ -55,6 +60,7 @@ func plainSIPSection(s managerSection) bool {
 	return strings.TrimSpace(header) == "["+s.name+"]"
 }
 
+// validSIPValues verifica que los valores SIP no contengan caracteres inválidos.
 func validSIPValues(values ...string) bool {
 	for _, value := range values {
 		if strings.ContainsAny(value, "\r\n\x00;#") {
@@ -64,6 +70,7 @@ func validSIPValues(values ...string) bool {
 	return true
 }
 
+// renderSIPOptions genera una representación en cadena de las opciones SIP proporcionadas.
 func renderSIPOptions(options []sipUserOption) string {
 	var b strings.Builder
 	for _, option := range options {
@@ -75,6 +82,7 @@ func renderSIPOptions(options []sipUserOption) string {
 }
 
 // Conserva las opciones no expuestas por los formularios, las plantillas y los includes.
+// rewriteSIPSections reescribe las secciones SIP en el contenido dado, aplicando las actualizaciones y eliminaciones especificadas.
 func rewriteSIPSections(content string, updates map[int][]sipUserOption, deleted map[int]bool) string {
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 	sections := parseManagerSections(content)
@@ -110,6 +118,7 @@ func rewriteSIPSections(content string, updates map[int][]sipUserOption, deleted
 	return output
 }
 
+// persist guarda los cambios en la configuración SIP y recarga Asterisk, manejando errores y respaldos.
 func (p sipUsersControl) persist(c echo.Context, path, original, updated, command string) error {
 	if err := writePrimaryBackup(path, original); err != nil {
 		return primaryNodeError("No se pudo crear el respaldo; no se ha modificado la configuración", err)

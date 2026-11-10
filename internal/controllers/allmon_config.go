@@ -194,13 +194,33 @@ func rewriteAllmonNodes(content string, nodes []allmonNodeIn, existing map[strin
 		if text != "" {
 			b.WriteString(eol)
 		}
-		b.WriteString("[" + n.Node + "]" + eol + "system=Nodes" + eol + "host=" + n.Host + eol)
+		b.WriteString("[")
+		b.WriteString(n.Node)
+		b.WriteString("]")
+		b.WriteString(eol)
+		b.WriteString("system=Nodes")
+		b.WriteString(eol)
+		b.WriteString("host=")
+		b.WriteString(n.Host)
+		b.WriteString(eol)
 		if n.Port != "" {
-			b.WriteString("port=" + n.Port + eol)
+			b.WriteString("port=")
+			b.WriteString(n.Port)
+			b.WriteString(eol)
 		}
-		b.WriteString("user=" + n.User + eol + "passwd=" + n.Passwd + eol + "hideNodeURL=no" + eol + "menu=yes" + eol)
+		b.WriteString("user=")
+		b.WriteString(n.User)
+		b.WriteString(eol)
+		b.WriteString("passwd=")
+		b.WriteString(n.Passwd)
+		b.WriteString(eol)
+		b.WriteString("hideNodeURL=no")
+		b.WriteString(eol)
+		b.WriteString("menu=yes")
+		b.WriteString(eol)
 		if n.TrackingDisabled {
-			b.WriteString("amerimon_tracking=disabled" + eol)
+			b.WriteString("amerimon_tracking=disabled")
+			b.WriteString(eol)
 		}
 	}
 	return b.String()
@@ -227,7 +247,8 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 			key := strings.ToLower(k[1])
 			if key == "amerimon_tracking" {
 				if n.TrackingDisabled && !trackingDone {
-					b.WriteString("amerimon_tracking=disabled" + eol)
+					b.WriteString("amerimon_tracking=disabled")
+					b.WriteString(eol)
 					trackingDone = true
 				}
 				continue
@@ -240,7 +261,10 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 					continue
 				}
 				done[key] = true
-				b.WriteString(k[1] + "=" + want[key] + eol)
+				b.WriteString(k[1])
+				b.WriteString("=")
+				b.WriteString(want[key])
+				b.WriteString(eol)
 				lastKey = b.Len()
 				continue
 			}
@@ -255,11 +279,15 @@ func updateAllmonBlock(block []string, n allmonNodeIn, eol string) string {
 	var missing strings.Builder
 	for _, key := range []string{"host", "port", "user", "passwd"} {
 		if v, ok := want[key]; ok && !done[key] {
-			missing.WriteString(key + "=" + v + eol)
+			missing.WriteString(key)
+			missing.WriteString("=")
+			missing.WriteString(v)
+			missing.WriteString(eol)
 		}
 	}
 	if n.TrackingDisabled && !trackingDone {
-		missing.WriteString("amerimon_tracking=disabled" + eol)
+		missing.WriteString("amerimon_tracking=disabled")
+		missing.WriteString(eol)
 	}
 	if missing.Len() == 0 {
 		return text

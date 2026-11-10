@@ -220,6 +220,7 @@ func (s *recordingSink) Close() error {
 	return s.finishLocked("interrupted", "AUDIO_RECORD_INTERRUPTED")
 }
 
+// AudioRecordingControl gestiona el control de grabaciones de audio, incluyendo la grabación activa y las operaciones de origen y colgado.
 type AudioRecordingControl struct {
 	mu        sync.Mutex
 	manager   *config.AudioStreamManager

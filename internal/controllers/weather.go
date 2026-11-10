@@ -30,6 +30,7 @@ type OpenMeteoGeoResponse struct {
 	} `json:"results"`
 }
 
+// OpenMeteoWeatherResponse representa la respuesta JSON de Open-Meteo para el clima actual.
 type OpenMeteoWeatherResponse struct {
 	Current struct {
 		Temperature2M      float64 `json:"temperature_2m"`
@@ -46,6 +47,7 @@ type OpenMeteoWeatherResponse struct {
 	Error bool `json:"error"`
 }
 
+// NWSAlertsResponse representa la respuesta JSON de alertas meteorológicas de NWS.
 type NWSAlertsResponse struct {
 	Features []struct {
 		Properties struct {
@@ -118,6 +120,7 @@ func GetWeather(c echo.Context) error {
 	return c.String(http.StatusOK, weatherOutput+"\n")
 }
 
+// getWeather obtiene los datos meteorológicos de Open-Meteo para una ubicación dada.
 func getWeather(locationRaw string, temperatureMode string) (string, error) {
 	raw := strings.TrimSpace(locationRaw)
 
@@ -222,6 +225,7 @@ func getWeather(locationRaw string, temperatureMode string) (string, error) {
 	return fmt.Sprintf("%s / %s", seg1, seg2), nil
 }
 
+// resolveLocation resuelve una ubicación a coordenadas geográficas (latitud y longitud) y país utilizando Open-Meteo y Nominatim.
 func resolveLocation(raw string) (float64, float64, string, error) {
 	if lat, lon, ok := parseWeatherCoordinates(raw); ok {
 		return lat, lon, "", nil
@@ -273,6 +277,7 @@ func resolveLocation(raw string) (float64, float64, string, error) {
 
 }
 
+// parseWeatherCoordinates analiza una cadena de coordenadas en formato "lat,lon" y devuelve latitud, longitud y un indicador de éxito.
 func parseWeatherCoordinates(raw string) (float64, float64, bool) {
 	parts := strings.Split(raw, ",")
 	if len(parts) != 2 {
@@ -289,6 +294,7 @@ func parseWeatherCoordinates(raw string) (float64, float64, bool) {
 	return lat, lon, true
 }
 
+// fetchGeo obtiene las coordenadas geográficas y el país desde la API de geocodificación de Open-Meteo.
 func fetchGeo(apiURL string) (float64, float64, string, error) {
 	resp, err := weatherHTTPClient.Get(apiURL)
 	if err != nil {
@@ -307,6 +313,7 @@ func fetchGeo(apiURL string) (float64, float64, string, error) {
 	return geoResp.Results[0].Latitude, geoResp.Results[0].Longitude, geoResp.Results[0].Country, nil
 }
 
+// condFromWmo determina la descripción del tiempo basada en el código WMO y la cobertura nubosa.
 func condFromWmo(wmo int, cloudCov int, isDay int) string {
 	switch wmo {
 	case 95, 96, 99:
@@ -336,12 +343,14 @@ func condFromWmo(wmo int, cloudCov int, isDay int) string {
 	return "Overcast"
 }
 
+// toCardinal convierte un ángulo en grados a su dirección cardinal correspondiente.
 func toCardinal(deg float64) string {
 	directions := []string{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"}
 	index := int(math.Mod(math.Floor((deg+11.25)/22.5), 16))
 	return directions[index]
 }
 
+// getNWSAlerts obtiene las alertas meteorológicas activas de NWS para una ubicación dada.
 func getNWSAlerts(lat, lon float64) string {
 	apiURL := fmt.Sprintf("https://api.weather.gov/alerts/active?point=%f,%f", lat, lon)
 	client := &http.Client{Timeout: 4 * time.Second}

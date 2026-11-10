@@ -23,6 +23,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Este archivo implementa la detección y publicación en vivo de actividad de nodos StarLink, incluyendo enlaces RPT y canales SIP.
 const (
 	defaultActivityPollInterval = 5 * time.Second
 	minimumActivityPollInterval = 5 * time.Second
@@ -31,6 +32,7 @@ const (
 	liveActivityPingInterval    = 25 * time.Second
 )
 
+// allStarLinkActivityUpgrader configura el actualizador de WebSocket para la actividad de todos los nodos StarLink.
 var allStarLinkActivityUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 4096,
@@ -45,12 +47,14 @@ var allStarLinkActivityUpgrader = websocket.Upgrader{
 	},
 }
 
+// AllStarLinkNodeActivity representa la actividad de un nodo StarLink, incluyendo el nodo local, el nodo remoto y la última vez que se observó actividad.
 type AllStarLinkNodeActivity struct {
 	LocalNode       string    `json:"local_node"`
 	RemoteNode      string    `json:"remote_node"`
 	UltimaActividad time.Time `json:"ultima_actividad"`
 }
 
+// allStarLinkReceiveState representa el estado de recepción de un nodo StarLink, incluyendo el servidor SIP asociado, la última vez que se observó actividad, COS, enlaces RPT y conexiones SIP.
 type allStarLinkReceiveState struct {
 	Server         sipActivityServer
 	ObservedAt     time.Time
@@ -60,6 +64,7 @@ type allStarLinkReceiveState struct {
 	SIPConnections []string
 }
 
+// allStarLinkReceiveStates almacena el estado de recepción de todos los nodos StarLink, indexado por el nombre del nodo local.
 var allStarLinkReceiveStates = struct {
 	sync.RWMutex
 	byNode map[string]allStarLinkReceiveState
@@ -175,6 +180,8 @@ func parseRPTReceivingLinks(sawStat, localNode string, observedAt time.Time) ([]
 	return activities, err
 }
 
+// parseRPTReceiveState analiza la salida de SawStat para obtener los enlaces de recepción y conexiones.
+// Devuelve una lista de actividades de recepción, una lista de conexiones y un error si la entrada es inválida.
 func parseRPTReceiveState(sawStat, localNode string, observedAt time.Time) ([]AllStarLinkNodeActivity, []string, error) {
 	activities := make([]AllStarLinkNodeActivity, 0)
 	connections := make([]string, 0)
@@ -258,6 +265,7 @@ func startAllStarLinkReceiveScheduler() {
 	}()
 }
 
+// AsteriskConnectionHistory representa un registro de historial de conexiones Asterisk, incluyendo información del nodo local y remoto, tipo de conexión, estado del enlace y marcas de tiempo relevantes.
 type AsteriskConnectionHistory struct {
 	ID                uint64     `json:"id"`
 	InstanceID        string     `json:"instance_id"`

@@ -31,6 +31,7 @@ const terminalMessageLimit = 64 * 1024
 
 var terminalKnownHostsMu sync.Mutex
 
+// terminalUpgrader configura la actualización de conexiones HTTP a WebSocket para la terminal.
 var terminalUpgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
@@ -45,6 +46,7 @@ var terminalUpgrader = websocket.Upgrader{
 	},
 }
 
+// terminalConnectionRequest representa la solicitud de conexión SSH desde el cliente WebSocket, incluyendo host, puerto, usuario y método de autenticación.
 type terminalConnectionRequest struct {
 	Type          string `json:"type"`
 	Host          string `json:"host"`
@@ -58,6 +60,7 @@ type terminalConnectionRequest struct {
 	Rows          int    `json:"rows"`
 }
 
+// terminalMessage representa un mensaje enviado o recibido a través del WebSocket de la terminal, incluyendo tipo, datos y dimensiones del terminal.
 type terminalMessage struct {
 	Type string `json:"type"`
 	Data string `json:"data"`
@@ -65,21 +68,28 @@ type terminalMessage struct {
 	Rows int    `json:"rows"`
 }
 
+// terminalHostKeyConfirmation representa la confirmación del usuario sobre si confiar en la clave del host SSH desconocido.
 type terminalHostKeyConfirmation struct {
 	Type  string `json:"type"`
 	Trust bool   `json:"trust"`
 }
 
+// unknownTerminalHostKey representa una clave de host SSH desconocida.
 type unknownTerminalHostKey struct {
 	host string
 	key  ssh.PublicKey
 }
 
+// terminalHostAddress representa la dirección de un host SSH.
 type terminalHostAddress string
 
+// Network y String implementan la interfaz net.Addr para terminalHostAddress.
 func (address terminalHostAddress) Network() string { return "tcp" }
-func (address terminalHostAddress) String() string  { return string(address) }
 
+// String devuelve la representación en cadena de la dirección del host SSH.
+func (address terminalHostAddress) String() string { return string(address) }
+
+// Error implementa la interfaz error para unknownTerminalHostKey, indicando que la clave del host SSH no es confiable.
 func (e *unknownTerminalHostKey) Error() string {
 	return "SSH server host key is not trusted"
 }
