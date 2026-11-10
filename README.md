@@ -295,7 +295,10 @@ Los tests se conservan junto al código que prueban: los `_test.go` en su paquet
 
 La pantalla EchoLink se encuentra en `src/app/home/admin/echolink` y reutiliza traducciones, controles compartidos y API administrativa. Las migraciones de instalación preparan las comprobaciones del dialplan en `[allstar-public]` sin modificar `[radio-secure]`.
 
-### Construcción y publicación
+### Construcción y publicación 
+
+> **NOTA:** Solo el desarrollador original puede hacer el push oficial con la firma del repositorio, si usted hace un fork debe pedir la autorizacion correspondiente pull request, se revisará todo el código cambiado/adicionado.
+
 
 `npm run build` genera el frontend en `internal/web/dist`, que Go incrusta mediante `go:embed`. `make dist` **publica realmente**, exige un árbol Git limpio y no es una comprobación de compilación.
 
