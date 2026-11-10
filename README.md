@@ -17,6 +17,9 @@ sudo apt update
 sudo apt install amerimon
 ```
 
+> **NOTA:** Si lo va a usar en Raspberries o Thin Clients (ej. Dell Wyse), recomiendo use la instalación previamente descrita.
+> Si usted es desarrollador con conocimientos de Node.js/Angular/Go Language entonces este repositorio le puede servir.
+
 ### Configuración aplicada durante la instalación
 
 El instalador habilita `amerimon.service` y, si detecta Apache o Nginx, intenta configurar el proxy para `/amerimon`. Sin servidor web, abre `http://<IP-del-servidor>:8082/`.
