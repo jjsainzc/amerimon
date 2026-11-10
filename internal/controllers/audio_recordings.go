@@ -26,6 +26,7 @@ import (
 
 const recordingColumns = `id, name, node, uuid, stored_filename, state, file_size, duration_ms, created_at, COALESCE(finished_at, ''), error_code, library_track_id`
 
+// AudioRecording representa la información de una grabación de audio almacenada en el nodo principal.
 type AudioRecording struct {
 	ID             int64         `json:"id"`
 	Name           string        `json:"name"`
@@ -44,6 +45,7 @@ type AudioRecording struct {
 	LevelDBFS      float64       `json:"level_dbfs"`
 }
 
+// scanRecording escanea una fila de la base de datos y devuelve una estructura AudioRecording con la información correspondiente.
 func scanRecording(row interface{ Scan(...any) error }) (AudioRecording, error) {
 	r := AudioRecording{LevelDBFS: -60}
 	err := row.Scan(&r.ID, &r.Name, &r.Node, &r.UUID, &r.Filename, &r.State, &r.FileSize,
@@ -52,10 +54,12 @@ func scanRecording(row interface{ Scan(...any) error }) (AudioRecording, error) 
 	return r, err
 }
 
+// recordingStoragePath devuelve la ruta del directorio donde se almacenan las grabaciones de audio.
 func recordingStoragePath() string {
 	return filepath.Join(filepath.Dir(config.App.DBPath), "recordings")
 }
 
+// recordingWAVHeader genera un encabezado WAV para una grabación de audio con el tamaño especificado.
 func recordingWAVHeader(size int64) []byte {
 	h := make([]byte, 44)
 	copy(h, "RIFF")
@@ -73,6 +77,7 @@ func recordingWAVHeader(size int64) []byte {
 	return h
 }
 
+// recordingSink representa un sumidero de grabación de audio que maneja la escritura de datos PCM en un archivo y actualiza el estado de la grabación.
 type recordingSink struct {
 	mu       sync.Mutex
 	record   AudioRecording
@@ -88,6 +93,7 @@ type recordingSink struct {
 }
 
 // PCM at 8 kHz: 200 ms pre-roll, 500 ms release, RMS threshold about -40 dBFS.
+// Write escribe datos PCM en el archivo de grabación, actualiza el nivel RMS y maneja la lógica de auto-pausa basada en la audibilidad.
 func (s *recordingSink) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -158,6 +164,7 @@ func (s *recordingSink) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// snapshot devuelve una instantánea del estado actual de la grabación de audio, incluyendo el nivel RMS y el estado de auto-pausa.
 func (s *recordingSink) snapshot() AudioRecording {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -168,6 +175,7 @@ func (s *recordingSink) snapshot() AudioRecording {
 	return record
 }
 
+// checkpointLocked actualiza el encabezado WAV y persiste el estado de la grabación en la base de datos.
 func (s *recordingSink) checkpointLocked() error {
 	if _, err := s.file.WriteAt(recordingWAVHeader(s.record.FileSize-44), 0); err != nil {
 		return err
@@ -181,11 +189,13 @@ func (s *recordingSink) checkpointLocked() error {
 	return err
 }
 
+// failLocked marca la grabación como fallida y registra el error.
 func (s *recordingSink) failLocked(cause error) error {
 	log.Printf("audio recording %d: %v", s.record.ID, cause)
 	return errors.Join(cause, s.finishLocked("failed", "AUDIO_RECORD_WRITE_ERROR"))
 }
 
+// finishLocked finaliza la grabación con el estado y código de error especificados, cerrando el archivo y actualizando la base de datos.
 func (s *recordingSink) finishLocked(state, code string) error {
 	if s.closed {
 		return nil
@@ -203,6 +213,7 @@ func (s *recordingSink) finishLocked(state, code string) error {
 	return nil
 }
 
+// Close cierra la grabación de audio, marcándola como interrumpida si aún no se ha finalizado.
 func (s *recordingSink) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -217,6 +228,7 @@ type AudioRecordingControl struct {
 	hangup    func(uuid string) error
 }
 
+// NewAudioRecordingControl crea un nuevo controlador de grabación de audio, inicializando los métodos de origen y colgado.
 func NewAudioRecordingControl(manager *config.AudioStreamManager) *AudioRecordingControl {
 	return &AudioRecordingControl{
 		manager: manager,
@@ -241,6 +253,7 @@ func NewAudioRecordingControl(manager *config.AudioStreamManager) *AudioRecordin
 	}
 }
 
+// recordingError maneja la respuesta de error de la API de grabación de audio, registrando el error y devolviendo un JSON con el código de error.
 func recordingError(c echo.Context, status int, code string, err error) error {
 	if err != nil {
 		log.Printf("audio recording: %s: %v", code, err)
@@ -248,6 +261,7 @@ func recordingError(c echo.Context, status int, code string, err error) error {
 	return c.JSON(status, echo.Map{"status": "error", "code": code})
 }
 
+// List devuelve la lista de grabaciones de audio, incluyendo la grabación activa si existe.
 func (p *AudioRecordingControl) List(c echo.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -282,6 +296,7 @@ func (p *AudioRecordingControl) List(c echo.Context) error {
 	return c.JSON(200, echo.Map{"status": "success", "data": result})
 }
 
+// Start inicia una nueva grabación de audio, creando un canal de origen y configurando la grabación activa.
 func (p *AudioRecordingControl) Start(c echo.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -367,6 +382,7 @@ func (p *AudioRecordingControl) Start(c echo.Context) error {
 	return recordingError(c, 502, "AUDIO_RECORD_START_ERROR", errors.Join(err, finishErr, p.hangup(r.UUID)))
 }
 
+// Change modifica el estado de la grabación activa, permitiendo pausar, reanudar o detener la grabación.
 func (p *AudioRecordingControl) Change(c echo.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -410,6 +426,7 @@ func (p *AudioRecordingControl) Change(c echo.Context) error {
 	return c.JSON(200, echo.Map{"status": "success", "data": s.snapshot()})
 }
 
+// saved obtiene la grabación de audio guardada correspondiente al ID proporcionado en la solicitud.
 func (p *AudioRecordingControl) saved(c echo.Context) (AudioRecording, error) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id < 1 {
@@ -431,6 +448,7 @@ func (p *AudioRecordingControl) saved(c echo.Context) (AudioRecording, error) {
 	return r, nil
 }
 
+// File devuelve el archivo de audio correspondiente a la grabación guardada, estableciendo los encabezados HTTP adecuados para la respuesta.
 func (p *AudioRecordingControl) File(c echo.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -443,6 +461,7 @@ func (p *AudioRecordingControl) File(c echo.Context) error {
 	return c.File(filepath.Join(recordingStoragePath(), r.Filename))
 }
 
+// Delete elimina la grabación de audio guardada y su archivo asociado.
 func (p *AudioRecordingControl) Delete(c echo.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -459,6 +478,7 @@ func (p *AudioRecordingControl) Delete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+// AddToLibrary agrega la grabación de audio guardada a la biblioteca de audio, normalizando el archivo WAV y verificando su tamaño.
 func (p *AudioRecordingControl) AddToLibrary(c echo.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -485,7 +505,7 @@ func (p *AudioRecordingControl) AddToLibrary(c echo.Context) error {
 	return persistAudioTrack(c, r.Name, r.Name+".wav", "broadcast_once", 0, data, duration, rate, bits, r.ID)
 }
 
-// RecoverAudioRecordings salvages PCM already on disk after an unclean shutdown.
+// RecoverAudioRecordings recupera las grabaciones de audio que quedaron en estado activo tras un cierre inesperado, verificando y corrigiendo los archivos WAV.
 func RecoverAudioRecordings() error {
 	rows, err := config.App.DB.Query(`SELECT ` + recordingColumns + ` FROM audio_recordings WHERE state IN ('starting','recording','paused')`)
 	if err != nil {

@@ -39,7 +39,7 @@ dentro de Nextion Editor usando el comando: print "COMANDO"
   - b_fav       : Botón para conectar al Nodo Favorito fijo.
     -> Enviar por evento: print "CONN_FAV"
     -> Su texto (.txt) lo envía Amerimon según el idioma elegido en la web,
-       igual que b_disc_all, b_restart, b_reboot, b_poweroff, b_admin_no y b_admin_ok.
+    igual que b_disc_all, b_restart, b_reboot, b_poweroff, b_admin_no y b_admin_ok.
 
   - b_disc_all  : Botón global rojo para colgar todos los enlaces (*70).
     -> Enviar por evento: print "DISC_ALL"
@@ -166,6 +166,7 @@ func nextionLanguageTexts(language string) nextionTexts {
 	return nextionLanguages["es"]
 }
 
+// systemLabel devuelve la etiqueta correspondiente a un comando del sistema según el idioma de la pantalla.
 func (t nextionTexts) systemLabel(command string) string {
 	switch command {
 	case "SYS_ARM_RESTART":
@@ -178,6 +179,7 @@ func (t nextionTexts) systemLabel(command string) string {
 	return command
 }
 
+// systemMessage devuelve el mensaje correspondiente a un comando del sistema según el idioma de la pantalla.
 func (t nextionTexts) systemMessage(command string) string {
 	switch command {
 	case "SYS_ARM_RESTART":
@@ -190,6 +192,7 @@ func (t nextionTexts) systemMessage(command string) string {
 	return command
 }
 
+// executeSystem ejecuta un comando del sistema utilizando systemctl y sudo, con un tiempo de espera de 2 segundos.
 func executeSystem(action systemAction) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -206,6 +209,7 @@ type nextionSIPChannel struct {
 	CallerID string
 }
 
+// parseNextionSIPChannels analiza la salida cruda de AMI y devuelve una lista de canales SIP activos junto con sus identificadores de llamada.
 func parseNextionSIPChannels(raw string, callerIDs map[string]string) []nextionSIPChannel {
 	channels := make([]nextionSIPChannel, 0)
 	seen := make(map[string]struct{})
@@ -244,6 +248,7 @@ func parseNextionSIPChannels(raw string, callerIDs map[string]string) []nextionS
 	return channels
 }
 
+// nodeLabels devuelve las etiquetas y etiquetas de actividad para una lista de nodos, utilizando la información de la base de datos de Asterisk y los nodos privados.
 func (a *ami) nodeLabels(nodes []string) (map[string]string, map[string]string) {
 	labels := make(map[string]string, len(nodes))
 	activityLabels := make(map[string]string, len(nodes))
@@ -277,6 +282,7 @@ func (a *ami) nodeLabels(nodes []string) (map[string]string, map[string]string) 
 	return labels, activityLabels
 }
 
+// nextionActivityLabel genera la etiqueta de actividad para un nodo, combinando la etiqueta del nodo con la descripción de la base de datos de Asterisk.
 func nextionActivityLabel(label string, info AstDBEntry) string {
 	description := nextionDisplayText(info.Descripcion)
 	if description == "" {
@@ -305,6 +311,7 @@ func nextionNodeLabel(node string, info AstDBEntry, echoCallsign string) string 
 	return nextionDisplayText(node)
 }
 
+// echoLinkCallsign consulta y devuelve el indicativo EchoLink de un nodo, utilizando la caché y limitando las consultas a cada 30 segundos.
 func (a *ami) echoLinkCallsign(node, lookupNumber string) string {
 	a.echoLinkMu.Lock()
 	if callsign, ok := a.echoLinkCallsigns[node]; ok {
@@ -340,6 +347,7 @@ func (a *ami) echoLinkCallsign(node, lookupNumber string) string {
 	return entry.Callsign
 }
 
+// pjsipCallerIDs lee y devuelve un mapa de identificadores de llamada (caller ID) de los endpoints PJSIP, utilizando la configuración de AMI y el archivo pjsip.conf.
 func (a *ami) pjsipCallerIDs() map[string]string {
 	path := strings.TrimSpace(config.CurrentAMI().PJSIPConfigPath)
 	if path == "" {
@@ -352,6 +360,7 @@ func (a *ami) pjsipCallerIDs() map[string]string {
 	return callerIDs
 }
 
+// nextionDisplayText formatea un valor de texto para mostrarlo en la pantalla Nextion, eliminando caracteres no válidos y reemplazando caracteres fuera del rango con '?'.
 func nextionDisplayText(value string) string {
 	var result strings.Builder
 	for _, char := range strings.TrimSpace(value) {
@@ -389,6 +398,7 @@ type ami struct {
 
 func (a *ami) close() {}
 
+// status obtiene el estado del radio, incluyendo el estado de transmisión, recepción y enlaces conectados, así como las etiquetas de actividad de los nodos.
 func (a *ami) status() (radioStatus, error) {
 	raw, err := config.ExecuteAMIRptStatus(a.host, a.port, a.username, a.secret, a.node, "NodeStat", 2*time.Second)
 	if err != nil {
@@ -491,6 +501,7 @@ func (a *ami) status() (radioStatus, error) {
 	return result, nil
 }
 
+// link envía un comando de enlace al nodo, ya sea para agregar, eliminar o limpiar enlaces, o para colgar un canal SIP específico.
 func (a *ami) link(method, node string) error {
 	if method == "1" && strings.HasPrefix(node, "SIP:") {
 		channel := strings.TrimPrefix(node, "SIP:")
@@ -514,6 +525,7 @@ type demo struct {
 	nodes []string
 }
 
+// demo es una implementación de radio de demostración que simula el estado de transmisión y recepción, así como los enlaces conectados.
 func (d *demo) status() (radioStatus, error) {
 	result := radioStatus{color: idleColor, nodes: d.nodes}
 	switch int(time.Since(d.start)/time.Second/4) % 4 {
@@ -528,6 +540,7 @@ func (d *demo) status() (radioStatus, error) {
 	return result, nil
 }
 
+// link simula la gestión de enlaces en la radio de demostración, permitiendo agregar, eliminar o limpiar enlaces según el método especificado.
 func (d *demo) link(method, node string) error {
 	switch method {
 	case "3":
@@ -549,6 +562,7 @@ func (d *demo) link(method, node string) error {
 
 func (d *demo) close() {}
 
+// hasNode verifica si un nodo específico está presente en la lista de nodos proporcionada.
 func hasNode(nodes []string, node string) bool {
 	for _, item := range nodes {
 		if item == node {
@@ -585,6 +599,7 @@ type panel struct {
 	messageUntil             time.Time
 }
 
+// refresh actualiza el estado del panel, incluyendo la información de los nodos conectados y las etiquetas de los slots.
 func (p *panel) refresh() {
 	current, err := p.radio.status()
 	p.online = err == nil
@@ -621,6 +636,7 @@ func (p *panel) refresh() {
 	}
 }
 
+// handle procesa un comando recibido por el panel, gestionando acciones del sistema, conexiones y desconexiones de nodos, y la lógica de los botones de retención (hold).
 func (p *panel) handle(command, node string) {
 	if _, ok := systemActions[command]; ok {
 		p.pendingSystem = command
@@ -673,6 +689,7 @@ func (p *panel) handle(command, node string) {
 	}
 }
 
+// confirmSystem confirma y ejecuta la acción del sistema pendiente, mostrando mensajes de estado y manejando errores.
 func (p *panel) confirmSystem() {
 	command := p.pendingSystem
 	p.pendingSystem = ""
@@ -744,6 +761,7 @@ stream:
 	}
 }
 
+// nextion envía un comando a la pantalla Nextion, codificando los caracteres en ISO-8859-1 y agregando el terminador estándar de Nextion (0xff 0xff 0xff).
 func nextion(w io.Writer, instruction string) error {
 	// El proyecto usa ISO-8859-1, incluso para el signo de grados.
 	var frame []byte
@@ -757,6 +775,7 @@ func nextion(w io.Writer, instruction string) error {
 	return err
 }
 
+// render genera y envía los comandos necesarios para actualizar la pantalla Nextion con el estado actual del panel, incluyendo la información de los nodos, la fecha, la hora, la temperatura y otros valores del sistema.
 func (p *panel) render(w io.Writer) error {
 	now := time.Now()
 	texts := nextionLanguageTexts(p.language)
@@ -824,6 +843,7 @@ func (p *panel) render(w io.Writer) error {
 	return nil
 }
 
+// cpuTemp obtiene la temperatura de la CPU leyendo el archivo del sistema correspondiente y formateando el valor en grados Celsius.
 func cpuTemp() string {
 	data, err := os.ReadFile("/sys/class/thermal/thermal_zone0/temp")
 	if err == nil {
@@ -834,6 +854,7 @@ func cpuTemp() string {
 	return "--"
 }
 
+// displayMetric formatea un valor de métrica del sistema, devolviendo "--" si el valor está vacío o solo contiene espacios.
 func displayMetric(value string) string {
 	if strings.TrimSpace(value) == "" {
 		return "--"
@@ -841,6 +862,7 @@ func displayMetric(value string) string {
 	return value
 }
 
+// nextionSystemMetrics obtiene las métricas del sistema, incluyendo el voltaje, el uso de CPU, memoria y disco, formateando los valores para su visualización.
 func nextionSystemMetrics() (volt, cpuUsage, memoryUsage, diskUsage string) {
 	volt = displayMetric(readSystemVoltage())
 	cpuUsage, memoryUsage, diskUsage = "--", "--", "--"
@@ -856,6 +878,7 @@ func nextionSystemMetrics() (volt, cpuUsage, memoryUsage, diskUsage string) {
 	return
 }
 
+// ipAddress obtiene la dirección IP de la interfaz de red especificada o de la primera interfaz disponible si no se especifica ninguna.
 func ipAddress(name string) string {
 	interfaces, _ := net.Interfaces()
 	fallback := "--"
@@ -880,6 +903,7 @@ func ipAddress(name string) string {
 	return fallback
 }
 
+// ttyIoctl realiza una llamada al sistema ioctl en el descriptor de archivo especificado con la solicitud y el argumento proporcionados.
 func ttyIoctl(fd, request uintptr, arg unsafe.Pointer) error {
 	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, request, uintptr(arg))
 	if err != 0 {
@@ -888,6 +912,7 @@ func ttyIoctl(fd, request uintptr, arg unsafe.Pointer) error {
 	return nil
 }
 
+// openSerial abre un puerto serie en la ruta especificada con la velocidad de baudios proporcionada, configurando los parámetros del terminal y manejando errores de apertura y configuración.
 func openSerial(path string, baudRate int) (*os.File, error) {
 	port, err := os.OpenFile(path, os.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0)
 	if err != nil {
@@ -921,6 +946,7 @@ func openSerial(path string, baudRate int) (*os.File, error) {
 	return port, nil
 }
 
+// run inicia el bucle principal del panel, gestionando la actualización de la interfaz, la lectura de datos del puerto serie y el envío de latidos al Nextion.
 func (p *panel) run(port *os.File) error {
 	p.sent, p.incoming, p.held = make(map[string]string), nil, [8]press{}
 	p.pendingSystem = ""

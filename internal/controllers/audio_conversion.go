@@ -33,6 +33,7 @@ func (e *audioConversionError) Unwrap() error { return e.err }
 
 type audioDiagnostic struct{ bytes.Buffer }
 
+// audioDiagnostic captura la salida de diagnóstico de FFmpeg, limitando la cantidad de datos almacenados para evitar un uso excesivo de memoria.
 func (b *audioDiagnostic) Write(p []byte) (int, error) {
 	n := len(p)
 	if remaining := 4096 - b.Len(); remaining > 0 {
@@ -41,6 +42,8 @@ func (b *audioDiagnostic) Write(p []byte) (int, error) {
 	return n, nil
 }
 
+// convertUploadedAudio convierte un archivo de audio subido a WAV con las especificaciones esperadas, manejando errores y limitaciones de tamaño.
+// convertUploadedAudio convierte un archivo de audio subido a WAV con las especificaciones esperadas, manejando errores y limitaciones de tamaño.
 func convertUploadedAudio(ctx context.Context, data []byte, extension string) ([]byte, time.Duration, int, int, error) {
 	if extension == ".wav" {
 		normalized, duration, rate, bits, err := normalizeAudioWAV(data)

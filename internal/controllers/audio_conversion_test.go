@@ -21,6 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// testEncodedAudio genera un archivo de audio de prueba con la extensión y duración especificadas, utilizando FFmpeg, y devuelve sus datos en bytes.
 func testEncodedAudio(t *testing.T, extension string, seconds string) []byte {
 	t.Helper()
 	ffmpeg, err := exec.LookPath("ffmpeg")
@@ -40,6 +41,7 @@ func testEncodedAudio(t *testing.T, extension string, seconds string) []byte {
 	return data
 }
 
+// TestAudioConversionFormats verifica que los archivos de audio en diferentes formatos se conviertan correctamente a WAV con las especificaciones esperadas.
 func TestAudioConversionFormats(t *testing.T) {
 	for _, extension := range []string{".mp3", ".flac", ".m4a", ".ogg", ".wav"} {
 		t.Run(extension, func(t *testing.T) {
@@ -56,6 +58,7 @@ func TestAudioConversionFormats(t *testing.T) {
 	}
 }
 
+// TestAudioConversionErrors comprueba que se manejen correctamente los errores durante la conversión de audio, incluyendo formatos inválidos, conversiones fallidas y tiempos de espera.
 func TestAudioConversionErrors(t *testing.T) {
 	assertCode := func(ctx context.Context, data []byte, extension, code string) {
 		t.Helper()
@@ -82,6 +85,7 @@ func TestAudioConversionErrors(t *testing.T) {
 	}
 }
 
+// TestAudioConversionRejectsOversizeRatherThanTruncating asegura que los archivos de audio que exceden el tamaño máximo permitido sean rechazados en lugar de truncados.
 func TestAudioConversionRejectsOversizeRatherThanTruncating(t *testing.T) {
 	ffmpeg, err := exec.LookPath("ffmpeg")
 	if err != nil {
@@ -111,6 +115,7 @@ func TestAudioConversionRejectsOversizeRatherThanTruncating(t *testing.T) {
 	}
 }
 
+// TestAudioUploadMP3ConvertedAndPersisted verifica que un archivo MP3 subido se convierta correctamente y se persista en la base de datos.
 func TestAudioUploadMP3ConvertedAndPersisted(t *testing.T) {
 	input := testEncodedAudio(t, ".mp3", "0.3")
 	previous := config.App

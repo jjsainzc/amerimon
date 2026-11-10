@@ -33,10 +33,12 @@ var audioState = struct {
 
 var safeAudioChannel = regexp.MustCompile(`^(IAX2|echolink|tlb)/[A-Za-z0-9_.:@/;-]+$`)
 
+// audioCommand ejecuta un comando AMI de audio en la instancia especificada y devuelve la respuesta o un error.
 func audioCommand(instance allmonInstance, command string) (string, error) {
 	return config.ExecuteAMICommand(instance.Host, instance.Port, instance.User, instance.Secret, command, 5*time.Second)
 }
 
+// supportsConnectionAudio verifica si la instancia especificada admite comandos de audio para conexiones.
 func supportsConnectionAudio(instance allmonInstance) error {
 	response, err := config.ExecuteAMIAudioAction(instance.Host, instance.Port, instance.User, instance.Secret, "", nil)
 	if err != nil {
@@ -50,6 +52,7 @@ func supportsConnectionAudio(instance allmonInstance) error {
 	return fmt.Errorf("MuteAudio no está disponible; habilita res_mutestream y los permisos AMI necesarios en Asterisk")
 }
 
+// findConnectionAudioChannel busca el canal de audio asociado a una conexión específica en la instancia y devuelve sus detalles si se encuentra un canal único y seguro.
 func findConnectionAudioChannel(instance allmonInstance, remote string, channels string) (audioChannel, error) {
 	var matches []audioChannel
 	for _, line := range config.ParseAMIOutputToLines(channels) {
@@ -89,6 +92,7 @@ func findConnectionAudioChannel(instance allmonInstance, remote string, channels
 	return matches[0], nil
 }
 
+// addConnectionAudioStates agrega el estado de audio a cada nodo de la lista, verificando el soporte de audio y buscando los canales de audio asociados.
 func addConnectionAudioStates(nodes []AllStarLinkNode, instance allmonInstance) {
 	err := supportsConnectionAudio(instance)
 	channels := ""
@@ -125,6 +129,7 @@ func addConnectionAudioStates(nodes []AllStarLinkNode, instance allmonInstance) 
 	}
 }
 
+// SetConnectionAudio maneja la solicitud para establecer el estado de audio de una conexión específica, verificando permisos y actualizando el estado de audio.
 func SetConnectionAudio(c echo.Context) error {
 	var request struct {
 		LocalNode    string `json:"local_node"`

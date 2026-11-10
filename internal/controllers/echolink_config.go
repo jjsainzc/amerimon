@@ -50,6 +50,7 @@ type echoLinkRequest struct {
 	Password string            `json:"password"`
 }
 
+// newEchoLinkConfigControl crea una nueva instancia de control de configuración de EchoLink, inicializando la ruta del archivo de configuración y el control del nodo primario.
 func newEchoLinkConfigControl() echoLinkConfigControl {
 	p := newPrimaryNodeControl()
 	// AMI Command blacklists module load/unload; module state and changes use the local CLI.
@@ -60,12 +61,22 @@ func newEchoLinkConfigControl() echoLinkConfigControl {
 	return echoLinkConfigControl{filepath.Join(dir, "echolink.conf"), filepath.Join(dir, "modules.conf"), p}
 }
 
-func GetEchoLinkConfig(c echo.Context) error   { return newEchoLinkConfigControl().get(c) }
-func GetEchoLinkPassword(c echo.Context) error { return newEchoLinkConfigControl().password(c) }
-func SaveEchoLinkConfig(c echo.Context) error  { return newEchoLinkConfigControl().save(c) }
-func ActivateEchoLink(c echo.Context) error    { return newEchoLinkConfigControl().activate(c) }
-func CheckEchoLinkPorts(c echo.Context) error  { return newEchoLinkConfigControl().ports(c) }
+// GetEchoLinkConfig maneja la solicitud para obtener la configuración de EchoLink.
+func GetEchoLinkConfig(c echo.Context) error { return newEchoLinkConfigControl().get(c) }
 
+// GetEchoLinkPassword maneja la solicitud para obtener la contraseña de EchoLink.
+func GetEchoLinkPassword(c echo.Context) error { return newEchoLinkConfigControl().password(c) }
+
+// SaveEchoLinkConfig maneja la solicitud para guardar la configuración de EchoLink.
+func SaveEchoLinkConfig(c echo.Context) error { return newEchoLinkConfigControl().save(c) }
+
+// ActivateEchoLink maneja la solicitud para activar la configuración de EchoLink.
+func ActivateEchoLink(c echo.Context) error { return newEchoLinkConfigControl().activate(c) }
+
+// CheckEchoLinkPorts maneja la solicitud para verificar la accesibilidad de los puertos de EchoLink.
+func CheckEchoLinkPorts(c echo.Context) error { return newEchoLinkConfigControl().ports(c) }
+
+// ports verifica la accesibilidad de los puertos de EchoLink para los servidores configurados y los puertos locales.
 func (p echoLinkConfigControl) ports(c echo.Context) error {
 	data, err := os.ReadFile(p.path)
 	if err != nil {
@@ -121,6 +132,7 @@ func (p echoLinkConfigControl) ports(c echo.Context) error {
 	return c.JSON(200, echo.Map{"results": results, "public_reachability_verified": false})
 }
 
+// password maneja la solicitud para obtener la contraseña de una sección específica de EchoLink, verificando la revisión y la estructura del archivo.
 func (p echoLinkConfigControl) password(c echo.Context) error {
 	c.Response().Header().Set("Cache-Control", "no-store")
 	systemControlLock.Lock()
@@ -143,11 +155,13 @@ func (p echoLinkConfigControl) password(c echo.Context) error {
 	return echoLinkAPIError(c, 400, "ECHOLINK_STRUCTURE_ERROR", nil)
 }
 
+// echoLinkRevision calcula y devuelve la revisión (hash SHA-256) del contenido de la configuración de EchoLink.
 func echoLinkRevision(data []byte) string {
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }
 
+// echoLinkAPIError maneja los errores de la API de EchoLink, registrando el código de error y devolviendo una respuesta JSON.
 func echoLinkAPIError(c echo.Context, status int, code string, err error) error {
 	if err != nil {
 		// No file contents, passwords or AMI output are included in diagnostics.
@@ -156,6 +170,7 @@ func echoLinkAPIError(c echo.Context, status int, code string, err error) error 
 	return c.JSON(status, echo.Map{"status": "error", "code": code})
 }
 
+// echoLinkSections analiza el contenido de la configuración de EchoLink y devuelve las secciones editables, verificando la unicidad y la validez.
 func echoLinkSections(content string) ([]echoLinkSection, error) {
 	result := make([]echoLinkSection, 0)
 	seen := make(map[string]bool)
@@ -186,6 +201,7 @@ func echoLinkSections(content string) ([]echoLinkSection, error) {
 	return result, nil
 }
 
+// sections analiza el contenido de la configuración de EchoLink, manejando las inclusiones opcionales y devolviendo las secciones editables.
 func (p echoLinkConfigControl) sections(content string) ([]echoLinkSection, error) {
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
@@ -219,6 +235,7 @@ func (p echoLinkConfigControl) sections(content string) ([]echoLinkSection, erro
 	return echoLinkSections(strings.Join(lines, "\n"))
 }
 
+// echoLinkModuleLoaded verifica si el módulo chan_echolink.so está cargado en la salida del comando AMI correspondiente.
 func echoLinkModuleLoaded(output string) bool {
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Fields(strings.TrimPrefix(strings.TrimSpace(line), "Output: "))
@@ -229,6 +246,7 @@ func echoLinkModuleLoaded(output string) bool {
 	return false
 }
 
+// loaded verifica si el módulo chan_echolink.so está cargado en el sistema mediante el comando AMI correspondiente.
 func (p echoLinkConfigControl) loaded() (bool, error) {
 	output, err := p.primary.ami("module show like chan_echolink.so")
 	if err != nil {
@@ -242,6 +260,7 @@ func (p echoLinkConfigControl) loaded() (bool, error) {
 	return echoLinkModuleLoaded(output), nil
 }
 
+// get maneja la solicitud para obtener la configuración de EchoLink, incluyendo la revisión, las secciones y el estado del módulo.
 func (p echoLinkConfigControl) get(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -266,6 +285,7 @@ func (p echoLinkConfigControl) get(c echo.Context) error {
 		"revision": echoLinkRevision(data), "loaded": loaded})
 }
 
+// validateEchoLinkValues valida los valores proporcionados para una sección de configuración de EchoLink, verificando la sintaxis y los rangos de los campos numéricos.
 func validateEchoLinkValues(values map[string]string) error {
 	allowed := make(map[string]bool)
 	for _, key := range echoLinkKeys {
@@ -317,6 +337,7 @@ func validateEchoLinkValues(values map[string]string) error {
 	return nil
 }
 
+// save maneja la solicitud para guardar la configuración de EchoLink, validando los valores y actualizando el archivo de configuración.
 func (p echoLinkConfigControl) save(c echo.Context) error {
 	var req echoLinkRequest
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 32<<10)
@@ -378,6 +399,7 @@ func (p echoLinkConfigControl) save(c echo.Context) error {
 	return c.JSON(200, echo.Map{"status": "ok", "revision": echoLinkRevision([]byte(updated))})
 }
 
+// activate maneja la solicitud para activar, desactivar o recargar el módulo de EchoLink, asegurando la persistencia y el estado correcto del módulo.
 func (p echoLinkConfigControl) activate(c echo.Context) error {
 	var req struct {
 		Confirmation string `json:"confirmation"`
@@ -455,6 +477,7 @@ func (p echoLinkConfigControl) activate(c echo.Context) error {
 	return c.JSON(200, echo.Map{"status": "ok", "loaded": active})
 }
 
+// echoLinkModuleConfig gestiona la configuración del módulo de EchoLink en el archivo de configuración de Asterisk, permitiendo habilitar o deshabilitar el módulo.
 func echoLinkModuleConfig(content string, enabled bool) (string, error) {
 	for _, line := range strings.Split(content, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), "#") {

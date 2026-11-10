@@ -20,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// TestRPTLinkGraph verifica la construcción y la búsqueda de rutas en el grafo de enlaces RPT.
 func TestRPTLinkGraph(t *testing.T) {
 	graph := make(rptLinkGraph)
 	for _, edge := range [][2]string{
@@ -45,6 +46,7 @@ func TestRPTLinkGraph(t *testing.T) {
 	}
 }
 
+// TestAddRPTVisibleLinks verifica la adición de enlaces visibles RPT a partir de la salida de AMI.
 func TestAddRPTVisibleLinks(t *testing.T) {
 	for _, test := range []struct {
 		name, raw string

@@ -28,6 +28,7 @@ type audioNodeState struct {
 	busy     bool
 }
 
+// StartAudioPlaybackScheduler inicia el programador de reproducción de audio, que verifica periódicamente el estado de los nodos y reproduce pistas programadas durante periodos de silencio.
 func StartAudioPlaybackScheduler() {
 	if config.App.DB == nil {
 		log.Printf("audio: programador deshabilitado porque no hay base de datos")
@@ -54,6 +55,7 @@ func StartAudioPlaybackScheduler() {
 	})
 }
 
+// runAudioPlaybackCycle ejecuta un ciclo de comprobación de reproducción de audio, evaluando el estado de los nodos y reproduciendo pistas programadas si se cumple el periodo de silencio.
 func runAudioPlaybackCycle(now time.Time) {
 	if !audioCycleMu.TryLock() {
 		return
@@ -164,6 +166,7 @@ func runAudioPlaybackCycle(now time.Time) {
 	}
 }
 
+// audioNodesSilent verifica si todos los nodos de audio están en silencio, devolviendo true si es así y false si algún nodo está ocupado o si ocurre un error.
 func audioNodesSilent(instances []allmonInstance) (bool, error) {
 	for _, instance := range instances {
 		state, err := readAudioNodeState(instance)
@@ -177,6 +180,7 @@ func audioNodesSilent(instances []allmonInstance) (bool, error) {
 	return len(instances) > 0, nil
 }
 
+// readAudioNodeState obtiene el estado de un nodo de audio específico, verificando tanto el estado del nodo como los enlaces de recepción de audio.
 func readAudioNodeState(instance allmonInstance) (audioNodeState, error) {
 	nodeStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "NodeStat", 3*time.Second)
 	if err != nil {
@@ -200,6 +204,7 @@ func readAudioNodeState(instance allmonInstance) (audioNodeState, error) {
 	}, nil
 }
 
+// audioReceivingLinksBusy determina si algún enlace de recepción de audio está ocupado según la salida de SawStat.
 func audioReceivingLinksBusy(sawStat, node string) (bool, error) {
 	if _, _, err := parseRPTReceiveState(sawStat, node, time.Now().UTC()); err != nil {
 		return false, err
@@ -226,6 +231,7 @@ func audioReceivingLinksBusy(sawStat, node string) (bool, error) {
 	return busy, nil
 }
 
+// claimScheduledAudioPlayback intenta reclamar la reproducción programada de una pista de audio, asegurando que la pista esté lista para reproducirse y que no haya conflictos de programación.
 func claimScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, now time.Time) (string, error) {
 	if track.NextPlayAt == nil || track.NextPlayAt.After(now) || track.IntervalMinutes < 1 {
 		return "", fmt.Errorf("programación inválida")
@@ -261,6 +267,7 @@ func claimScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, no
 	return token, nil
 }
 
+// cancelScheduledAudioPlayback cancela la reproducción programada de una pista de audio previamente reclamada, liberando el token de reproducción y actualizando la programación.
 func cancelScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, token string, now time.Time) error {
 	tx, err := config.App.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -283,6 +290,7 @@ func cancelScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, t
 	return tx.Commit()
 }
 
+// loadScheduledAudioTracks carga todas las pistas de audio programadas para reproducción en modo de silencio, devolviendo sus detalles y la programación asociada.
 func loadScheduledAudioTracks(ctx context.Context) ([]storedAudioTrack, error) {
 	rows, err := config.App.DB.QueryContext(ctx, `
 		SELECT t.id, t.name, t.stored_filename, t.playback_mode, t.enabled,
@@ -311,6 +319,7 @@ func loadScheduledAudioTracks(ctx context.Context) ([]storedAudioTrack, error) {
 	return tracks, rows.Err()
 }
 
+// updateAudioScheduleAfterAttempt actualiza la programación de reproducción de una pista de audio después de un intento de reproducción, ajustando el siguiente tiempo de reproducción según el resultado.
 func updateAudioScheduleAfterAttempt(ctx context.Context, id int64, now time.Time, intervalMinutes int, succeeded bool) error {
 	if intervalMinutes < 1 {
 		return fmt.Errorf("intervalo de reproducción inválido")

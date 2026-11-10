@@ -97,6 +97,10 @@ func GetPJSIPExtensions(c echo.Context) error         { return newSIPUsersContro
 func SaveOrUpdatePJSIPExtension(c echo.Context) error { return newSIPUsersControl().savePJSIP(c) }
 func DeletePJSIPExtension(c echo.Context) error       { return newSIPUsersControl().deletePJSIP(c) }
 
+// GetPJSIPExtensions maneja la solicitud para obtener todas las extensiones PJSIP.
+// SaveOrUpdatePJSIPExtension maneja la solicitud para guardar o actualizar una extensión PJSIP.
+// DeletePJSIPExtension maneja la solicitud para eliminar una extensión PJSIP.
+// pjsipUserSections obtiene las secciones de usuario PJSIP correspondientes a un ID específico, devolviendo un mapa de índices y cualquier error encontrado.
 func (p sipUsersControl) getPJSIP(c echo.Context) error {
 	systemControlLock.Lock()
 	defer systemControlLock.Unlock()
@@ -190,6 +194,7 @@ func pjsipUserSections(content, id string) (map[string]int, error) {
 	return found, nil
 }
 
+// savePJSIP maneja la solicitud HTTP para guardar una extensión PJSIP.
 func (p sipUsersControl) savePJSIP(c echo.Context) error {
 	var ext PJSIPExtension
 	if err := c.Bind(&ext); err != nil {
@@ -251,6 +256,7 @@ func (p sipUsersControl) savePJSIP(c echo.Context) error {
 	return p.persist(c, p.pjsipPath, string(data), output, "module reload res_pjsip.so")
 }
 
+// deletePJSIP maneja la solicitud HTTP para eliminar una extensión PJSIP.
 func (p sipUsersControl) deletePJSIP(c echo.Context) error {
 	id := c.Param("id")
 	if !sipUserName.MatchString(id) {

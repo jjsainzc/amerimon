@@ -62,6 +62,7 @@ type nextionPort struct {
 	Serial       string `json:"serial,omitempty"`
 }
 
+// discoverNextionInterfaces busca y devuelve las interfaces de red disponibles que están activas y no son de bucle invertido, incluyendo su dirección IPv4 y una etiqueta descriptiva.
 func discoverNextionInterfaces() []nextionNetworkInterface {
 	interfaces, err := net.Interfaces()
 	if err != nil {
@@ -91,6 +92,7 @@ func discoverNextionInterfaces() []nextionNetworkInterface {
 	return result
 }
 
+// nextionInterfaceIPv4 obtiene la primera dirección IPv4 global unicast de la lista de direcciones proporcionada, ignorando las direcciones de bucle invertido y locales.
 func nextionInterfaceIPv4(addresses []net.Addr) string {
 	var values []string
 	seen := make(map[string]bool)
@@ -107,6 +109,7 @@ func nextionInterfaceIPv4(addresses []net.Addr) string {
 	return strings.Join(values, ", ")
 }
 
+// hasNetworkInterface verifica si la interfaz de red especificada existe y está activa, ignorando las interfaces de bucle invertido.
 func hasNetworkInterface(name string) bool {
 	iface, err := net.InterfaceByName(name)
 	return err == nil && iface.Flags&net.FlagUp != 0 && iface.Flags&net.FlagLoopback == 0
@@ -154,6 +157,7 @@ type nextionService struct {
 
 var nextionRuntime = &nextionService{notify: make(chan struct{}, 1)}
 
+// readNextionSettings lee la configuración de Nextion desde la base de datos, proporcionando valores predeterminados y manejando errores de lectura.
 func readNextionSettings(ctx context.Context) (nextionSettings, error) {
 	settings := nextionSettings{BaudRate: 9600, SendLabels: true}
 	if config.App.DB == nil {
@@ -194,6 +198,7 @@ func readNextionSettings(ctx context.Context) (nextionSettings, error) {
 	return settings, nil
 }
 
+// validateNextionSettings valida la configuración de Nextion, asegurándose de que los valores sean correctos y que el nodo favorito sea distinto del nodo local.
 func validateNextionSettings(settings nextionSettings) error {
 	settings.Port = strings.TrimSpace(settings.Port)
 	settings.FavoriteNode = strings.TrimSpace(settings.FavoriteNode)
@@ -228,6 +233,7 @@ func validateNextionSettings(settings nextionSettings) error {
 	return nil
 }
 
+// GetNextionSettings maneja la solicitud para obtener la configuración de Nextion, incluyendo los puertos disponibles, modelos, estado de ejecución y configuración de red actual.
 func GetNextionSettings(c echo.Context) error {
 	settings, err := readNextionSettings(c.Request().Context())
 	if err != nil {
@@ -251,6 +257,7 @@ func GetNextionSettings(c echo.Context) error {
 	})
 }
 
+// SaveNextionSettings maneja la solicitud para guardar la configuración de Nextion, validando los datos y actualizando la base de datos.
 func SaveNextionSettings(c echo.Context) error {
 	var request nextionSettingsRequest
 	if err := c.Bind(&request); err != nil {
@@ -305,6 +312,7 @@ func SaveNextionSettings(c echo.Context) error {
 	return GetNextionSettings(c)
 }
 
+// TestNextionPort maneja la solicitud para probar un puerto serie de Nextion, verificando la validez del puerto y la velocidad de baudios, y asegurando que el puerto pueda abrirse y cerrarse correctamente.
 func TestNextionPort(c echo.Context) error {
 	var request nextionPortTestRequest
 	if err := c.Bind(&request); err != nil {
@@ -339,6 +347,7 @@ func TestNextionPort(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok"})
 }
 
+// signalChange notifica al supervisor de Nextion que debe reconciliar la configuración, enviando una señal a través del canal de notificación.
 func (s *nextionService) signalChange() {
 	select {
 	case s.notify <- struct{}{}:
@@ -346,10 +355,12 @@ func (s *nextionService) signalChange() {
 	}
 }
 
+// StartNextionSupervisor inicia el supervisor de Nextion en un contexto dado, ejecutando la supervisión en una goroutine separada.
 func StartNextionSupervisor(ctx context.Context) {
 	go nextionRuntime.supervise(ctx)
 }
 
+// supervise ejecuta el bucle de supervisión del servicio Nextion, reconciliando la configuración periódicamente y respondiendo a señales de cambio.
 func (s *nextionService) supervise(ctx context.Context) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
@@ -365,6 +376,7 @@ func (s *nextionService) supervise(ctx context.Context) {
 	}
 }
 
+// reconcile sincroniza la configuración del servicio Nextion con la configuración actual, deteniendo el trabajador si es necesario y validando los ajustes antes de iniciar un nuevo trabajador.
 func (s *nextionService) reconcile(ctx context.Context) {
 	settings, err := readNextionSettings(ctx)
 	if err != nil {
@@ -412,6 +424,7 @@ func (s *nextionService) reconcile(ctx context.Context) {
 	go s.runWorker(workerCtx, p, settings, done)
 }
 
+// runWorker ejecuta el trabajador de Nextion, gestionando la conexión serial, la ejecución del panel y el manejo de errores, reiniciando el proceso cuando es necesario.
 func (s *nextionService) runWorker(ctx context.Context, p *panel, settings nextionSettings, done chan struct{}) {
 	defer close(done)
 	for {
@@ -451,6 +464,7 @@ func (s *nextionService) runWorker(ctx context.Context, p *panel, settings nexti
 	}
 }
 
+// stopWorker detiene el trabajador de Nextion, cancelando su contexto y esperando a que finalice.
 func (s *nextionService) stopWorker() {
 	s.mu.Lock()
 	cancel, done := s.cancel, s.done
@@ -462,12 +476,14 @@ func (s *nextionService) stopWorker() {
 	}
 }
 
+// setRuntime actualiza el estado de ejecución del servicio Nextion, incluyendo el puerto, el nodo local y el último error.
 func (s *nextionService) setRuntime(running bool, port, local, lastErr string) {
 	s.mu.Lock()
 	s.running, s.port, s.local, s.lastErr = running, port, local, lastErr
 	s.mu.Unlock()
 }
 
+// configuredLocalNode devuelve el nodo local configurado actualmente, o una cadena vacía si no se puede determinar.
 func configuredLocalNode() string {
 	node, err := newPrimaryNodeControl().primary()
 	if err != nil {
@@ -476,6 +492,7 @@ func configuredLocalNode() string {
 	return node
 }
 
+// discoverNextionPorts busca y devuelve una lista de puertos serie disponibles que podrían estar conectados a dispositivos Nextion.
 func discoverNextionPorts() []nextionPort {
 	paths, err := filepath.Glob("/dev/ttyUSB*")
 	if err != nil {
@@ -525,6 +542,7 @@ func discoverNextionPorts() []nextionPort {
 	return ports
 }
 
+// readSysfsString lee un valor de cadena desde el sistema de archivos sysfs, devolviendo un valor de respaldo si ocurre un error.
 func readSysfsString(dir, name, fallback string) string {
 	data, err := os.ReadFile(filepath.Join(dir, name))
 	if err != nil {
@@ -533,6 +551,7 @@ func readSysfsString(dir, name, fallback string) string {
 	return strings.TrimSpace(string(data))
 }
 
+// listNextionModels devuelve una lista de modelos de Nextion disponibles, incluyendo información sobre la disponibilidad de la fuente y la URL de vista previa.
 func listNextionModels() []nextionModel {
 	dirs := nextionFirmwareDirs()
 	models := make([]nextionModel, 0)
@@ -574,6 +593,7 @@ func listNextionModels() []nextionModel {
 	return models
 }
 
+// nextionFirmwareDirs devuelve una lista de directorios donde se pueden encontrar los archivos de firmware de Nextion, incluyendo directorios predeterminados, configurados y relativos al directorio de trabajo actual.
 func nextionFirmwareDirs() []string {
 	dirs := []string{"/usr/share/amerimon/nextion"}
 	if configured := os.Getenv("AMERIMON_NEXTION_DIR"); configured != "" {
@@ -590,6 +610,7 @@ func nextionFirmwareDirs() []string {
 	return dirs
 }
 
+// DownloadNextionFile maneja la descarga de archivos de firmware de Nextion, validando el modelo y la extensión, y sirviendo el archivo correspondiente si existe.
 func DownloadNextionFile(c echo.Context) error {
 	name := c.Param("model")
 	if !nextionModelName.MatchString(name) {

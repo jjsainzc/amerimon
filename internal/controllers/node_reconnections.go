@@ -37,6 +37,7 @@ type nodeReconnection struct {
 var nodeReconnectionMu sync.Mutex
 var nodeReconnectionCycleMu sync.Mutex
 
+// loadNodeReconnections carga las reconexiones de nodos desde la base de datos, devolviendo una lista de entradas y cualquier error encontrado.
 func loadNodeReconnections(ctx context.Context) ([]nodeReconnection, error) {
 	if config.App.DB == nil {
 		return nil, fmt.Errorf("base de datos no disponible")
@@ -61,6 +62,7 @@ func loadNodeReconnections(ctx context.Context) ([]nodeReconnection, error) {
 	return entries, rows.Err()
 }
 
+// ListNodeReconnections maneja la solicitud para listar todas las reconexiones de nodos.
 func ListNodeReconnections(c echo.Context) error {
 	entries, err := loadNodeReconnections(c.Request().Context())
 	if err != nil {
@@ -77,6 +79,7 @@ func reconnectionDBError(err error) error {
 	return apiError(http.StatusInternalServerError, "RECONNECT_DB_ERROR")
 }
 
+// readNodeReconnection lee y valida una entrada de reconexión de nodo desde la solicitud, devolviendo la entrada y cualquier error encontrado.
 func readNodeReconnection(c echo.Context) (nodeReconnection, error) {
 	var entry nodeReconnection
 	if err := c.Bind(&entry); err != nil {
@@ -92,6 +95,7 @@ func readNodeReconnection(c echo.Context) (nodeReconnection, error) {
 	return entry, nil
 }
 
+// SaveNodeReconnection maneja la solicitud para guardar una reconexión de nodo, validando la entrada y asegurando la exclusión mutua.
 func SaveNodeReconnection(c echo.Context) error {
 	entry, err := readNodeReconnection(c)
 	if err != nil {
@@ -173,6 +177,7 @@ func SaveNodeReconnection(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok"})
 }
 
+// DeleteNodeReconnection maneja la solicitud para eliminar una reconexión de nodo, asegurando la exclusión mutua.
 func DeleteNodeReconnection(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || id < 1 {
@@ -199,6 +204,7 @@ func DeleteNodeReconnection(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "ok"})
 }
 
+// StartNodeReconnectionScheduler inicia el programador de reconexiones de nodos, ejecutando ciclos de verificación periódicos.
 func StartNodeReconnectionScheduler(ctx context.Context) <-chan struct{} {
 	done := make(chan struct{})
 	go func() {
@@ -217,6 +223,7 @@ func StartNodeReconnectionScheduler(ctx context.Context) <-chan struct{} {
 	return done
 }
 
+// runNodeReconnectionCycle ejecuta un ciclo de verificación de reconexiones de nodos, procesando todas las entradas que requieren acción.
 func runNodeReconnectionCycle(ctx context.Context, now time.Time) {
 	if ctx.Err() != nil || !nodeReconnectionCycleMu.TryLock() {
 		return
@@ -238,6 +245,7 @@ func runNodeReconnectionCycle(ctx context.Context, now time.Time) {
 	}
 }
 
+// runNodeReconnectionEntry ejecuta la reconexión de un nodo específico si corresponde, actualizando los tiempos de verificación y manejando errores.
 func runNodeReconnectionEntry(ctx context.Context, entry nodeReconnection, now time.Time) {
 	nodeReconnectionMu.Lock()
 	defer nodeReconnectionMu.Unlock()
@@ -274,6 +282,7 @@ func runNodeReconnectionEntry(ctx context.Context, entry nodeReconnection, now t
 	}
 }
 
+// checkNodeReconnection realiza la verificación de reconexión para un nodo específico, devolviendo el resultado y los detalles.
 func checkNodeReconnection(ctx context.Context, entry nodeReconnection) (string, string) {
 	if !systemControlLock.TryLock() {
 		return "RECONNECT_BUSY", ""
@@ -329,6 +338,7 @@ func checkNodeReconnection(ctx context.Context, entry nodeReconnection) (string,
 	return "RECONNECT_REQUESTED", ""
 }
 
+// resolveReconnectionSource determina la instancia de Allmon correspondiente al nodo fuente, devolviendo un error si no se encuentra o si la configuración está incompleta.
 func resolveReconnectionSource(source string) (allmonInstance, error) {
 	if source == "" {
 		var err error

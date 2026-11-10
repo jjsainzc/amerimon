@@ -40,10 +40,14 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.GET("/weather", controllers.GetWeather)
 	privada.POST("/auth/password", controllers.ChangeAdminPassword, jwt, admin)
 	privada.PUT("/site-settings", controllers.SaveSiteSettings, jwt, admin)
+
+	// Rutas relacionadas con la configuración de Nextion
 	privada.GET("/nextion", controllers.GetNextionSettings, jwt, admin)
 	privada.PUT("/nextion", controllers.SaveNextionSettings, jwt, admin)
 	privada.POST("/nextion/test-port", controllers.TestNextionPort, jwt, admin)
 	privada.GET("/nextion/files/:model/:extension", controllers.DownloadNextionFile, jwt, admin)
+
+	// Rutas relacionadas con la información y control del sistema.
 	privada.GET("/system-info", controllers.GetSystemInfo, jwt, admin)
 	privada.POST("/system/control", controllers.ControlSystem, jwt, admin)
 
@@ -51,22 +55,28 @@ func Setup(e *echo.Echo, mgr *config.AudioStreamManager) {
 	publica.GET("/sm_lsnodes", controllers.HandleAllStarNodes)
 	publica.GET("/enlaces-externos", controllers.ListEnlacesExternos)
 
+	// Rutas relacionadas con Asterisk
 	privada.POST("/asterisk", controllers.SendAsteriskCmd, jwt, admin)
 	privada.GET("/asterisk/commands", controllers.ListSupermonCommands, jwt, admin)
 	privada.POST("/asterisk/commands", controllers.ExecuteSupermonCommand, jwt, admin)
 	privada.GET("/asterisk/logs", controllers.GetAsteriskOperationLogs, jwt, admin)
 	privada.POST("/asterisk/connections", controllers.AddNodeConnection, jwt, admin)
+	privada.POST("/asterisk/connections/audio", controllers.SetConnectionAudio, jwt, admin)
+
+	// Rutas relacionadas con la reconexión de nodos.
 	privada.GET("/node-reconnections", controllers.ListNodeReconnections, jwt, admin)
 	privada.POST("/node-reconnections", controllers.SaveNodeReconnection, jwt, admin)
 	privada.PUT("/node-reconnections/:id", controllers.SaveNodeReconnection, jwt, admin)
 	privada.DELETE("/node-reconnections/:id", controllers.DeleteNodeReconnection, jwt, admin)
-	privada.POST("/asterisk/connections/audio", controllers.SetConnectionAudio, jwt, admin)
+
+	// Rutas relacionadas con el manejo de pistas de audio.
 	privada.GET("/audio/tracks", controllers.ListAudioTracks, jwt, admin)
 	privada.POST("/audio/tracks", controllers.UploadAudioTrack, jwt, admin)
 	privada.PATCH("/audio/tracks/:id", controllers.UpdateAudioTrack, jwt, admin)
 	privada.DELETE("/audio/tracks/:id", controllers.DeleteAudioTrack, jwt, admin)
 	privada.POST("/audio/tracks/:id/play", controllers.PlayAudioTrack, jwt, admin)
 	privada.GET("/audio/tracks/:id/file", controllers.AudioTrackFile, jwt, admin)
+
 	recordings := controllers.NewAudioRecordingControl(mgr)
 	privada.GET("/audio/recordings", recordings.List, jwt, admin)
 	privada.POST("/audio/recordings", recordings.Start, jwt, admin)

@@ -11,10 +11,12 @@ import (
 	"time"
 )
 
+// validAudioSegment verifica si un segmento de audio definido por startMS y endMS es válido dentro de la duración total del audio.
 func validAudioSegment(startMS, endMS, durationMS int64) bool {
 	return (startMS == 0 && endMS == 0) || (startMS >= 0 && endMS > startMS && endMS <= durationMS)
 }
 
+// playbackDurationMS calcula la duración de reproducción de un fragmento de audio, considerando los valores de inicio y fin si están definidos.
 func (track AudioTrack) playbackDurationMS() int64 {
 	if track.EndMS != 0 {
 		return track.EndMS - track.StartMS
@@ -22,6 +24,7 @@ func (track AudioTrack) playbackDurationMS() int64 {
 	return track.DurationMS
 }
 
+// prepareAudioTrackPlayback prepara la reproducción de una pista de audio, creando un segmento si es necesario y programando la limpieza del archivo temporal.
 func prepareAudioTrackPlayback(track storedAudioTrack) (string, error) {
 	if !validAudioSegment(track.StartMS, track.EndMS, track.DurationMS) {
 		return "", errors.New("invalid saved audio segment")
@@ -42,6 +45,7 @@ func prepareAudioTrackPlayback(track storedAudioTrack) (string, error) {
 	return filename, nil
 }
 
+// audioSegmentWAV extrae un segmento de audio en formato WAV a partir de los datos normalizados, según los tiempos de inicio y fin especificados.
 func audioSegmentWAV(data []byte, startMS, endMS int64) ([]byte, error) {
 	normalized, duration, _, _, err := normalizeAudioWAV(data)
 	if err != nil {
@@ -66,6 +70,7 @@ func audioSegmentWAV(data []byte, startMS, endMS int64) ([]byte, error) {
 	return append(result, pcm[start:end]...), nil
 }
 
+// createAudioSegment genera un nuevo archivo de segmento de audio a partir de un archivo de audio existente, utilizando los tiempos de inicio y fin especificados.
 func createAudioSegment(filename string, startMS, endMS int64) (string, error) {
 	if !audioFilenamePattern.MatchString(filename) {
 		return "", errors.New("invalid stored audio filename")

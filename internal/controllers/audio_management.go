@@ -67,6 +67,7 @@ type storedAudioTrack struct {
 	StoredFilename string
 }
 
+// audioStoragePath devuelve la ruta de almacenamiento de archivos de audio.
 func audioStoragePath() string {
 	root := strings.TrimSpace(config.App.Audio.StorageDir)
 	dataDir, _ := asteriskDirectories()
@@ -76,11 +77,13 @@ func audioStoragePath() string {
 	return filepath.Join(root, audioSubdirectory)
 }
 
+// legacyAudioStoragePath devuelve la ruta de almacenamiento de archivos de audio en la estructura de directorios heredada.
 func legacyAudioStoragePath() string {
 	_, varLibDir := asteriskDirectories()
 	return filepath.Join(varLibDir, "sounds", audioSubdirectory)
 }
 
+// asteriskDirectories devuelve los directorios de datos y de biblioteca de Asterisk, leyendo la configuración desde asterisk.conf.
 func asteriskDirectories() (dataDir, varLibDir string) {
 	dataDir, varLibDir = defaultAsteriskDir, defaultAsteriskDir
 	rptConfigPath := strings.TrimSpace(config.App.AMI.RPTConfigPath)
@@ -126,6 +129,7 @@ func asteriskDirectories() (dataDir, varLibDir string) {
 	return dataDir, varLibDir
 }
 
+// validAudioPlaybackMode verifica si el modo de reproducción de audio proporcionado es válido.
 func validAudioPlaybackMode(mode string) bool {
 	switch mode {
 	case "broadcast_once", "broadcast_silence":
@@ -135,6 +139,7 @@ func validAudioPlaybackMode(mode string) bool {
 	}
 }
 
+// normalizeAudioWAV valida y normaliza un archivo WAV, devolviendo los datos normalizados, la duración, la tasa de muestreo, los bits por muestra y cualquier error encontrado.
 func normalizeAudioWAV(data []byte) ([]byte, time.Duration, int, int, error) {
 	if len(data) < 44 || string(data[:4]) != "RIFF" || string(data[8:12]) != "WAVE" {
 		return nil, 0, 0, 0, errors.New("el archivo no es un WAV válido")
@@ -203,6 +208,7 @@ func normalizeAudioWAV(data []byte) ([]byte, time.Duration, int, int, error) {
 	return normalized, time.Duration(durationMS) * time.Millisecond, sampleRate, 16, nil
 }
 
+// convertPCM8BitWAVTo16Bit convierte un archivo WAV PCM de 8 bits a 16 bits, ajustando los encabezados y los datos de audio según sea necesario.
 func convertPCM8BitWAVTo16Bit(data []byte) ([]byte, error) {
 	var output bytes.Buffer
 	output.Grow(len(data) * 2)
@@ -254,6 +260,7 @@ func convertPCM8BitWAVTo16Bit(data []byte) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
+// ListAudioTracks devuelve la lista de pistas de audio almacenadas, incluyendo información de programación y metadatos.
 func ListAudioTracks(c echo.Context) error {
 	if config.App.DB == nil {
 		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
@@ -308,6 +315,7 @@ func ListAudioTracks(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "data": publicTracks})
 }
 
+// UploadAudioTrack maneja la subida de una nueva pista de audio, validando el archivo, el nombre, el modo de reproducción y el intervalo, y almacenando la pista en la base de datos y el sistema de archivos.
 func UploadAudioTrack(c echo.Context) error {
 	if config.App.DB == nil {
 		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
@@ -375,6 +383,7 @@ func UploadAudioTrack(c echo.Context) error {
 	return persistAudioTrack(c, name, originalName, mode, intervalMinutes, data, duration, sampleRate, bitsPerSample, 0)
 }
 
+// persistAudioTrack guarda una pista de audio en el sistema de archivos y registra la información en la base de datos.
 func persistAudioTrack(c echo.Context, name, originalName, mode string, intervalMinutes int, data []byte, duration time.Duration, sampleRate, bitsPerSample int, recordingID int64) error {
 	filename, err := newAudioFilename()
 	if err != nil {
@@ -476,6 +485,7 @@ func persistAudioTrack(c echo.Context, name, originalName, mode string, interval
 	}})
 }
 
+// UpdateAudioTrack maneja la actualización de los metadatos de una pista de audio existente, incluyendo el nombre, el modo de reproducción, el estado habilitado, el intervalo de reproducción y los segmentos de inicio y fin.
 func UpdateAudioTrack(c echo.Context) error {
 	if config.App.DB == nil {
 		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
@@ -582,6 +592,7 @@ func UpdateAudioTrack(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success"})
 }
 
+// DeleteAudioTrack maneja la eliminación de una pista de audio existente, eliminando tanto el registro en la base de datos como los archivos asociados en el sistema de archivos.
 func DeleteAudioTrack(c echo.Context) error {
 	if config.App.DB == nil {
 		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
@@ -623,6 +634,7 @@ func DeleteAudioTrack(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success"})
 }
 
+// AudioTrackFile maneja la solicitud de un archivo de pista de audio, sirviendo el archivo WAV correspondiente desde el almacenamiento, validando la existencia y el formato del archivo.
 func AudioTrackFile(c echo.Context) error {
 	if config.App.DB == nil {
 		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
@@ -663,6 +675,7 @@ func AudioTrackFile(c echo.Context) error {
 	return nil
 }
 
+// PlayAudioTrack maneja la reproducción manual de una pista de audio, verificando la disponibilidad, el modo de reproducción y los segmentos de inicio y fin, y reservando la reproducción en el sistema.
 func PlayAudioTrack(c echo.Context) error {
 	if config.App.DB == nil {
 		return audioAPIError(c, http.StatusServiceUnavailable, "La base de datos no está disponible.")
@@ -740,6 +753,7 @@ func PlayAudioTrack(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"status": "success", "code": "AUDIO_PLAY_REQUESTED"})
 }
 
+// claimAudioPlayback intenta reservar la reproducción de audio por una duración específica, devolviendo un token de reproducción si tiene éxito.
 func claimAudioPlayback(ctx context.Context, durationMS int64) (string, error) {
 	if config.App.DB == nil {
 		return "", errors.New("base de datos no disponible")
@@ -762,6 +776,7 @@ func claimAudioPlayback(ctx context.Context, durationMS int64) (string, error) {
 	return token, nil
 }
 
+// claimAudioPlaybackTx realiza la reserva de reproducción de audio dentro de una transacción de base de datos, asegurando que no haya conflictos de concurrencia.
 func claimAudioPlaybackTx(ctx context.Context, tx *sql.Tx, durationMS int64) (string, error) {
 	if durationMS < 1 {
 		return "", errors.New("duración de audio inválida")
@@ -792,6 +807,7 @@ func claimAudioPlaybackTx(ctx context.Context, tx *sql.Tx, durationMS int64) (st
 	return token, nil
 }
 
+// releaseAudioPlayback libera la reserva de reproducción de audio asociada con un token específico, restableciendo el estado de ocupación en la base de datos.
 func releaseAudioPlayback(ctx context.Context, token string) error {
 	_, err := config.App.DB.ExecContext(ctx, `
 		UPDATE audio_playback_state SET busy_until = '1970-01-01T00:00:00Z', playback_token = ''
@@ -799,6 +815,7 @@ func releaseAudioPlayback(ctx context.Context, token string) error {
 	return err
 }
 
+// loadAudioTrack carga la información de una pista de audio almacenada en la base de datos, incluyendo metadatos y programación.
 func loadAudioTrack(ctx context.Context, id int64) (storedAudioTrack, error) {
 	var track storedAudioTrack
 	var enabled int
@@ -822,6 +839,7 @@ func loadAudioTrack(ctx context.Context, id int64) (storedAudioTrack, error) {
 	return track, err
 }
 
+// playAudioOnPrimary maneja la reproducción de un archivo de audio en el nodo principal, verificando la configuración de duplex y preparando el archivo para Asterisk.
 func playAudioOnPrimary(filename string) (string, string, string, error) {
 	if !audioFilenamePattern.MatchString(filename) {
 		return "", "", "", errors.New("el nombre del archivo de audio almacenado no es válido")
@@ -857,6 +875,7 @@ func playAudioOnPrimary(filename string) (string, string, string, error) {
 	return command, primary, output, nil
 }
 
+// resolveAudioPrimaryInstance obtiene la instancia AMI correspondiente al nodo principal de audio, verificando que la configuración esté completa.
 func resolveAudioPrimaryInstance(primary string) (allmonInstance, error) {
 	instances, err := allStarLinkActivityInstances()
 	if err != nil {
@@ -875,11 +894,13 @@ func resolveAudioPrimaryInstance(primary string) (allmonInstance, error) {
 	return allmonInstance{}, errors.New("el nodo principal no está disponible en la configuración de nodos monitorizados")
 }
 
+// audioDuplexAllowsLinkedPlayback verifica si la configuración de duplex permite la reproducción vinculada de audio.
 func audioDuplexAllowsLinkedPlayback(value string, found bool) bool {
 	duplex, err := strconv.Atoi(value)
 	return found && err == nil && duplex >= 1 && duplex <= 4
 }
 
+// audioPlaybackOutputError analiza la salida de la reproducción de audio y devuelve un error si se detecta un fallo conocido.
 func audioPlaybackOutputError(output string) error {
 	lower := strings.ToLower(output)
 	for _, failure := range []string{
@@ -897,6 +918,7 @@ func audioPlaybackOutputError(output string) error {
 	return nil
 }
 
+// readRPTSectionSetting lee la configuración de una sección específica en un archivo RPT, devolviendo el valor del ajuste, si se encontró y cualquier error de lectura.
 func readRPTSectionSetting(path, sectionName, settingName string) (string, bool, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -972,6 +994,7 @@ func readRPTSectionSetting(path, sectionName, settingName string) (string, bool,
 	return value, found, nil
 }
 
+// prepareAudioFileForPlayback prepara un archivo de audio para su reproducción, verificando su existencia y obteniendo la información del archivo.
 func prepareAudioFileForPlayback(filename string) error {
 	path := filepath.Join(audioStoragePath(), filename)
 	info, err := os.Stat(path)
@@ -1035,6 +1058,7 @@ func prepareAudioFileForPlayback(filename string) error {
 	return err
 }
 
+// newAudioFilename genera un nombre de archivo único para una nueva pista de audio, asegurando que tenga la extensión .wav.
 func newAudioFilename() (string, error) {
 	var random [16]byte
 	if _, err := rand.Read(random[:]); err != nil {
@@ -1043,6 +1067,7 @@ func newAudioFilename() (string, error) {
 	return fmt.Sprintf("%x-%x-%x-%x-%x.wav", random[0:4], random[4:6], random[6:8], random[8:10], random[10:]), nil
 }
 
+// parseAudioTimestamp analiza un valor de marca de tiempo de audio almacenado en la base de datos y devuelve un puntero a time.Time si es válido.
 func parseAudioTimestamp(value sql.NullString) *time.Time {
 	if !value.Valid || value.String == "" {
 		return nil
@@ -1057,6 +1082,7 @@ func parseAudioTimestamp(value sql.NullString) *time.Time {
 	return &parsed
 }
 
+// audioAPIError maneja la respuesta de error de la API de audio, devolviendo un JSON con el código de error correspondiente y el mensaje.
 func audioAPIError(c echo.Context, status int, message string) error {
 	code, ok := audioErrorCodeByMessage[message]
 	if !ok {
@@ -1065,6 +1091,7 @@ func audioAPIError(c echo.Context, status int, message string) error {
 	return c.JSON(status, echo.Map{"status": "error", "code": code, "message": message})
 }
 
+// audioErrorCodeByMessage mapea mensajes de error específicos de la API de audio a códigos de error estandarizados.
 var audioErrorCodeByMessage = map[string]string{
 	"La base de datos no está disponible.":                                      "AUDIO_ERROR_DB_UNAVAILABLE",
 	"No se pudo consultar la biblioteca de audio.":                              "AUDIO_ERROR_LIST",
