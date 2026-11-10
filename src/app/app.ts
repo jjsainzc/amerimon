@@ -126,6 +126,9 @@ export class App implements OnInit {
   /** Alterna la visibilidad del menú principal. */
   protected alternarMenu(): void {
     this.menuAbierto.update(v => !v);
+    if (this.menuAbierto()) {
+      this.headerOculto.set(false);
+    }
   }
 
   /** Alterna el submenú de administración. */
@@ -142,11 +145,11 @@ export class App implements OnInit {
     }
   }
 
-  /** Oculta la cabecera al desplazarse hacia abajo y la muestra al subir. */
+  /** Oculta la cabecera al bajar, salvo mientras se utiliza el menú móvil. */
   @HostListener('window:scroll')
   protected controlarHeader(): void {
     const posicion = window.scrollY;
-    this.headerOculto.set(posicion > this.ultimaPosicionScroll && posicion > 100);
+    this.headerOculto.set(!this.menuAbierto() && posicion > this.ultimaPosicionScroll && posicion > 100);
     this.ultimaPosicionScroll = posicion;
   }
 

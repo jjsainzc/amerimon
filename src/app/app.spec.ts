@@ -26,6 +26,7 @@ describe('App', () => {
       .forEach(req => req.flush(''));
     http.verify({ ignoreCancelled: true });
     localStorage.clear();
+    vi.unstubAllGlobals();
   });
 
   it('should create the app', () => {
@@ -71,6 +72,49 @@ describe('App', () => {
     expect(element.querySelectorAll('.enlaces a[href="/password-tools"]')).toHaveLength(1);
     expect(element.querySelector('.enlaces a[href="/password-tools"]')?.textContent)
       .toContain('PASSWORD_TOOLS_NAV');
+  });
+
+  it('keeps the header visible while the mobile menu is open and resumes auto-hide after closing', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    TestBed.inject(HttpTestingController).expectOne(`${environment.apiUrl}/site-settings`)
+      .flush({ title: 'Amerimon', subtitle: '', asterisk_version: '' });
+    const element = fixture.nativeElement as HTMLElement;
+    const header = element.querySelector('header')!;
+    const hamburger = element.querySelector<HTMLButtonElement>('.hamburguesa')!;
+    const scrollTo = async (position: number) => {
+      vi.stubGlobal('scrollY', position);
+      window.dispatchEvent(new Event('scroll'));
+      await fixture.whenStable();
+    };
+
+    await scrollTo(150);
+    expect(header.classList.contains('oculta')).toBe(true);
+    hamburger.click();
+    await fixture.whenStable();
+    expect(header.classList.contains('oculta')).toBe(false);
+    expect(hamburger.getAttribute('aria-expanded')).toBe('true');
+
+    await scrollTo(200);
+    expect(header.classList.contains('oculta')).toBe(false);
+    hamburger.click();
+    await fixture.whenStable();
+    await scrollTo(250);
+    expect(header.classList.contains('oculta')).toBe(true);
+
+    await scrollTo(200);
+    expect(header.classList.contains('oculta')).toBe(false);
+    hamburger.click();
+    await fixture.whenStable();
+    await scrollTo(300);
+    expect(header.classList.contains('oculta')).toBe(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await fixture.whenStable();
+    expect(hamburger.getAttribute('aria-expanded')).toBe('false');
+    await scrollTo(350);
+    expect(header.classList.contains('oculta')).toBe(true);
+    await scrollTo(0);
+    expect(header.classList.contains('oculta')).toBe(false);
   });
 
   it('shows the Amerimon logo and remember-session checkbox in the login dialog', async () => {
