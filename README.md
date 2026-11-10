@@ -4,7 +4,7 @@ Interfaz web para consultar AllStarLink, administrar nodos Allmon y escuchar el 
 
 ## Instalación
 
-Paquetes Debian disponibles para `arm64` y `amd64`:
+Paquetes Debian disponibles para `arm64` y `amd64`, en ese repositorio ya están compilados y listos para ser instalados:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jjsainzc/repo-deb/main/hc1lnm.gpg \
