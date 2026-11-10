@@ -14,18 +14,21 @@ import (
 var App Config
 var amiConfigMu sync.RWMutex
 
+// CurrentAMI devuelve la configuración actual del AMI de Asterisk.
 func CurrentAMI() AMIConfig {
 	amiConfigMu.RLock()
 	defer amiConfigMu.RUnlock()
 	return App.AMI
 }
 
+// SetAMI establece la configuración del AMI de Asterisk.
 func SetAMI(value AMIConfig) {
 	amiConfigMu.Lock()
 	defer amiConfigMu.Unlock()
 	App.AMI = value
 }
 
+// Config contiene la configuración completa de amerimon.
 type Config struct {
 	Version string `yaml:"-"`
 	Path    string `yaml:"-"`
@@ -38,11 +41,13 @@ type Config struct {
 	Audio   AudioConfig   `yaml:"audio"`
 }
 
+// AudioConfig contiene la configuración relacionada con el almacenamiento y la captura de audio.
 type AudioConfig struct {
 	StorageDir   string `yaml:"storage_dir"`
 	PollInterval string `yaml:"poll_interval"`
 }
 
+// SourcesConfig contiene las rutas y URLs de las fuentes de datos utilizadas por amerimon.
 type SourcesConfig struct {
 	AstDBPath        string `yaml:"astdb_path"`
 	AstDBUrl         string `yaml:"astdb_url"`
@@ -53,7 +58,7 @@ type SourcesConfig struct {
 	AllmonINIOwnPath string `yaml:"allmon_ini_own_path"`
 }
 
-// AMIConfig reúne las credenciales del AMI de Asterisk y el puerto interno de listen-live.
+// AMIConfig reúne las credenciales del AMI de Asterisk y la configuración de listen-live.
 type AMIConfig struct {
 	// ListenPort: puerto TCP local donde EAGI entrega el audio (por defecto 8086).
 	ListenPort           int    `yaml:"listen_port"`

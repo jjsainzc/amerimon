@@ -195,12 +195,13 @@ func ExecuteAMIRptStatus(host, port, username, secret, node, command string, tim
 	return rawOutput, nil
 }
 
+// AMIOriginateVariable representa una variable que se puede propagar a un canal durante una llamada Originate de AMI.
 type AMIOriginateVariable struct {
 	Name  string
 	Value string
 }
 
-// ExecuteAMIOriginate inicia una llamada AMI y propaga las variables indicadas al canal.
+// ExecuteAMIOriginate inicia una llamada AMI y propaga las variables indicadas al canal durante la llamada.
 func ExecuteAMIOriginate(host, port, username, secret, channel, context, exten string, timeout time.Duration, variables ...AMIOriginateVariable) error {
 	var variableHeaders strings.Builder
 	for _, variable := range variables {

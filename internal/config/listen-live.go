@@ -45,6 +45,7 @@ import (
 // 1. ESTRUCTURA Y MÉTODOS DEL GESTOR DE STREAMS (AudioStreamManager)
 // ---------------------------------------------------------------------
 
+// AudioStreamManager gestiona las conexiones de audio entrantes y los WebSockets de los oyentes.
 type AudioStreamManager struct {
 	listeners  map[string][]*websocket.Conn
 	audioConns map[string]net.Conn
@@ -68,6 +69,7 @@ const (
 	ListenModeMixMonitor  = "mixmonitor" // se lee por FIFO con HandleMixMonitorPipe, no usa TCP
 )
 
+// Parámetros de control del WebSocket
 const (
 	websocketPongWait  = 60 * time.Second
 	websocketPingEvery = 25 * time.Second
