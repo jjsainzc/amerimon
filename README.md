@@ -4,6 +4,8 @@ Interfaz web para consultar AllStarLink, administrar nodos Allmon y escuchar el 
 
 ## Instalación
 
+> **NOTA**: Está diseñado para equipos con almacenaminetos de >16GB y Debian 12/13 con Asterisk +16 
+
 Paquetes Debian disponibles para `arm64` y `amd64`, en ese repositorio ya están compilados y listos para ser instalados:
 
 ```bash
