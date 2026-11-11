@@ -110,7 +110,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly ejecutando = signal(false);
   readonly errorEjecucion = signal('');
   readonly resultado = signal<SupermonCommandResult | null>(null);
-  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean } | null>(null);
+  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean; noticeKey: string } | null>(null);
   readonly confirmacionPendiente = signal<{ titulo: string; mensaje: string; confirmar: () => void; noticeKey: string } | null>(null);
   readonly desconexionEnCurso = signal<string | null>(null);
   readonly audioEnCurso = signal<string | null>(null);
@@ -143,7 +143,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   /** Agrupa las conexiones visibles por nodo local e incorpora las solicitudes pendientes. */
   readonly grupos = computed<AllstarlinkGrupo[]>(() => {
     const porNodoLocal = new Map<string, AllstarlinkNode[]>();
-    const conexionesVisibles = [...this.nodos()];
+    const conexionesVisibles = this.nodos().map(nodo =>
+      nodo.enlace?.trim().toLowerCase() === 'connecting' ? { ...nodo, pendiente: true } : nodo
+    );
     for (const pendiente of this.conexionesPendientes()) {
       const indice = conexionesVisibles.findIndex(nodo =>
         nodo.nodo_local === pendiente.nodo_local && nodo.nodo === pendiente.nodo &&
@@ -216,10 +218,11 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     const actividadPorNodo = this.actividadPorNodo();
     const servidorSeleccionado = this.servidorSeleccionado();
     return this.grupos()
-      .filter(grupo => servidorSeleccionado === 'todos' || grupo.nodoLocal === servidorSeleccionado)
+      .filter(grupo => servidorSeleccionado === 'todos' || grupo.nodoLocal === servidorSeleccionado ||
+        grupo.nodos.some(nodo => nodo.pendiente))
       .map(grupo => {
         const nodos = termino
-          ? grupo.nodos.filter(nodo => [
+          ? grupo.nodos.filter(nodo => nodo.pendiente || [
             grupo.nodoLocal,
             nodo.protocolo,
             nodo.categoria,
@@ -240,6 +243,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         return {
           ...grupo,
           nodos: [...nodos].sort((a, b) => {
+            const pendientesPrimero = Number(!!b.pendiente) - Number(!!a.pendiente);
+            if (pendientesPrimero !== 0) { return pendientesPrimero; }
             const actividadA = actividadPorNodo.get(`${a.nodo_local.trim()}:${a.nodo.trim()}`);
             const actividadB = actividadPorNodo.get(`${b.nodo_local.trim()}:${b.nodo.trim()}`);
             const comparacion = campo === 'actividad'
@@ -605,12 +610,12 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     this.conectando.set(true);
     this.desconectandoAntesConexion.set(!!request.disconnect_before_connect);
     this.resultadoConexion.set(null);
-    const preparacion = request.disconnect_before_connect ? this.desconectarNodosAntesDeConectar(local) : of(undefined);
+    this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
+    const preparacion = request.disconnect_before_connect ? this.desconectarNodosAntesDeConectar(local, remoto) : of(undefined);
     const { disconnect_before_connect: _desconectarAntes, ...solicitud } = request;
     preparacion.pipe(
       tap(() => {
         this.desconectandoAntesConexion.set(false);
-        this.agregarConexionPendiente(local, remoto, modoLabel, permanente);
       }),
       switchMap(() => this.service.ejecutarComando(solicitud).pipe(
         timeout({ each: permanente ? 40_000 : timeoutSegundos * 1000 + 40_000 })
@@ -620,7 +625,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       next: respuesta => {
         this.conectando.set(false);
         this.desconectandoAntesConexion.set(false);
-        if (respuesta?.status !== 'success') { this.quitarConexionPendiente(local, remoto); }
+        if (respuesta?.status !== 'success' || !respuesta.data) { this.quitarConexionPendiente(local, remoto, true); }
         this.programarRecargaConexiones();
         this.resultadoConexion.set(respuesta?.status === 'success' && respuesta.data
           ? { texto: [respuesta.data.command, ...respuesta.data.lines].filter(Boolean).join(' | '), error: false }
@@ -629,13 +634,14 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultadoConexion()!.error ?  this.translation.translate('ERROR_DE_CONEXION') : this.translation.translate('CONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoConexion()!.texto],
-          this.resultadoConexion()!.error
+          this.resultadoConexion()!.error,
+          'notice.asterisk.connected'
         );
       },
       error: err => {
         this.conectando.set(false);
         this.desconectandoAntesConexion.set(false);
-        this.quitarConexionPendiente(local, remoto);
+        this.quitarConexionPendiente(local, remoto, true);
         this.programarRecargaConexiones();
         this.resultadoConexion.set({
           texto: err?.name === 'TimeoutError'
@@ -659,7 +665,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       .map(nodo => nodo.nodo))];
   }
 
-  private desconectarNodosAntesDeConectar(local: string): Observable<unknown> {
+  private desconectarNodosAntesDeConectar(local: string, destino: string): Observable<unknown> {
     const consultar = () => this.service.listarNodos(local).pipe(
       timeout({ each: 30_000 }),
       map(respuesta => this.nodosParaDesconectar(respuesta, local))
@@ -674,7 +680,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
             if (respuesta.status !== 'success') {
               throw new Error(respuesta.message || this.translation.translate('NO_SE_PUDO_DESCONECTAR_EL_NODO_DEL_SERVIDOR', { remoto, local }));
             }
-            this.quitarConexionPendiente(local, remoto);
+            if (remoto !== destino) { this.quitarConexionPendiente(local, remoto); }
           })
         )),
         toArray(),
@@ -797,7 +803,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultadoDesconexion()!.error ? this.translation.translate('ERROR_DE_DESCONEXION') : this.translation.translate('DESCONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoDesconexion()!.texto],
-          this.resultadoDesconexion()!.error
+          this.resultadoDesconexion()!.error,
+          'notice.asterisk.disconnected'
         );
       },
       error: err => {
@@ -845,8 +852,17 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   }
 
   /** Publica el detalle de resultado que se presentará en el diálogo emergente. */
-  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false): void {
-    this.resultadoPopup.set({ titulo, comando, lineas, error });
+  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false, noticeKey = ''): void {
+    if (!error && noticeKey && this.noticePreferences.isHidden(noticeKey)) { return; }
+    this.resultadoPopup.set({ titulo, comando, lineas, error, noticeKey });
+  }
+
+  ocultarResultado(checked: boolean): void {
+    const popup = this.resultadoPopup();
+    if (checked && popup && !popup.error && popup.noticeKey) {
+      this.noticePreferences.hide(popup.noticeKey);
+      this.cerrarPopup();
+    }
   }
 
   /** Asigna la clase visual correspondiente al modo de conexión. */
@@ -900,10 +916,17 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   }
 
   /** Retira de la lista local una conexión pendiente identificada por sus extremos. */
-  private quitarConexionPendiente(local: string, remoto: string): void {
+  private quitarConexionPendiente(local: string, remoto: string, retirarNoEstablecido = false): void {
     this.conexionesPendientes.update(actuales =>
       actuales.filter(item => item.nodo_local !== local || item.nodo !== remoto)
     );
+    if (retirarNoEstablecido) {
+      this.nodos.update(nodos => nodos.filter(nodo =>
+        nodo.nodo_local !== local || nodo.nodo !== remoto ||
+        nodo.protocolo?.trim().toLowerCase() === 'sip' ||
+        nodo.enlace?.trim().toLowerCase() === 'established'
+      ));
+    }
   }
 
   /** Quita solicitudes pendientes que ya aparecen establecidas en los datos del servidor. */
@@ -912,7 +935,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
       .filter(nodo => nodo.enlace?.trim().toLowerCase() === 'established')
       .map(nodo => `${nodo.nodo_local}:${nodo.nodo}:${nodo.protocolo?.trim().toLowerCase() ?? ''}`));
     this.conexionesPendientes.update(actuales =>
-      actuales.filter(nodo => !establecidos.has(`${nodo.nodo_local}:${nodo.nodo}:${nodo.protocolo?.trim().toLowerCase() ?? ''}`))
+      actuales.filter(nodo => this.desconectandoAntesConexion() ||
+        !establecidos.has(`${nodo.nodo_local}:${nodo.nodo}:${nodo.protocolo?.trim().toLowerCase() ?? ''}`))
     );
   }
 
@@ -1011,7 +1035,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.error.set(respuesta?.message || this.translation.translate('NO_SE_PUDO_CARGAR_EL_LISTADO_DE_NODOS'));
         }
         this.finalizarCarga();
-        this.programarSondeoPermanente();
+        this.programarSondeoConexionesPendientes();
       },
       error: err => {
         this.limpiarDatosNodos();
@@ -1022,7 +1046,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           : err?.status === 0
             ? this.translation.translate('NO_SE_PUDO_CONECTAR_CON_EL_SERVIDOR')
             : err?.error?.message || this.translation.translate('NO_SE_PUDO_CARGAR_EL_LISTADO_DE_NODOS'));
-        this.programarSondeoPermanente();
+        this.programarSondeoConexionesPendientes();
         this.revisarDesconexionesEnVerificacion();
       }
     });
@@ -1113,9 +1137,9 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
     }, retardoMs);
   }
 
-  /** Mantiene sondeos periódicos mientras haya conexiones permanentes pendientes. */
-  private programarSondeoPermanente(): void {
-    if (this.conexionesPendientes().some(nodo => nodo.permanente)) {
+  /** Mantiene sondeos periódicos hasta confirmar las conexiones pendientes. */
+  private programarSondeoConexionesPendientes(): void {
+    if (this.conexionesPendientes().length > 0) {
       this.programarRecargaConexiones(5000);
     }
   }

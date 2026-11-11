@@ -151,6 +151,8 @@ Al pulsar el número de servidor en la cabecera de una tabla se selecciona ese n
 
 Al ejecutar una conexión se despliega automáticamente la tabla del servidor de destino. Al buscar conexiones se despliegan los servidores con resultados dentro del filtro seleccionado, incluso si los resultados llegan después de escribir la búsqueda. Las tablas sin coincidencias conservan su estado; borrar la búsqueda no las despliega.
 
+Al confirmar la conexión, el nodo aparece inmediatamente al principio de su tabla con fondo rojo y **Conectando…** en **Enlace**, incluso durante la desconexión previa. Las filas pendientes se muestran aunque no coincidan con los filtros de servidor o búsqueda, sin cambiar esos filtros. Permanecen pendientes hasta que el sondeo confirme el enlace establecido, tanto en conexiones temporales como permanentes. Si la solicitud falla, se muestra el error y se retira la fila pendiente; los enlaces ya establecidos se conservan.
+
 Al navegar a otra pantalla y volver, AllStarLink conserva en memoria las tablas contraídas, el filtro de servidor, la búsqueda, el campo y sentido de ordenación, el intervalo de actualización y si el panel administrativo estaba abierto. Estos ajustes se restablecen al recargar la aplicación. Las conexiones se consultan de nuevo; si el servidor filtrado ya no existe, se muestran todos. No se restauran diálogos ni se ejecutan operaciones al volver.
 
 ## Operación y soporte

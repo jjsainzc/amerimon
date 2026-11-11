@@ -146,6 +146,42 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it.each([
+    ['connect', false], ['connect', true],
+    ['disconnect', false], ['disconnect', true],
+  ] as const)('preserves the %s result preference when already hidden is %s', async (action, hidden) => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      const preferences = TestBed.inject(NoticePreferencesService);
+      const noticeKey = action === 'connect' ? 'notice.asterisk.connected' : 'notice.asterisk.disconnected';
+      if (hidden) { preferences.hide(noticeKey); }
+      if (action === 'connect') {
+        component.nodoRemotoConexion.set('46818');
+        component.conectarNodo();
+      } else {
+        component.desconectar('616262', '1964');
+      }
+      component.confirmarAccion();
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({
+        status: 'success', data: { command: action, lines: ['OK'] }
+      });
+      fixture.detectChanges();
+      if (hidden) {
+        expect(component.resultadoPopup()).toBeNull();
+      } else {
+        const checkbox = element.querySelector<HTMLInputElement>('.allstarlink-resultado input[type="checkbox"]');
+        expect(checkbox).not.toBeNull();
+        checkbox!.checked = true;
+        checkbox!.dispatchEvent(new Event('change'));
+        expect(preferences.isHidden(noticeKey)).toBe(true);
+        expect(component.resultadoPopup()).toBeNull();
+      }
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
   it('expands only the confirmed connection server and leaves cancelled connections collapsed', async () => {
     const { fixture, component, http, element } = await crearMonitor();
     try {
@@ -167,6 +203,37 @@ describe('Allstarlink connection target safety', () => {
       const grupo = element.querySelector('[aria-label="Conexiones del nodo remoto 56502"]')!;
       expect(grupo.querySelector('.allstarlink-tabla-scroll')?.textContent).toContain('46818');
       http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({ status: 'error', message: 'Rejected' });
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
+  it('renders the connecting row before the response even with another server and callsign filtered', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    try {
+      component.servidorSeleccionado.set('59201');
+      component.filtroBusqueda.set('HC1LNM');
+      component.alternarTodasLasTablas();
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      await fixture.whenStable();
+      element.querySelector<HTMLButtonElement>('.allstarlink-popup .allstarlink-ejecutar')!.click();
+      await fixture.whenStable();
+
+      const request = http.expectOne(`${environment.apiUrl}/asterisk/commands`);
+      const row = element.querySelector<HTMLTableRowElement>('.allstarlink-conexion-pendiente');
+      expect(row?.querySelector('.allstarlink-columna-nodo')?.textContent?.trim()).toBe('46818');
+      expect(row?.querySelector('.allstarlink-columna-enlace')?.textContent?.trim()).toBe(spanish.ALLSTAR_CONNECTING);
+      expect(row?.getAttribute('aria-busy')).toBe('true');
+      expect(component.servidorSeleccionado()).toBe('59201');
+      expect(component.filtroBusqueda()).toBe('HC1LNM');
+
+      request.flush({ status: 'error', message: 'No se pudo conectar' });
+      await fixture.whenStable();
+      expect(element.querySelector('.allstarlink-conexion-pendiente')).toBeNull();
+      expect(element.querySelector('.allstarlink-resultado')?.textContent).toContain('No se pudo conectar');
       http.verify();
     } finally {
       fixture.destroy();
@@ -525,6 +592,66 @@ describe('Allstarlink connection target safety', () => {
     }
   });
 
+  it('immediately shows a pending row and keeps polling a temporary link until established', async () => {
+    const { fixture, component, http, element } = await crearMonitor();
+    vi.useFakeTimers();
+    try {
+      component.nodoLocal.set('56502');
+      component.nodoRemotoConexion.set('46818');
+      component.conectarNodo();
+      component.confirmarAccion();
+      fixture.detectChanges();
+      const pendingRow = () => Array.from(element.querySelectorAll<HTMLTableRowElement>('tbody tr'))
+        .find(row => row.querySelector('.allstarlink-columna-nodo')?.textContent?.trim() === '46818');
+      expect(pendingRow()?.classList.contains('allstarlink-conexion-pendiente')).toBe(true);
+      expect(pendingRow()?.querySelector('.allstarlink-columna-enlace')?.textContent?.trim()).toBe(spanish.ALLSTAR_CONNECTING);
+
+      http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush({
+        status: 'success', data: { command: 'connect', lines: ['OK'] }
+      });
+      const refresh = (enlace: string) => {
+        http.expectOne(`${environment.apiUrl}/allstarlink/activity`).flush({ status: 'success', data: [] });
+        http.expectOne(`${nodesUrl}?discovery=true`).flush({
+          status: 'success', data: { nodo_principal: '56502', tablas: [
+            { nodo_local: '56502', servidor_conectado: true, nodos_disponibles: [] }
+          ], resultados: [] }
+        });
+        http.expectOne(`${nodesUrl}?local_node=56502`).flush({
+          status: 'success', data: { resultados: [
+            { nodo_local: '56502', nodo: '46818', protocolo: 'iax', enlace }
+          ], tablas: [{ nodo_local: '56502', servidor_conectado: true, nodos_disponibles: [] }] }
+        });
+        fixture.detectChanges();
+      };
+      await vi.advanceTimersByTimeAsync(1500);
+      refresh('CONNECTING');
+      expect(pendingRow()?.classList.contains('allstarlink-conexion-pendiente')).toBe(true);
+      await vi.advanceTimersByTimeAsync(5000);
+      refresh('ESTABLISHED');
+      expect(component.conexionesPendientes()).toEqual([]);
+      expect(pendingRow()?.classList.contains('allstarlink-conexion-pendiente')).toBe(false);
+      expect(pendingRow()?.querySelector('.allstarlink-enlace-establecido')).not.toBeNull();
+      http.verify();
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows server-reported connecting links as pending without a local request', async () => {
+    const { fixture, component, element, http } = await crearMonitor();
+    try {
+      component.nodos.set([{ nodo_local: '56502', nodo: '46818', protocolo: 'iax', enlace: 'CONNECTING' }]);
+      fixture.detectChanges();
+      const row = element.querySelector('.allstarlink-conexion-pendiente');
+      expect(row?.querySelector('.allstarlink-columna-nodo')?.textContent?.trim()).toBe('46818');
+      expect(row?.querySelector('.allstarlink-columna-enlace')?.textContent?.trim()).toBe(spanish.ALLSTAR_CONNECTING);
+      http.verify();
+    } finally {
+      fixture.destroy();
+    }
+  });
+
   it.each([
     { status: 409, statusText: 'Conflict', message: 'Conexión rechazada para evitar un bucle: ya existe una ruta visible (56502 -> 59201 -> 46818)' },
     { status: 503, statusText: 'Service Unavailable', message: 'No se pudo validar la topología: no se pudieron consultar los enlaces del nodo 59201' },
@@ -536,6 +663,9 @@ describe('Allstarlink connection target safety', () => {
       component.desconectarAntesConexion.set(false);
       component.conectarNodo();
       component.confirmarAccion();
+      component.nodos.update(nodos => [...nodos,
+        { nodo_local: '56502', nodo: '46818', protocolo: 'iax', enlace: 'CONNECTING' }
+      ]);
       http.expectOne(`${environment.apiUrl}/asterisk/commands`).flush(
         { status: 'error', message: failure.message },
         { status: failure.status, statusText: failure.statusText }
@@ -544,6 +674,7 @@ describe('Allstarlink connection target safety', () => {
       expect(component.resultadoConexion()).toEqual({ texto: failure.message, error: true });
       expect(component.resultadoPopup()?.error).toBe(true);
       expect(component.conexionesPendientes()).toEqual([]);
+      expect(component.grupos().flatMap(grupo => grupo.nodos).some(nodo => nodo.nodo === '46818')).toBe(false);
       expect(component.conectando()).toBe(false);
       expect(element.textContent).toContain(failure.message);
       http.verify();
@@ -588,7 +719,10 @@ describe('Allstarlink connection target safety', () => {
       component.permanenteConexion.set(true);
       component.timeoutConexion.set(5);
       component.confirmarAccion();
-      expect(component.conexionesPendientes()).toEqual([]);
+      await fixture.whenStable();
+      const pendingRow = element.querySelector('.allstarlink-conexion-pendiente');
+      expect(pendingRow?.querySelector('.allstarlink-columna-nodo')?.textContent?.trim()).toBe('46818');
+      expect(pendingRow?.querySelector('.allstarlink-columna-enlace')?.textContent?.trim()).toBe(spanish.ALLSTAR_CONNECTING);
       const lista = respuestaServidor('56502');
       lista.data.resultados = [
         { nodo_local: '56502', nodo: '1964', protocolo: 'iax', enlace: 'ESTABLISHED' },
