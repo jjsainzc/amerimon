@@ -27,10 +27,11 @@ func TestAudioSilenceIncludesSIPAndRejectsUnknownStatus(t *testing.T) {
 		{"no links", "Response: Success\r\n", false, false},
 		{"missing response", "", false, true},
 		{"AMI error", "Response: Error\r\n", false, true},
-		{"bad RX", "Response: Success\r\nConn: SIP/1001 unknown 0 -1\r\n", false, true},
+		{"bad connection ignored", "Response: Success\r\nConn: SIP/1001 unknown 0 -1\r\n", false, false},
+		{"bad connection does not mask active link", "Response: Success\r\nConn: SIP/1001 unknown 0 -1\r\nConn: 448513 1 0 5\r\n", true, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			busy, err := audioReceivingLinksBusy(test.status, "616262")
+			busy, err := audioReceivingLinksBusy(test.status)
 			if (err != nil) != test.invalid || (err == nil && busy != test.busy) {
 				t.Fatalf("busy=%v error=%v", busy, err)
 			}
@@ -59,24 +60,20 @@ func TestAudioNodeSilenceUsesFreshSIPAndCOSStatus(t *testing.T) {
 		return "Response: Error\r\n\r\n"
 	})
 	instances := []allmonInstance{{Node: "616262", Host: host, Port: port, User: "test", Secret: "test"}}
-	silent, err := audioNodesSilent(instances)
+	silent, err := audioNodeSilent(instances[0])
 	if err != nil || !silent {
 		t.Fatalf("silent node rejected: %v %v", silent, err)
 	}
 	rx.Store(true)
-	silent, err = audioNodesSilent(instances)
+	silent, err = audioNodeSilent(instances[0])
 	if err != nil || silent {
 		t.Fatalf("SIP talking treated as silence: %v %v", silent, err)
 	}
 	rx.Store(false)
 	cos.Store(true)
-	silent, err = audioNodesSilent(instances)
+	silent, err = audioNodeSilent(instances[0])
 	if err != nil || silent {
 		t.Fatalf("COS treated as silence: %v %v", silent, err)
-	}
-
-	if silent, _ := audioNodesSilent(nil); silent {
-		t.Fatal("no monitored nodes treated as silence")
 	}
 }
 
@@ -110,7 +107,7 @@ func TestAudioPrimaryResolvesWithoutAllmon(t *testing.T) {
 func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 	setupReceiveActivityTest(t)
 	dir := t.TempDir()
-	config.App.Sources.AllmonINIPath = filepath.Join(dir, "missing-allmon.ini")
+	config.App.Sources.AllmonINIPath = filepath.Join(dir, "allmon.ini")
 	config.App.Sources.PrivateNodesPath = filepath.Join(dir, "missing-private.txt")
 	config.App.AMI.RPTConfigPath = filepath.Join(dir, "rpt.conf")
 	config.App.Audio.StorageDir = dir
@@ -118,6 +115,7 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	var reads, sends atomic.Int32
+	var otherServerReads atomic.Int32
 	var interrupt atomic.Bool
 	host, port := mockConnectionAMI(t, func(fields map[string]string) string {
 		switch fields["Command"] {
@@ -128,7 +126,7 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 			if reads.Add(1) >= 3 && interrupt.Load() {
 				rx = "1"
 			}
-			return "Response: Success\r\nConn: SIP/1001 " + rx + " 0 -1\r\n\r\n"
+			return "Response: Success\r\nConn: SIP/1001 " + rx + " 0 -1\r\nConn: SIP/unavailable unknown 0 -1\r\n\r\n"
 		default:
 			if strings.HasPrefix(fields["Command"], "rpt playback 41777 ") {
 				sends.Add(1)
@@ -137,6 +135,20 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 		}
 		return "Response: Error\r\n\r\n"
 	})
+	otherHost, otherPort := mockConnectionAMI(t, func(fields map[string]string) string {
+		otherServerReads.Add(1)
+		switch fields["Command"] {
+		case "NodeStat":
+			return "Response: Success\r\nSignalOnInput: NO\r\n\r\n"
+		case "SawStat":
+			return "Response: Success\r\nConn: SIP/2001 1 0 -1\r\n\r\n"
+		}
+		return "Response: Error\r\n\r\n"
+	})
+	allmon := "[99999]\nsystem=Nodes\nhost=" + otherHost + "\nport=" + otherPort + "\nuser=test\npasswd=test\n"
+	if err := os.WriteFile(config.App.Sources.AllmonINIPath, []byte(allmon), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	config.App.AMI.Host, config.App.AMI.Port = host, port
 	config.App.AMI.User, config.App.AMI.Secret = "test", "test"
 	filename := "01234567-89ab-cdef-0123-456789abcdef.wav"
@@ -177,6 +189,9 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 	runAudioPlaybackCycle(now)
 	if sends.Load() != 1 {
 		t.Fatalf("silent due broadcast count=%d", sends.Load())
+	}
+	if otherServerReads.Load() != 0 {
+		t.Fatalf("queried unrelated Allmon server %d times", otherServerReads.Load())
 	}
 	if _, err := config.App.DB.Exec(`UPDATE audio_playback_state SET busy_until='1970-01-01T00:00:00Z'`); err != nil {
 		t.Fatal(err)

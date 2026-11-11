@@ -23,12 +23,6 @@ var (
 
 const audioQuietPeriod = 5 * time.Second
 
-// audioNodeState representa el estado de un nodo de audio, incluyendo la instancia monitoreada y si está ocupado.
-type audioNodeState struct {
-	instance allmonInstance
-	busy     bool
-}
-
 // StartAudioPlaybackScheduler inicia el programador de reproducción de audio, que verifica periódicamente el estado de los nodos y reproduce pistas programadas durante periodos de silencio.
 func StartAudioPlaybackScheduler() {
 	if config.App.DB == nil {
@@ -79,29 +73,17 @@ func runAudioPlaybackCycle(now time.Time) {
 	if len(tracks) == 0 {
 		return
 	}
-	instances, err := allStarLinkActivityInstances()
-	if err != nil {
-		log.Printf("audio: no se pudieron consultar los nodos para el programador: %v", err)
-		return
-	}
-	if len(instances) == 0 {
-		log.Printf("audio: no hay nodos configurados para evaluar las reproducciones")
-		return
-	}
 	primary, err := newPrimaryNodeControl().primary()
 	if err != nil {
 		log.Printf("audio: no se pudo identificar el nodo principal para comprobar silencio: %v", err)
 		return
 	}
-	primaryMonitored := false
-	for _, instance := range instances {
-		primaryMonitored = primaryMonitored || instance.Node == primary
-	}
-	if !primaryMonitored {
-		log.Printf("audio: nodo principal %s ausente de la monitorización; no se emite", primary)
+	primaryInstance, err := resolveAudioPrimaryInstance(primary)
+	if err != nil {
+		log.Printf("audio: no se pudo resolver el nodo principal para comprobar silencio: %v", err)
 		return
 	}
-	silent, err := audioNodesSilent(instances)
+	silent, err := audioNodeSilent(primaryInstance)
 	if err != nil {
 		log.Printf("audio: no se pudo comprobar silencio: %v", err)
 	}
@@ -132,7 +114,7 @@ func runAudioPlaybackCycle(now time.Time) {
 		filename, playErr := prepareAudioTrackPlayback(track)
 		var command, localNode, amiOutput string
 		if playErr == nil {
-			silent, checkErr := audioNodesSilent(instances)
+			silent, checkErr := audioNodeSilent(primaryInstance)
 			if checkErr != nil || !silent {
 				audioSilentSince = time.Time{}
 				if err := cancelScheduledAudioPlayback(context.Background(), track, token, now); err != nil {
@@ -167,49 +149,29 @@ func runAudioPlaybackCycle(now time.Time) {
 	}
 }
 
-// audioNodesSilent verifica si todos los nodos de audio están en silencio, devolviendo true si es así y false si algún nodo está ocupado o si ocurre un error.
-func audioNodesSilent(instances []allmonInstance) (bool, error) {
-	for _, instance := range instances {
-		state, err := readAudioNodeState(instance)
-		if err != nil {
-			return false, fmt.Errorf("nodo %s: %w", instance.Node, err)
-		}
-		if state.busy {
-			return false, nil
-		}
-	}
-	return len(instances) > 0, nil
-}
-
-// readAudioNodeState obtiene el estado de un nodo de audio específico, verificando tanto el estado del nodo como los enlaces de recepción de audio.
-func readAudioNodeState(instance allmonInstance) (audioNodeState, error) {
+// audioNodeSilent comprueba el COS del nodo principal y la recepción de sus enlaces.
+func audioNodeSilent(instance allmonInstance) (bool, error) {
 	nodeStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "NodeStat", 3*time.Second)
 	if err != nil {
-		return audioNodeState{}, fmt.Errorf("NodeStat: %w", err)
+		return false, fmt.Errorf("nodo %s NodeStat: %w", instance.Node, err)
 	}
 	cos, err := parseRPTCOS(nodeStat)
 	if err != nil {
-		return audioNodeState{}, err
+		return false, fmt.Errorf("nodo %s NodeStat: %w", instance.Node, err)
 	}
 	sawStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "SawStat", 3*time.Second)
 	if err != nil {
-		return audioNodeState{}, fmt.Errorf("SawStat: %w", err)
+		return false, fmt.Errorf("nodo %s SawStat: %w", instance.Node, err)
 	}
-	linksBusy, err := audioReceivingLinksBusy(sawStat, instance.Node)
+	linksBusy, err := audioReceivingLinksBusy(sawStat)
 	if err != nil {
-		return audioNodeState{}, err
+		return false, fmt.Errorf("nodo %s SawStat: %w", instance.Node, err)
 	}
-	return audioNodeState{
-		instance: instance,
-		busy:     cos || linksBusy,
-	}, nil
+	return !cos && !linksBusy, nil
 }
 
 // audioReceivingLinksBusy determina si algún enlace de recepción de audio está ocupado según la salida de SawStat.
-func audioReceivingLinksBusy(sawStat, node string) (bool, error) {
-	if _, _, err := parseRPTReceiveState(sawStat, node, time.Now().UTC()); err != nil {
-		return false, err
-	}
+func audioReceivingLinksBusy(sawStat string) (bool, error) {
 	validResponse, busy := false, false
 	for _, line := range strings.Split(strings.ReplaceAll(sawStat, "\r\n", "\n"), "\n") {
 		key, value, ok := strings.Cut(line, ":")
@@ -222,9 +184,15 @@ func audioReceivingLinksBusy(sawStat, node string) (bool, error) {
 	}
 	for _, line := range config.ParseAMIOutputToLines(sawStat) {
 		fields := strings.Fields(line)
-		if len(fields) >= 5 && fields[0] == "Conn:" {
-			busy = busy || fields[2] == "1"
+		if len(fields) < 5 || fields[0] != "Conn:" ||
+			(fields[2] != "0" && fields[2] != "1") {
+			continue
 		}
+		sipEndpoint, sip := strings.CutPrefix(fields[1], "SIP/")
+		if (sip && !sipUserName.MatchString(sipEndpoint)) || (!sip && !isValidRemoteNodeID(fields[1])) {
+			continue
+		}
+		busy = busy || fields[2] == "1"
 	}
 	if !validResponse {
 		return false, fmt.Errorf("SawStat sin confirmación válida")

@@ -879,21 +879,29 @@ func playAudioOnPrimary(filename string) (string, string, string, error) {
 
 // resolveAudioPrimaryInstance obtiene la instancia AMI correspondiente al nodo principal de audio, verificando que la configuración esté completa.
 func resolveAudioPrimaryInstance(primary string) (allmonInstance, error) {
-	instances, err := allStarLinkActivityInstances()
+	configuredPrimary, err := newPrimaryNodeControl().primary()
 	if err != nil {
 		return allmonInstance{}, err
 	}
-	for _, instance := range instances {
-		if instance.Node != primary {
-			continue
-		}
-		if strings.TrimSpace(instance.Host) == "" || strings.TrimSpace(instance.Port) == "" ||
-			strings.TrimSpace(instance.User) == "" || strings.TrimSpace(instance.Secret) == "" {
-			return allmonInstance{}, errors.New("la configuración AMI del nodo principal está incompleta")
-		}
-		return instance, nil
+	if primary != configuredPrimary {
+		return allmonInstance{}, errors.New("el nodo indicado no es el principal configurado localmente")
 	}
-	return allmonInstance{}, errors.New("el nodo principal no está disponible en la configuración de nodos monitorizados")
+	ami := config.CurrentAMI()
+	instance := allmonInstance{
+		Node:   primary,
+		Host:   strings.TrimSpace(ami.Host),
+		Port:   strings.TrimSpace(ami.Port),
+		User:   strings.TrimSpace(ami.User),
+		Secret: strings.TrimSpace(ami.Secret),
+	}
+	if instance.Port == "" {
+		instance.Port = "5038"
+	}
+	if strings.TrimSpace(instance.Node) == "" || instance.Host == "" ||
+		instance.User == "" || instance.Secret == "" {
+		return allmonInstance{}, errors.New("la configuración AMI del nodo principal está incompleta")
+	}
+	return instance, nil
 }
 
 // audioDuplexAllowsLinkedPlayback verifica si la configuración de duplex permite la reproducción vinculada de audio.
