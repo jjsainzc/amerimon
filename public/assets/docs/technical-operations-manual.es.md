@@ -1006,7 +1006,7 @@ El postinstalador intenta detectar el servidor web activo. Si configura el proxy
 
 ### Apache
 
-La instalación habilita `proxy`, `proxy_http`, `proxy_wstunnel`, `headers` y `alias`, activa `conf-available/amerimon.conf`, ejecuta `apache2ctl configtest` y solo recarga/inicia Apache si la prueba pasa. El proxy cubre HTTP/HTTPS según el VirtualHost que reciba la petición, incluidas las cabeceras de prefijo y el WebSocket.
+La instalación habilita `proxy`, `proxy_http`, `proxy_wstunnel`, `headers` y `alias`, activa `conf-available/amerimon.conf`, ejecuta `apache2ctl configtest` y solo recarga/inicia Apache si la prueba pasa. El proxy cubre HTTP/HTTPS según el VirtualHost que reciba la petición, incluidas las cabeceras de prefijo y los WebSockets de actividad AllStarLink, Listen Live y terminal.
 
 Comprobaciones:
 

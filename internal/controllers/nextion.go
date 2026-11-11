@@ -35,6 +35,7 @@ sus textos internos de respaldo cuando pierde la conexión con el servidor).
 ---------------------------------------------------------------------------------
 Cada botón debe enviar su identificador de texto en el evento "Touch Release Event"
 dentro de Nextion Editor usando el comando: print "COMANDO"
+(los botones b_d1 a b_d8 requieren además un "Touch Press Event"; ver abajo).
 
   - b_fav       : Botón para conectar al Nodo Favorito fijo.
     -> Enviar por evento: print "CONN_FAV"
@@ -47,11 +48,16 @@ dentro de Nextion Editor usando el comando: print "COMANDO"
   - b_d1 a b_d8 : Botones transparentes/invisibles encimados exactamente sobre sus
     respectivas cajas de texto (t_n1 a t_n8). El script en Go maneja
     su visibilidad de manera automática mediante comandos 'vis'.
-    -> Botón b_d1 encima de t_n1: print "DISC_N1"
-    -> Botón b_d2 encima de t_n2: print "DISC_N2"
-    -> Botón b_d3 encima de t_n3: print "DISC_N3"
-    -> Botón b_d4 encima de t_n4: print "DISC_N4"
-    -> Botones b_d5 a b_d8: print "DISC_N5" a "DISC_N8"
+    Cada botón necesita DOS eventos: el controlador ignora "DISC_N<i>" si antes
+    no recibió el "HOLD_N<i>" de la misma fila (pulsación con vigencia de 8 s).
+    -> "Touch Press Event" de b_d1 (mantener pulsada la fila; terminar con LF):
+         printh 0A
+         prints "HOLD_N1 ",0
+         prints t_n1.txt,0
+         printh 0A
+    -> "Touch Release Event" de b_d1: print "DISC_N1"
+    -> Botones b_d2 a b_d8: igual, con "HOLD_N2"/t_n2/"DISC_N2" hasta
+       "HOLD_N8"/t_n8/"DISC_N8" según su número de fila.
 
 ---------------------------------------------------------------------------------
 3. INDICADORES DINÁMICOS Y LUCES PILOTO (PROPIEDADES DE COLOR RGB565)

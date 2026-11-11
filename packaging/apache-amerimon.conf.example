@@ -9,6 +9,8 @@ RedirectMatch ^/amerimon$ /amerimon/
 </Location>
 
 # Los websockets van primero: Apache usa la primera regla que coincide.
+ProxyPass        /amerimon/mon/allstarlink/activity/live ws://127.0.0.1:8082/mon/allstarlink/activity/live
+ProxyPassReverse /amerimon/mon/allstarlink/activity/live ws://127.0.0.1:8082/mon/allstarlink/activity/live
 ProxyPass        /amerimon/mon/listen-live/ws ws://127.0.0.1:8082/mon/listen-live/ws
 ProxyPassReverse /amerimon/mon/listen-live/ws ws://127.0.0.1:8082/mon/listen-live/ws
 ProxyPass        /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal

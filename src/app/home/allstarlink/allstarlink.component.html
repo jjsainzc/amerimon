@@ -397,9 +397,6 @@
           <p><strong>{{ 'COMANDO:' | translate }}</strong> <code>{{ popup.comando }}</code></p>
         }
         <pre>{{ popup.lineas.join('\n') }}</pre>
-        @if (!popup.error && popup.noticeKey) {
-          <app-notice-preference (checkedChange)="ocultarResultado($event)" />
-        }
       </div>
     </section>
   </div>

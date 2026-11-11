@@ -69,13 +69,41 @@ if [ ! -e "$SNIPPET_TARGET" ]; then
     install -m 0644 "$SNIPPET_SOURCE" "$SNIPPET_TARGET"
 fi
 
+ACTIVITY_WEBSOCKET_MISSING=0
+TERMINAL_WEBSOCKET_MISSING=0
+if ! grep -Fq 'location ^~ /amerimon/mon/allstarlink/activity/live' "$SNIPPET_TARGET" &&
+    ! grep -Fq 'location /amerimon/mon/allstarlink/activity/live' "$SNIPPET_TARGET"; then
+    ACTIVITY_WEBSOCKET_MISSING=1
+fi
 if ! grep -Fq 'location ^~ /amerimon/mon/terminal' "$SNIPPET_TARGET" &&
     ! grep -Fq 'location /amerimon/mon/terminal' "$SNIPPET_TARGET"; then
+    TERMINAL_WEBSOCKET_MISSING=1
+fi
+
+if [ "$ACTIVITY_WEBSOCKET_MISSING" -eq 1 ] || [ "$TERMINAL_WEBSOCKET_MISSING" -eq 1 ]; then
     SNIPPET_ORIGINAL=$(mktemp)
     cp -p "$SNIPPET_TARGET" "$SNIPPET_ORIGINAL"
     SNIPPET_TMP=$(mktemp "${SNIPPET_TARGET}.amerimon.XXXXXX")
     cp -p "$SNIPPET_TARGET" "$SNIPPET_TMP"
-    cat >>"$SNIPPET_TMP" <<'EOF'
+    if [ "$ACTIVITY_WEBSOCKET_MISSING" -eq 1 ]; then
+        cat >>"$SNIPPET_TMP" <<'EOF'
+
+# BEGIN AMERIMON ALLSTARLINK ACTIVITY WEBSOCKET
+location ^~ /amerimon/mon/allstarlink/activity/live {
+    proxy_pass http://127.0.0.1:8082/mon/allstarlink/activity/live;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 1h;
+}
+# END AMERIMON ALLSTARLINK ACTIVITY WEBSOCKET
+EOF
+    fi
+    if [ "$TERMINAL_WEBSOCKET_MISSING" -eq 1 ]; then
+        cat >>"$SNIPPET_TMP" <<'EOF'
 
 # BEGIN AMERIMON TERMINAL WEBSOCKET
 location ^~ /amerimon/mon/terminal {
@@ -90,6 +118,7 @@ location ^~ /amerimon/mon/terminal {
 }
 # END AMERIMON TERMINAL WEBSOCKET
 EOF
+    fi
     chmod --reference="$SNIPPET_TARGET" "$SNIPPET_TMP"
     chown --reference="$SNIPPET_TARGET" "$SNIPPET_TMP"
     mv "$SNIPPET_TMP" "$SNIPPET_TARGET"

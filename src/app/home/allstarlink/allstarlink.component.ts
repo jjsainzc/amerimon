@@ -110,7 +110,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   readonly ejecutando = signal(false);
   readonly errorEjecucion = signal('');
   readonly resultado = signal<SupermonCommandResult | null>(null);
-  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean; noticeKey: string } | null>(null);
+  readonly resultadoPopup = signal<{ titulo: string; comando: string; lineas: string[]; error: boolean } | null>(null);
   readonly confirmacionPendiente = signal<{ titulo: string; mensaje: string; confirmar: () => void; noticeKey: string } | null>(null);
   readonly desconexionEnCurso = signal<string | null>(null);
   readonly audioEnCurso = signal<string | null>(null);
@@ -541,7 +541,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
         this.ejecutando.set(false);
         if (respuesta?.status === 'success' && respuesta.data) {
           this.resultado.set(respuesta.data);
-          this.mostrarPopup(comando.label, respuesta.data.command, respuesta.data.lines, false, `notice.asterisk.command.${comando.id}`);
+          this.mostrarPopup(comando.label, respuesta.data.command, respuesta.data.lines);
         } else {
           this.errorEjecucion.set(respuesta?.message || this.translation.translate('NO_SE_PUDO_EJECUTAR_LA_OPERACION'));
           this.mostrarPopup(this.translation.translate('ERROR_DE_OPERACION'), '', [this.errorEjecucion()], true);
@@ -629,8 +629,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultadoConexion()!.error ?  this.translation.translate('ERROR_DE_CONEXION') : this.translation.translate('CONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoConexion()!.texto],
-          this.resultadoConexion()!.error,
-          'notice.asterisk.connected'
+          this.resultadoConexion()!.error
         );
       },
       error: err => {
@@ -798,8 +797,7 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
           this.resultadoDesconexion()!.error ? this.translation.translate('ERROR_DE_DESCONEXION') : this.translation.translate('DESCONEXION_EXITOSA'),
           respuesta?.data?.command ?? '',
           respuesta?.data?.lines ?? [this.resultadoDesconexion()!.texto],
-          this.resultadoDesconexion()!.error,
-          'notice.asterisk.disconnected'
+          this.resultadoDesconexion()!.error
         );
       },
       error: err => {
@@ -847,17 +845,8 @@ export class AllstarlinkComponent implements OnInit, OnDestroy {
   }
 
   /** Publica el detalle de resultado que se presentará en el diálogo emergente. */
-  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false, noticeKey = ''): void {
-    if (!error && this.noticePreferences.isHidden(noticeKey)) { return; }
-    this.resultadoPopup.set({ titulo, comando, lineas, error, noticeKey });
-  }
-
-  ocultarResultado(checked: boolean): void {
-    const popup = this.resultadoPopup();
-    if (checked && popup && !popup.error && popup.noticeKey) {
-      this.noticePreferences.hide(popup.noticeKey);
-      this.cerrarPopup();
-    }
+  private mostrarPopup(titulo: string, comando: string, lineas: string[], error = false): void {
+    this.resultadoPopup.set({ titulo, comando, lineas, error });
   }
 
   /** Asigna la clase visual correspondiente al modo de conexión. */

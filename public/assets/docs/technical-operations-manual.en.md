@@ -1006,7 +1006,7 @@ The post-install script attempts to detect the active web server. If it configur
 
 ### Apache
 
-The installation enables `proxy`, `proxy_http`, `proxy_wstunnel`, `headers`, and `alias`, enables `conf-available/amerimon.conf`, runs `apache2ctl configtest`, and reloads/starts Apache only if the test passes. The proxy handles HTTP/HTTPS according to the VirtualHost receiving the request, including prefix headers and WebSocket.
+The installation enables `proxy`, `proxy_http`, `proxy_wstunnel`, `headers`, and `alias`, enables `conf-available/amerimon.conf`, runs `apache2ctl configtest`, and reloads/starts Apache only if the test passes. The proxy handles HTTP/HTTPS according to the VirtualHost receiving the request, including prefix headers and the AllStarLink activity, Listen Live, and terminal WebSockets.
 
 Checks:
 

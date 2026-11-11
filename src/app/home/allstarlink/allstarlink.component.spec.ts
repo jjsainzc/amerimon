@@ -802,7 +802,11 @@ describe('Allstarlink connection target safety', () => {
       expect(request.request.body).toEqual({
         local_node: '56502', action: 'restart', permanent: false
       });
+      TestBed.inject(NoticePreferencesService).hide('notice.asterisk.command.other_command');
       request.flush({ status: 'success', data: { command: 'simulated', lines: [] } });
+      fixture.detectChanges();
+      expect(component.resultadoPopup()).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.allstarlink-resultado input[type="checkbox"]')).toBeNull();
       http.verify();
     } finally {
       fixture.destroy();

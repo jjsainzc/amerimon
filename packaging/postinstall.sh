@@ -125,26 +125,37 @@ if [ -d /run/systemd/system ]; then
         if [ ! -e "$APACHE_CONF" ]; then
             install -D -m 0644 /usr/share/amerimon/apache-amerimon.conf.example "$APACHE_CONF"
         fi
-        APACHE_NEED_PROXY=1
-        APACHE_NEED_PROXY_REVERSE=1
-        grep -Eq '^[[:space:]]*ProxyPass[[:space:]]+/amerimon/mon/terminal[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_PROXY=0
-        grep -Eq '^[[:space:]]*ProxyPassReverse[[:space:]]+/amerimon/mon/terminal[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_PROXY_REVERSE=0
-        if [ "$APACHE_NEED_PROXY" -eq 1 ] || [ "$APACHE_NEED_PROXY_REVERSE" -eq 1 ]; then
+        APACHE_NEED_ACTIVITY_PROXY=1
+        APACHE_NEED_ACTIVITY_PROXY_REVERSE=1
+        APACHE_NEED_TERMINAL_PROXY=1
+        APACHE_NEED_TERMINAL_PROXY_REVERSE=1
+        grep -Eq '^[[:space:]]*ProxyPass[[:space:]]+/amerimon/mon/allstarlink/activity/live[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_ACTIVITY_PROXY=0
+        grep -Eq '^[[:space:]]*ProxyPassReverse[[:space:]]+/amerimon/mon/allstarlink/activity/live[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_ACTIVITY_PROXY_REVERSE=0
+        grep -Eq '^[[:space:]]*ProxyPass[[:space:]]+/amerimon/mon/terminal[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_TERMINAL_PROXY=0
+        grep -Eq '^[[:space:]]*ProxyPassReverse[[:space:]]+/amerimon/mon/terminal[[:space:]]+ws://' "$APACHE_CONF" && APACHE_NEED_TERMINAL_PROXY_REVERSE=0
+        if [ "$APACHE_NEED_ACTIVITY_PROXY" -eq 1 ] || [ "$APACHE_NEED_ACTIVITY_PROXY_REVERSE" -eq 1 ] ||
+            [ "$APACHE_NEED_TERMINAL_PROXY" -eq 1 ] || [ "$APACHE_NEED_TERMINAL_PROXY_REVERSE" -eq 1 ]; then
             APACHE_PATCH_BACKUP=$(mktemp)
             cp -p "$APACHE_CONF" "$APACHE_PATCH_BACKUP"
             APACHE_PATCH_TMP=$(mktemp "${APACHE_CONF}.amerimon.XXXXXX")
-            awk -v add_proxy="$APACHE_NEED_PROXY" -v add_reverse="$APACHE_NEED_PROXY_REVERSE" '
-                function terminal_websocket() {
-                    if (add_proxy) print "ProxyPass        /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal"
-                    if (add_reverse) print "ProxyPassReverse /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal"
+            awk \
+                -v add_activity_proxy="$APACHE_NEED_ACTIVITY_PROXY" \
+                -v add_activity_reverse="$APACHE_NEED_ACTIVITY_PROXY_REVERSE" \
+                -v add_terminal_proxy="$APACHE_NEED_TERMINAL_PROXY" \
+                -v add_terminal_reverse="$APACHE_NEED_TERMINAL_PROXY_REVERSE" '
+                function websocket_routes() {
+                    if (add_activity_proxy) print "ProxyPass        /amerimon/mon/allstarlink/activity/live ws://127.0.0.1:8082/mon/allstarlink/activity/live"
+                    if (add_activity_reverse) print "ProxyPassReverse /amerimon/mon/allstarlink/activity/live ws://127.0.0.1:8082/mon/allstarlink/activity/live"
+                    if (add_terminal_proxy) print "ProxyPass        /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal"
+                    if (add_terminal_reverse) print "ProxyPassReverse /amerimon/mon/terminal ws://127.0.0.1:8082/mon/terminal"
                 }
                 /^[[:space:]]*ProxyPass[[:space:]]/ && !inserted {
-                    terminal_websocket()
+                    websocket_routes()
                     inserted = 1
                 }
                 { print }
                 END {
-                    if (!inserted) terminal_websocket()
+                    if (!inserted) websocket_routes()
                 }
             ' "$APACHE_CONF" >"$APACHE_PATCH_TMP"
             chmod --reference="$APACHE_CONF" "$APACHE_PATCH_TMP"
