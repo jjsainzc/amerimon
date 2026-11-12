@@ -5,6 +5,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,67 +16,6 @@ import (
 	"amerimon/internal/config"
 	"amerimon/internal/db"
 )
-
-func TestAudioSilenceIncludesSIPAndRejectsUnknownStatus(t *testing.T) {
-	for _, test := range []struct {
-		name, status  string
-		busy, invalid bool
-	}{
-		{"silent", "Response: Success\r\nConn: 448513 0 10 5\r\nConn: SIP/1001 0 0 -1\r\n", false, false},
-		{"SIP talking", "Response: Success\r\nConn: SIP/1001 1 0 -1\r\n", true, false},
-		{"RPT talking", "Response: Success\r\nConn: 448513 1 0 5\r\n", true, false},
-		{"no links", "Response: Success\r\n", false, false},
-		{"missing response", "", false, true},
-		{"AMI error", "Response: Error\r\n", false, true},
-		{"bad connection ignored", "Response: Success\r\nConn: SIP/1001 unknown 0 -1\r\n", false, false},
-		{"bad connection does not mask active link", "Response: Success\r\nConn: SIP/1001 unknown 0 -1\r\nConn: 448513 1 0 5\r\n", true, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			busy, err := audioReceivingLinksBusy(test.status)
-			if (err != nil) != test.invalid || (err == nil && busy != test.busy) {
-				t.Fatalf("busy=%v error=%v", busy, err)
-			}
-		})
-	}
-}
-
-func TestAudioNodeSilenceUsesFreshSIPAndCOSStatus(t *testing.T) {
-	setupReceiveActivityTest(t)
-	var cos, rx atomic.Bool
-	host, port := mockConnectionAMI(t, func(fields map[string]string) string {
-		switch fields["Command"] {
-		case "NodeStat":
-			value := "NO"
-			if cos.Load() {
-				value = "YES"
-			}
-			return "Response: Success\r\nSignalOnInput: " + value + "\r\n\r\n"
-		case "SawStat":
-			value := "0"
-			if rx.Load() {
-				value = "1"
-			}
-			return "Response: Success\r\nConn: SIP/1001 " + value + " 0 -1\r\n\r\n"
-		}
-		return "Response: Error\r\n\r\n"
-	})
-	instances := []allmonInstance{{Node: "616262", Host: host, Port: port, User: "test", Secret: "test"}}
-	silent, err := audioNodeSilent(instances[0])
-	if err != nil || !silent {
-		t.Fatalf("silent node rejected: %v %v", silent, err)
-	}
-	rx.Store(true)
-	silent, err = audioNodeSilent(instances[0])
-	if err != nil || silent {
-		t.Fatalf("SIP talking treated as silence: %v %v", silent, err)
-	}
-	rx.Store(false)
-	cos.Store(true)
-	silent, err = audioNodeSilent(instances[0])
-	if err != nil || silent {
-		t.Fatalf("COS treated as silence: %v %v", silent, err)
-	}
-}
 
 func TestAudioPrimaryResolvesWithoutAllmon(t *testing.T) {
 	previous := config.App
@@ -104,6 +44,97 @@ func TestAudioPrimaryResolvesWithoutAllmon(t *testing.T) {
 	}
 }
 
+type fakeScheduledSilenceMonitor struct {
+	waitSilent, finalSilent bool
+	waitErr                 error
+	closed                  bool
+}
+
+func (m *fakeScheduledSilenceMonitor) wait() (bool, error)  { return m.waitSilent, m.waitErr }
+func (m *fakeScheduledSilenceMonitor) check() (bool, error) { return m.finalSilent, nil }
+func (m *fakeScheduledSilenceMonitor) close() error         { m.closed = true; return nil }
+
+func TestAudioSilenceMonitorRequiresContinuousPCM(t *testing.T) {
+	start := time.Now()
+	monitor := &audioSilenceMonitor{}
+	frame := make([]byte, 320)
+	for i := 0; i < 250; i++ {
+		if _, err := monitor.writeAt(frame, start.Add(time.Duration(i)*20*time.Millisecond)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if quiet, _, err := monitor.state(start.Add(4999 * time.Millisecond)); err != nil || quiet {
+		t.Fatalf("less than five seconds treated as silence: %v %v", quiet, err)
+	}
+	if _, err := monitor.writeAt(frame, start.Add(5*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if quiet, _, err := monitor.state(start.Add(5 * time.Second)); err != nil || !quiet {
+		t.Fatalf("five seconds of PCM silence rejected: %v %v", quiet, err)
+	}
+	if _, _, err := monitor.state(start.Add(8 * time.Second)); err == nil {
+		t.Fatal("stale PCM treated as silence")
+	}
+}
+
+func TestAudioSilenceMonitorRejectsVoiceAndBrokenStream(t *testing.T) {
+	start := time.Now()
+	monitor := &audioSilenceMonitor{}
+	if _, err := monitor.writeAt(make([]byte, 320), start); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := monitor.writeAt(recordingTone(), start.Add(20*time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	if quiet, busy, err := monitor.state(start.Add(20 * time.Millisecond)); err != nil || quiet || !busy {
+		t.Fatalf("voice in node mix treated as silence: quiet=%v busy=%v err=%v", quiet, busy, err)
+	}
+	broken := &audioSilenceMonitor{}
+	if _, err := broken.writeAt(make([]byte, 320), start); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := broken.writeAt(make([]byte, 320), start.Add(3*time.Second)); err == nil {
+		t.Fatal("gap in PCM was accepted")
+	}
+	if _, _, err := broken.state(start.Add(3 * time.Second)); err == nil {
+		t.Fatal("broken stream treated as silence")
+	}
+}
+
+func TestAudioSilenceMonitorReceivesEAGIPCM(t *testing.T) {
+	manager := config.NewAudioStreamManager()
+	uuid := "a1234567-1234-1234-1234-123456789abc"
+	monitor := &audioSilenceMonitor{}
+	manager.AddConsumer(uuid, monitor)
+	server, client := net.Pipe()
+	done := make(chan struct{})
+	go func() {
+		config.HandleEAGIConnection(server, manager)
+		close(done)
+	}()
+	defer func() {
+		client.Close()
+		<-done
+	}()
+	go func() {
+		if _, err := client.Write([]byte(uuid)); err != nil {
+			return
+		}
+		ticker := time.NewTicker(20 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			if _, err := client.Write(make([]byte, 320)); err != nil {
+				return
+			}
+		}
+	}()
+	quiet, err := monitor.wait()
+	stillQuiet, checkErr := monitor.check()
+	if err != nil || !quiet || checkErr != nil || !stillQuiet {
+		t.Fatalf("continuous EAGI silence not confirmed: quiet=%v err=%v checkErr=%v", quiet, err, checkErr)
+	}
+}
+
 func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 	setupReceiveActivityTest(t)
 	dir := t.TempDir()
@@ -114,24 +145,12 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 	if err := os.WriteFile(config.App.AMI.RPTConfigPath, []byte("[41777]\nduplex=1\n[nodes]\n41777=radio@127.0.0.1/41777,NONE\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var reads, sends atomic.Int32
+	var sends atomic.Int32
 	var otherServerReads atomic.Int32
-	var interrupt atomic.Bool
 	host, port := mockConnectionAMI(t, func(fields map[string]string) string {
-		switch fields["Command"] {
-		case "NodeStat":
-			return "Response: Success\r\nSignalOnInput: NO\r\n\r\n"
-		case "SawStat":
-			rx := "0"
-			if reads.Add(1) >= 3 && interrupt.Load() {
-				rx = "1"
-			}
-			return "Response: Success\r\nConn: SIP/1001 " + rx + " 0 -1\r\nConn: SIP/unavailable unknown 0 -1\r\n\r\n"
-		default:
-			if strings.HasPrefix(fields["Command"], "rpt playback 41777 ") {
-				sends.Add(1)
-				return "Response: Follows\r\nOutput: Playback started\r\nOutput: --END COMMAND--\r\n\r\n"
-			}
+		if strings.HasPrefix(fields["Command"], "rpt playback 41777 ") {
+			sends.Add(1)
+			return "Response: Follows\r\nOutput: Playback started\r\nOutput: --END COMMAND--\r\n\r\n"
 		}
 		return "Response: Error\r\n\r\n"
 	})
@@ -168,25 +187,39 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 	if _, err := config.App.DB.Exec(`INSERT INTO audio_broadcast_schedules (audio_id, interval_minutes, next_play_at) VALUES (1, 1, ?)`, due); err != nil {
 		t.Fatal(err)
 	}
-	audioSilentSince = time.Time{}
-	t.Cleanup(func() { audioSilentSince = time.Time{} })
-	runAudioPlaybackCycle(now)
-	if sends.Load() != 0 {
-		t.Fatal("broadcast without quiet-period confirmation")
+	monitor := &fakeScheduledSilenceMonitor{waitErr: errors.New("PCM disconnected")}
+	open := func(node string) (scheduledSilenceMonitor, error) {
+		if node != "41777" {
+			t.Fatalf("monitored wrong node: %s", node)
+		}
+		return monitor, nil
 	}
-	audioSilentSince = time.Now().Add(-audioQuietPeriod)
-	interrupt.Store(true)
-	runAudioPlaybackCycle(now)
-	if sends.Load() != 0 {
-		t.Fatal("broadcast despite SIP starting between checks")
-	}
+	runAudioPlaybackCycle(now, open)
 	var next string
 	if err := config.App.DB.QueryRow(`SELECT next_play_at FROM audio_broadcast_schedules WHERE audio_id = 1`).Scan(&next); err != nil || next != due {
-		t.Fatalf("busy recheck lost due schedule: %s %v", next, err)
+		t.Fatalf("failed capture changed schedule: %s %v", next, err)
 	}
-	interrupt.Store(false)
-	audioSilentSince = time.Now().Add(-audioQuietPeriod)
-	runAudioPlaybackCycle(now)
+	if sends.Load() != 0 || !monitor.closed {
+		t.Fatal("failed capture allowed playback or leaked monitor")
+	}
+	for _, m := range []*fakeScheduledSilenceMonitor{
+		{waitSilent: false},
+		{waitSilent: true, finalSilent: false},
+	} {
+		monitor = m
+		runAudioPlaybackCycle(now, open)
+		if err := config.App.DB.QueryRow(`SELECT next_play_at FROM audio_broadcast_schedules WHERE audio_id = 1`).Scan(&next); err != nil || next != now.Add(time.Minute).Format(time.RFC3339Nano) {
+			t.Fatalf("activity did not defer until next interval: %s %v", next, err)
+		}
+		if sends.Load() != 0 || !monitor.closed {
+			t.Fatal("activity allowed playback or leaked monitor")
+		}
+		if _, err := config.App.DB.Exec(`UPDATE audio_broadcast_schedules SET next_play_at = ?`, due); err != nil {
+			t.Fatal(err)
+		}
+	}
+	monitor = &fakeScheduledSilenceMonitor{waitSilent: true, finalSilent: true}
+	runAudioPlaybackCycle(now, open)
 	if sends.Load() != 1 {
 		t.Fatalf("silent due broadcast count=%d", sends.Load())
 	}
@@ -196,8 +229,7 @@ func TestAudioCycleRechecksActivityAndSendsOnlyOnce(t *testing.T) {
 	if _, err := config.App.DB.Exec(`UPDATE audio_playback_state SET busy_until='1970-01-01T00:00:00Z'`); err != nil {
 		t.Fatal(err)
 	}
-	audioSilentSince = time.Now().Add(-audioQuietPeriod)
-	runAudioPlaybackCycle(now.Add(10 * time.Second))
+	runAudioPlaybackCycle(now.Add(10*time.Second), open)
 	if sends.Load() != 1 {
 		t.Fatalf("duplicate broadcast before next interval: %d", sends.Load())
 	}

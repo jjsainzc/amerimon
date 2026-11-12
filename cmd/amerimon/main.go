@@ -179,12 +179,12 @@ func main() {
 		<-reconnectionsDone
 	}()
 	controllers.StartAllStarLinkActivityScheduler()
-	controllers.StartAudioPlaybackScheduler()
 	controllers.StartNextionSupervisor(reconnectionCtx)
 
 	// iniciar el listener de audio
 	audioManager := config.NewAudioStreamManager()
 	go config.StartAudioListener(fmt.Sprintf("127.0.0.1:%d", config.CurrentAMI().ListenPort), audioManager)
+	controllers.StartAudioPlaybackScheduler(audioManager)
 
 	/** Chequear que el file astdb exista en el path correcto y si no crearlo */
 	rutaArchivoSupermon := "/var/www/html/supermon/astdb.txt"

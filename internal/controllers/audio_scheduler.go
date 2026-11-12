@@ -18,19 +18,25 @@ import (
 var (
 	audioSchedulerOnce sync.Once
 	audioCycleMu       sync.Mutex
-	audioSilentSince   time.Time
 )
 
 const audioQuietPeriod = 5 * time.Second
 
 // StartAudioPlaybackScheduler inicia el programador de reproducción de audio, que verifica periódicamente el estado de los nodos y reproduce pistas programadas durante periodos de silencio.
-func StartAudioPlaybackScheduler() {
+func StartAudioPlaybackScheduler(manager *config.AudioStreamManager) {
 	if config.App.DB == nil {
 		log.Printf("audio: programador deshabilitado porque no hay base de datos")
 		return
 	}
+	if manager == nil {
+		log.Printf("audio: programador deshabilitado porque no hay receptor de audio")
+		return
+	}
 	audioSchedulerOnce.Do(func() {
 		go func() {
+			openMonitor := func(node string) (scheduledSilenceMonitor, error) {
+				return startAudioSilenceMonitor(manager, node)
+			}
 			interval := 5 * time.Second
 			if configured := strings.TrimSpace(config.App.Audio.PollInterval); configured != "" {
 				parsed, err := time.ParseDuration(configured)
@@ -40,28 +46,22 @@ func StartAudioPlaybackScheduler() {
 					interval = parsed
 				}
 			}
-			runAudioPlaybackCycle(time.Now().UTC())
+			runAudioPlaybackCycle(time.Now().UTC(), openMonitor)
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 			for range ticker.C {
-				runAudioPlaybackCycle(time.Now().UTC())
+				runAudioPlaybackCycle(time.Now().UTC(), openMonitor)
 			}
 		}()
 	})
 }
 
 // runAudioPlaybackCycle ejecuta un ciclo de comprobación de reproducción de audio, evaluando el estado de los nodos y reproduciendo pistas programadas si se cumple el periodo de silencio.
-func runAudioPlaybackCycle(now time.Time) {
+func runAudioPlaybackCycle(now time.Time, openMonitor func(string) (scheduledSilenceMonitor, error)) {
 	if !audioCycleMu.TryLock() {
 		return
 	}
 	defer audioCycleMu.Unlock()
-	confirmedSilence := false
-	defer func() {
-		if !confirmedSilence {
-			audioSilentSince = time.Time{}
-		}
-	}()
 	if config.App.DB == nil {
 		return
 	}
@@ -78,50 +78,51 @@ func runAudioPlaybackCycle(now time.Time) {
 		log.Printf("audio: no se pudo identificar el nodo principal para comprobar silencio: %v", err)
 		return
 	}
-	primaryInstance, err := resolveAudioPrimaryInstance(primary)
-	if err != nil {
-		log.Printf("audio: no se pudo resolver el nodo principal para comprobar silencio: %v", err)
-		return
-	}
-	silent, err := audioNodeSilent(primaryInstance)
-	if err != nil {
-		log.Printf("audio: no se pudo comprobar silencio: %v", err)
-	}
-	if err != nil || !silent {
-		audioSilentSince = time.Time{}
-		return
-	}
-	confirmedSilence = true
-	if audioSilentSince.IsZero() {
-		audioSilentSince = time.Now().UTC()
-		return
-	}
-	if time.Since(audioSilentSince) < audioQuietPeriod {
-		return
-	}
 	for _, track := range tracks {
 		if !track.Enabled || track.PlaybackMode != "broadcast_silence" || track.NextPlayAt == nil || track.NextPlayAt.After(now) {
 			continue
 		}
+		monitor, err := openMonitor(primary)
+		if err != nil {
+			log.Printf("audio: no se pudo iniciar monitor de silencio: %v", err)
+			return
+		}
+		defer func() {
+			if err := monitor.close(); err != nil {
+				log.Printf("audio: no se pudo cerrar monitor de silencio: %v", err)
+			}
+		}()
+		silent, err := monitor.wait()
+		if err != nil {
+			log.Printf("audio: no se pudo confirmar silencio: %v", err)
+			return
+		}
+		if !silent {
+			if err := postponeScheduledAudioPlayback(context.Background(), track, now); err != nil {
+				log.Printf("audio: no se pudo aplazar pista %d: %v", track.ID, err)
+			}
+			return
+		}
 		token, claimErr := claimScheduledAudioPlayback(context.Background(), track, now)
 		if errors.Is(claimErr, errAudioPlaybackBusy) {
-			continue
+			return
 		}
 		if claimErr != nil {
 			log.Printf("audio: no se pudo reservar reproducción programada para pista %d: %v", track.ID, claimErr)
-			continue
+			return
 		}
 		filename, playErr := prepareAudioTrackPlayback(track)
 		var command, localNode, amiOutput string
 		if playErr == nil {
-			silent, checkErr := audioNodeSilent(primaryInstance)
+			silent, checkErr := monitor.check()
 			if checkErr != nil || !silent {
-				audioSilentSince = time.Time{}
 				if err := cancelScheduledAudioPlayback(context.Background(), track, token, now); err != nil {
 					log.Printf("audio: no se pudo cancelar reserva de pista %d: %v", track.ID, err)
 				}
 				if checkErr != nil {
-					log.Printf("audio: se aplaza emisión porque no se pudo confirmar silencio: %v", checkErr)
+					log.Printf("audio: no se pudo confirmar silencio antes de emitir: %v", checkErr)
+				} else if err := postponeScheduledAudioPlayback(context.Background(), track, now); err != nil {
+					log.Printf("audio: no se pudo aplazar pista %d: %v", track.ID, err)
 				}
 				return
 			}
@@ -144,60 +145,21 @@ func runAudioPlaybackCycle(now time.Time) {
 		if err := updateAudioScheduleAfterAttempt(context.Background(), track.ID, now, track.IntervalMinutes, playErr == nil); err != nil {
 			log.Printf("audio: no se pudo actualizar próxima reproducción de pista %d: %v", track.ID, err)
 		}
-		audioSilentSince = time.Time{}
 		return
 	}
 }
 
-// audioNodeSilent comprueba el COS del nodo principal y la recepción de sus enlaces.
-func audioNodeSilent(instance allmonInstance) (bool, error) {
-	nodeStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "NodeStat", 3*time.Second)
-	if err != nil {
-		return false, fmt.Errorf("nodo %s NodeStat: %w", instance.Node, err)
+func postponeScheduledAudioPlayback(ctx context.Context, track storedAudioTrack, now time.Time) error {
+	if track.NextPlayAt == nil || track.IntervalMinutes < 1 {
+		return errors.New("programación inválida")
 	}
-	cos, err := parseRPTCOS(nodeStat)
-	if err != nil {
-		return false, fmt.Errorf("nodo %s NodeStat: %w", instance.Node, err)
-	}
-	sawStat, err := config.ExecuteAMIRptStatus(instance.Host, instance.Port, instance.User, instance.Secret, instance.Node, "SawStat", 3*time.Second)
-	if err != nil {
-		return false, fmt.Errorf("nodo %s SawStat: %w", instance.Node, err)
-	}
-	linksBusy, err := audioReceivingLinksBusy(sawStat)
-	if err != nil {
-		return false, fmt.Errorf("nodo %s SawStat: %w", instance.Node, err)
-	}
-	return !cos && !linksBusy, nil
-}
-
-// audioReceivingLinksBusy determina si algún enlace de recepción de audio está ocupado según la salida de SawStat.
-func audioReceivingLinksBusy(sawStat string) (bool, error) {
-	validResponse, busy := false, false
-	for _, line := range strings.Split(strings.ReplaceAll(sawStat, "\r\n", "\n"), "\n") {
-		key, value, ok := strings.Cut(line, ":")
-		if ok && strings.TrimSpace(key) == "Response" {
-			if strings.TrimSpace(value) != "Success" {
-				return false, fmt.Errorf("SawStat rechazado")
-			}
-			validResponse = true
-		}
-	}
-	for _, line := range config.ParseAMIOutputToLines(sawStat) {
-		fields := strings.Fields(line)
-		if len(fields) < 5 || fields[0] != "Conn:" ||
-			(fields[2] != "0" && fields[2] != "1") {
-			continue
-		}
-		sipEndpoint, sip := strings.CutPrefix(fields[1], "SIP/")
-		if (sip && !sipUserName.MatchString(sipEndpoint)) || (!sip && !isValidRemoteNodeID(fields[1])) {
-			continue
-		}
-		busy = busy || fields[2] == "1"
-	}
-	if !validResponse {
-		return false, fmt.Errorf("SawStat sin confirmación válida")
-	}
-	return busy, nil
+	_, err := config.App.DB.ExecContext(ctx, `
+		UPDATE audio_broadcast_schedules SET next_play_at = ?
+		WHERE audio_id = ? AND next_play_at = ? AND interval_minutes = ?
+		AND EXISTS (SELECT 1 FROM audio_tracks WHERE id = ? AND enabled = 1 AND playback_mode = 'broadcast_silence')`,
+		now.Add(time.Duration(track.IntervalMinutes)*time.Minute).Format(time.RFC3339Nano),
+		track.ID, track.NextPlayAt.Format(time.RFC3339Nano), track.IntervalMinutes, track.ID)
+	return err
 }
 
 // claimScheduledAudioPlayback intenta reclamar la reproducción programada de una pista de audio, asegurando que la pista esté lista para reproducirse y que no haya conflictos de programación.

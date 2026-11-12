@@ -108,11 +108,7 @@ func (s *recordingSink) Write(p []byte) (int, error) {
 	if len(p)%2 != 0 {
 		return 0, s.failLocked(errors.New("PCM frame has an odd length"))
 	}
-	var sum int64
-	for i := 0; i < len(p); i += 2 {
-		sample := int64(int16(binary.LittleEndian.Uint16(p[i:])))
-		sum += sample * sample
-	}
+	sum := audioPCMSquaredSum(p)
 	level := -60.0
 	if sum > 0 {
 		level = math.Max(-60, math.Min(0, 10*math.Log10(float64(sum)/float64(len(p)/2)/(32768*32768))))
@@ -162,6 +158,15 @@ func (s *recordingSink) Write(p []byte) (int, error) {
 		}
 	}
 	return len(p), nil
+}
+
+func audioPCMSquaredSum(p []byte) int64 {
+	var sum int64
+	for i := 0; i+1 < len(p); i += 2 {
+		sample := int64(int16(binary.LittleEndian.Uint16(p[i:])))
+		sum += sample * sample
+	}
+	return sum
 }
 
 // snapshot devuelve una instantánea del estado actual de la grabación de audio, incluyendo el nivel RMS y el estado de auto-pausa.
@@ -232,26 +237,28 @@ type AudioRecordingControl struct {
 // NewAudioRecordingControl crea un nuevo controlador de grabación de audio, inicializando los métodos de origen y colgado.
 func NewAudioRecordingControl(manager *config.AudioStreamManager) *AudioRecordingControl {
 	return &AudioRecordingControl{
-		manager: manager,
-		originate: func(channel, uuid string) error {
-			ami := config.CurrentAMI()
-			path := ami.RPTConfigPath
-			if path == "" {
-				path = "/etc/asterisk/rpt.conf"
-			}
-			absolute, err := filepath.Abs(path)
-			if err != nil {
-				return err
-			}
-			return config.ExecuteAMIOriginate(ami.Host, ami.Port, ami.User, ami.Secret, channel,
-				"listen-live-eagi", uuid, 5*time.Second,
-				config.AMIOriginateVariable{Name: "__AMERIMON_RPT_CONFIG", Value: absolute})
-		},
+		manager:   manager,
+		originate: originateNodeAudioCapture,
 		hangup: func(uuid string) error {
 			_, err := hangupListenLiveCalls("recording", uuid)
 			return err
 		},
 	}
+}
+
+func originateNodeAudioCapture(channel, uuid string) error {
+	ami := config.CurrentAMI()
+	path := ami.RPTConfigPath
+	if path == "" {
+		path = "/etc/asterisk/rpt.conf"
+	}
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	return config.ExecuteAMIOriginate(ami.Host, ami.Port, ami.User, ami.Secret, channel,
+		"listen-live-eagi", uuid, 5*time.Second,
+		config.AMIOriginateVariable{Name: "__AMERIMON_RPT_CONFIG", Value: absolute})
 }
 
 // recordingError maneja la respuesta de error de la API de grabación de audio, registrando el error y devolviendo un JSON con el código de error.
