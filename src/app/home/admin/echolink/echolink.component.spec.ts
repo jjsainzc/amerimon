@@ -150,6 +150,39 @@ describe('EchoLink administration', () => {
     fixture.destroy(); http.verify();
   });
 
+  it('saves edited form values from the save button and displays the result near the form', async () => {
+    const { http, fixture } = setup();
+    fixture.autoDetectChanges();
+    await fixture.whenStable();
+    const call = fixture.nativeElement.querySelector('.fields input') as HTMLInputElement;
+    call.value = 'UPDATED-L';
+    call.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    const save = fixture.nativeElement.querySelector('form button[type="submit"]') as HTMLButtonElement;
+    save.click();
+    const request = http.expectOne({ method: 'PUT', url: '/mon/echolink/config' });
+    expect(request.request.body.values.call).toBe('UPDATED-L');
+    request.flush({ revision: 'next' });
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('form .notice')?.textContent).toContain('ECHOLINK_SAVED');
+    http.expectNone('/mon/echolink/activate');
+    fixture.destroy(); http.verify();
+  });
+
+  it('shows save errors beside the bottom save button without losing edits', async () => {
+    const { http, fixture, component } = setup();
+    fixture.autoDetectChanges();
+    await fixture.whenStable();
+    component.values['call'] = 'UPDATED-L';
+    (fixture.nativeElement.querySelector('form button[type="submit"]') as HTMLButtonElement).click();
+    http.expectOne({ method: 'PUT', url: '/mon/echolink/config' }).flush(
+      { code: 'ECHOLINK_SAVE_ERROR' }, { status: 500, statusText: 'Error' });
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('form .error')?.textContent).toContain('ECHOLINK_SAVE_ERROR');
+    expect(component.values['call']).toBe('UPDATED-L');
+    fixture.destroy(); http.verify();
+  });
+
   it('requests browser permission on demand and fills coordinates without saving', () => {
     const getCurrentPosition = browserLocation();
     const { http, fixture, component } = setup();

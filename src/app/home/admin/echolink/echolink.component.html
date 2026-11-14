@@ -4,7 +4,7 @@
   <p>{{ 'ECHOLINK_HELP' | translate }}</p>
   @if (error()) { <p class="error" role="alert">{{ error() | translate }}</p> }
   @if (notice()) { <p class="notice" role="status">{{ notice() | translate }}</p> }
-  <button type="button" (click)="load()" [disabled]="busy()">{{ 'AUDIO_REFRESH' | translate }}</button>
+  <button type="button" (click)="load()" [disabled]="busy()">{{ 'ECHOLINK_READ_FILE' | translate }}</button>
   @if (config(); as config) {
     <p>{{ config.path }} · {{ 'NODO_PRINCIPAL' | translate }}: {{ config.astnode }}</p>
     <p class="module-status" [class.module-loaded]="config.loaded" [class.module-unloaded]="!config.loaded" role="status">
@@ -46,6 +46,8 @@
         <p>{{ 'ECHOLINK_PASSWORD_HELP' | translate }}</p>
         <p>{{ 'ECHOLINK_RADIO_HELP' | translate }}</p>
         <button type="submit" [attr.aria-busy]="busy()">{{ 'AUDIO_SAVE_SETTINGS' | translate }}</button>
+        @if (error()) { <p class="error" role="alert">{{ error() | translate }}</p> }
+        @if (notice()) { <p class="notice" role="status">{{ notice() | translate }}</p> }
       </fieldset>
     </form>
     <label class="check"><input type="checkbox" [(ngModel)]="persist" [disabled]="busy()" />{{ 'ECHOLINK_PERSIST' | translate }}</label>

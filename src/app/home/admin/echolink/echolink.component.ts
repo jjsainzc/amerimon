@@ -135,6 +135,7 @@ export class EchoLinkComponent {
     if (this.busy()) { return; }
     this.busy.set(true);
     this.error.set('');
+    this.notice.set('');
     this.http.get<Config>(`${this.url}/config`).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: config => {
         this.config.set(config);

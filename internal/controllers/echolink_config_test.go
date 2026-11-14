@@ -151,6 +151,60 @@ func TestEchoLinkConfigRedactsPasswordAndPreservesOtherSections(t *testing.T) {
 	}
 }
 
+func TestEchoLinkSaveWritesAllFormFieldsAndPreservesOtherConfiguration(t *testing.T) {
+	p, _ := echoLinkFixture(t)
+	data, err := os.ReadFile(p.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := string(data) + "#tryinclude \"custom/echolink.conf\"\n"
+	if err := os.WriteFile(p.path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	values := map[string]string{
+		"call": "NEW-L", "name": "New station", "qth": "New location", "email": "new@example.test",
+		"node": "12345", "lat": "-12.345678", "lon": "76.543210", "freq": "146.52", "tone": "100",
+		"power": "1", "height": "2", "gain": "3", "dir": "4", "maxstns": "30",
+		"rtcptimeout": "45", "context": "radio", "server1": "one.example.test",
+		"server2": "two.example.test", "server3": "three.example.test", "server4": "four.example.test",
+		"message": "Welcome", "recfile": "/tmp/new-recording.gsm",
+	}
+	req := echoLinkRequest{
+		Section: "el0", AstNode: "616262", Revision: echoLinkRevision([]byte(original)),
+		Values: values, Password: "new-placeholder",
+	}
+	c, rec := echoLinkContext(http.MethodPut, req)
+	if err := p.save(c); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("save: %v %d %s", err, rec.Code, rec.Body)
+	}
+	saved, err := os.ReadFile(p.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sections, err := p.sections(string(saved))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range values {
+		if got := sections[0].Values[key]; got != want {
+			t.Errorf("%s: got %q, want %q", key, got, want)
+		}
+	}
+	if sections[0].Values["astnode"] != "616262" ||
+		!strings.Contains(string(saved), "pwd=new-placeholder") ||
+		!strings.Contains(string(saved), "custom=keep") ||
+		!strings.Contains(string(saved), "[el1]\npwd=other-placeholder\ncustom=untouched") ||
+		!strings.Contains(string(saved), "#tryinclude \"custom/echolink.conf\"") {
+		t.Fatal("password, astnode, unmanaged configuration or optional include not preserved")
+	}
+	var response struct {
+		Revision string `json:"revision"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil || response.Revision != echoLinkRevision(saved) {
+		t.Fatalf("incorrect saved revision: %v", err)
+	}
+}
+
 func TestEchoLinkPermanentDisableWithArrowAssignments(t *testing.T) {
 	p, _ := echoLinkFixture(t)
 	original := "[modules]\nautoload => yes\nload=> app_system.so\nload=> app_transfer.so\nload=> chan_echolink.so\nnoload => other.so\n"

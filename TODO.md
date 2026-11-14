@@ -187,5 +187,9 @@ La tarjeta representa **fuente ← destino** (el destino se conecta al fuente). 
 - [x] 24. Integrar el controlador Nextion al backend con la configuración en **Administración → Pantalla Nextion**: activación/desactivación, selección de ttyUSB/ttyACM (identifica CP210x por VID:PID `10c4:ea60`), prueba del puerto, velocidad, interfaz de red y nodo favorito. La configuración persiste en SQLite; permite guardar incompleta mientras está desactivada, y al activarla usa el nodo local y las credenciales AMI ya configuradas. El catálogo administrativo ofrece la vista previa y descargas de TFT y HMI fuente. Para cada modelo los archivos comparten el nombre base `AMERINET_Nextion_<modelo>` con `.HMI`, `.tft` y `.png` (firmware único para todos los idiomas; los textos se envían según el idioma de la web); el `.tft` se distribuye con el paquete y el archivo HMI queda disponible como fuente. Variables, eventos y acciones de botones están documentados en [docs/manuals/nextion.md](docs/manuals/nextion.md).
 
 - [x] 25. Agregar comentarios en las cabeceras de las funciones en el backend.
+- [ ] 26. Estar  seguro de que no es esta usando allmon.ini en los chequeos, porque cuando gui a mutear a una estacion me dijo que no se pudo determinar el nodo primerio en allmon.ini
+- [ ] 27. La edicion del control de acceso en el nodo principal /home/admin/primary-node esta muy incómoda, para las dos listas por indicativo y por número, si el nodo exsite y se da click copiar abajo los datos para editarlos y en el caso de echolink al poner el numero, inidicar si es un numero de echolink y si es asi poner prefijo 3 y completar con con 0 por ejemplo 16813 queda como 3016813.  
+- [ ] 28. Revisar la funcionalidad de activar/desactivar el echolink, no esta funcionando bien.
+  
 
 > **NOTA:** Las actualizaciones no deben quitar las configuraciones personalizadas del cliente, si hay un cambio en las mismas, estas deben agregarse sin cambiar o borrar las existentes
