@@ -111,6 +111,16 @@ func SortNU(input string) (string, error) {
 	return resultBuilder.String(), nil
 }
 
+func newHTTPRouter() *echo.Echo {
+	e := echo.New()
+	e.IPExtractor = echo.ExtractIPFromXFFHeader(
+		echo.TrustLoopback(true),
+		echo.TrustLinkLocal(false),
+		echo.TrustPrivateNet(false),
+	)
+	return e
+}
+
 // main configura la aplicación, inicia el servidor HTTP y coordina su apagado ordenado.
 func main() {
 	addr := flag.String("addr", env("AMERIMON_ADDR", "127.0.0.1:8082"), "listen address")
@@ -219,7 +229,7 @@ func main() {
 		}
 	}
 
-	e := echo.New()
+	e := newHTTPRouter()
 	e.HideBanner = true
 	e.HidePort = true
 	routes.Setup(e, audioManager)

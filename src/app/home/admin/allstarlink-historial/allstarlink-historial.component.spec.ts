@@ -1,12 +1,14 @@
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { AllstarlinkConnectionHistory } from '../../../core/models/allstarlink.model';
 import { AllstarlinkService } from '../../../core/services/allstarlink.service';
+import { TranslationService } from '../../../core/services/translation.service';
 import { AllstarlinkHistorialComponent } from './allstarlink-historial.component';
+import es from '../../../../../public/assets/i18n/es.json';
 
 describe('History clipboard controls', () => {
   it('copies local and remote nodes, callsigns and IPs in desktop and mobile views without opening links', async () => {
@@ -28,6 +30,10 @@ describe('History clipboard controls', () => {
         ]
       });
       const fixture = TestBed.createComponent(AllstarlinkHistorialComponent);
+      fixture.detectChanges();
+      const languageLoaded = TestBed.inject(TranslationService).loadLanguage('es');
+      TestBed.inject(HttpTestingController).expectOne('./assets/i18n/es.json').flush(es);
+      await languageLoaded;
       fixture.detectChanges();
       const element: HTMLElement = fixture.nativeElement;
       for (const view of ['.historial-tabla-wrap', '.historial-cards']) {

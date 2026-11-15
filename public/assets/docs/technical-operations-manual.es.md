@@ -1006,6 +1006,8 @@ Temperatura, voltaje o versión pueden aparecer como no disponibles si el kernel
 
 El postinstalador intenta detectar el servidor web activo. Si configura el proxy correctamente, basta con `http(s)://<host>/amerimon/`. No instala certificados TLS: HTTPS solo funciona si el host ya tiene SSL configurado.
 
+Amerimon solo confía en `X-Forwarded-For` cuando la conexión llega desde un proxy local (`127.0.0.1` o `::1`); el proxy debe agregar la dirección real del cliente a esa cabecera. Los procesos locales también pueden enviar esa cabecera, por lo que deben ser de confianza. Si se usa un proxy en otro servidor, Amerimon registrará la IP del proxy en lugar de la del cliente; no expongas directamente el backend como alternativa para confiar en cabeceras externas.
+
 ### Apache
 
 La instalación habilita `proxy`, `proxy_http`, `proxy_wstunnel`, `headers` y `alias`, activa `conf-available/amerimon.conf`, ejecuta `apache2ctl configtest` y solo recarga/inicia Apache si la prueba pasa. El proxy cubre HTTP/HTTPS según el VirtualHost que reciba la petición, incluidas las cabeceras de prefijo y los WebSockets de actividad AllStarLink, Listen Live y terminal.
