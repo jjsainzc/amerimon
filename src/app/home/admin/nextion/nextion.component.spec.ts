@@ -61,6 +61,23 @@ describe('Nextion admin', () => {
     http.verify();
   });
 
+  it('defaults to the first detected serial port and 9600 baud when nothing is saved', async () => {
+    const fixture = TestBed.createComponent(NextionComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(`${environment.apiUrl}/nextion`)
+      .flush(status({ ...initialSettings, port: '', baud_rate: 0 }));
+    http.expectOne(`${environment.apiUrl}/favoritos`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const port: HTMLInputElement = fixture.nativeElement.querySelector('input[name="port"]');
+    expect(port.value).toBe('/dev/ttyUSB0');
+    const baud: HTMLSelectElement = fixture.nativeElement.querySelector('select[name="baudRate"]');
+    expect(baud.selectedOptions[0]?.textContent?.trim()).toBe('9600');
+    http.verify();
+  });
+
   it('tests the selected serial port with an icon-only action button', async () => {
     const fixture = TestBed.createComponent(NextionComponent);
     fixture.detectChanges();

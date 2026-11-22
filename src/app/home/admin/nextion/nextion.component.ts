@@ -170,8 +170,9 @@ export class NextionComponent implements OnInit {
 
   private aplicarEstado(status: NextionStatus): void {
     this.habilitado = status.settings.enabled;
-    this.puerto = status.settings.port;
-    this.velocidad = status.settings.baud_rate;
+    // Sin configuración guardada, se propone el primer puerto detectado y 9600 baudios.
+    this.puerto = status.settings.port || status.ports[0]?.path || '';
+    this.velocidad = status.settings.baud_rate || 9600;
     this.interfaz = status.settings.interface;
     this.nodoFavorito = status.settings.favorite_node;
     this.enviarEtiquetas = status.settings.send_labels;
