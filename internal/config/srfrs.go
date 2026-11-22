@@ -30,6 +30,8 @@ type SRFRS struct {
 	file *os.File
 }
 
+// NewSRFRS crea una nueva conexión al front-end radio mediante puerto serie.
+// Si no se especifica un puerto, se intentarán los puertos por defecto.
 func NewSRFRS(port string) (*SRFRS, error) {
 	var ports []string
 	if port != "" {
@@ -69,18 +71,21 @@ func NewSRFRS(port string) (*SRFRS, error) {
 	return sr, nil
 }
 
+// Close cierra la conexión con el front-end radio.
 func (s *SRFRS) Close() {
 	if s.file != nil {
 		s.file.Close()
 	}
 }
 
+// Send envía comandos AT al front-end radio.
 func (s *SRFRS) Send(args ...string) error {
 	data := strings.Join(args, ",") + "\r\n"
 	_, err := s.file.WriteString(data)
 	return err
 }
 
+// ReadLine lee una línea de respuesta del front-end radio.
 func (s *SRFRS) ReadLine() (string, error) {
 	reader := bufio.NewReader(s.file)
 	line, err := reader.ReadString('\n')
@@ -90,6 +95,7 @@ func (s *SRFRS) ReadLine() (string, error) {
 	return strings.TrimSpace(line), nil
 }
 
+// Version consulta y muestra la versión del firmware del front-end radio.
 func (s *SRFRS) Version() {
 	s.Send("AT+DMOVERQ")
 	time.Sleep(500 * time.Millisecond)
