@@ -2,6 +2,8 @@
 
 Interfaz web para consultar AllStarLink, administrar nodos Allmon y escuchar el nodo principal de Asterisk.
 
+> **NOTA**: Si hay alguna referencia al file que se Makefile, este fue retirado del codigo porque no es necesario para hacer compilaciones locales.
+
 ## Instalación
 
 > **NOTA**: Está diseñado para equipos con almacenamientos de >16GB, RAM >2GB y Debian 12/13 con Asterisk +16 
